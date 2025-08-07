@@ -1,45 +1,8 @@
 #!/usr/bin/env python
-#----------------------------------------------------------------------
-# detection, enumeration and geolocation helper routines called by the
-# main program (igreedy.py)
-#---------------------------------------------------------------------.
-asciiart = """
-180 150W  120W  90W   60W   30W  000   30E   60E   90E   120E  150E 180
-|    |     |     |     |     |    |     |     |     |     |     |     |
-+90N-+-----+-----+-----+-----+----+-----+-----+-----+-----+-----+-----+
-|          . _..::__:  ,-"-"._       |7       ,     _,.__             |
-|  _.___ _ _<_>`!(._`.`-.    /        _._     `_ ,_/  '  '-._.---.-.__|
-|.{     " " `-==,',._\{  \  / {)     / _ ">_,-' `                mt-2_|
-+ \_.:--.       `._ )`^-. "'      , [_/( G        e      o     __,/-' +
-|'"'     \         "    _L       0o_,--'                )     /. (|   |
-|         | A  n     y,'          >_.\\._<> 6              _,' /  '   |
-|         `. c   s   /          [~/_'` `"(   l     o      <'}  )      |
-+30N       \\  a .-.t)          /   `-'"..' `:._        c  _)  '      +
-|   `        \  (  `(          /         `:\  > \  ,-^.  /' '         |
-|             `._,   ""        |           \`'   \|   ?_)  {\         |
-|                `=.---.       `._._ i     ,'     "`  |' ,- '.        |
-+000               |a    `-._       |     /          `:`<_|h--._      +
-|                  (      l >       .     | ,          `=.__.`-'\     |
-|                   `.     /        |     |{|              ,-.,\     .|
-|                    |   ,'          \ z / `'            ," a   \     |
-+30S                 |  /             |_'                |  __ t/     +
-|                    |o|                                 '-'  `-'  i\.|
-|                    |/                                        "  n / |
-|                    \.          _                              _     |
-+60S                            / \   _ __  _   _  ___ __ _ ___| |_   +
-|                     ,/       / _ \ | '_ \| | | |/ __/ _` / __| __|  |
-|    ,-----"-..?----_/ )      / ___ \| | | | |_| | (_| (_| \__ \ |_ _ |
-|.._(                  `----'/_/   \_\_| |_|\__, |\___\__,_|___/\__| -|
-+90S-+-----+-----+-----+-----+-----+-----+--___/ /--+-----+-----+-----+
-     Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/  
-
-"""
-
 
 from disc import *
 import collections
-import json,sys
-import random
+import json
 import pandas as pd
 
 #class for print in Json
@@ -163,31 +126,3 @@ class Anycast(object):
                 airportsInsideDisk[iata]=airportInfo
 
         return self.geolocateCircle(disc,airportsInsideDisk)
-        """
-                 listIataInside.append(iata)
-                 if(airportInfo[3]  not in listCityInside):
-                     listPopulation.append(airportInfo[2])
-                     listCityInside.append(airportInfo[3])
-                     listDistanceFromCenter.append(disc.distanceFromTheCenter(airportInfo[0],airportInfo[1]))
-        """
-
-        """
-                 if(airportInfo[2]>maxPopulation): #check if the city is more populated
-                    geolocatedInstance=[iata,airportInfo[0],airportInfo[1],airportInfo[3],airportInfo[4]]#save the city with the highest population
-                    maxPopulation=airportInfo[2] #update the maxPopulation
-            elif(maxPopulation==0 and distanceFromBorder>-treshold ): #if there is no city inside yet and the distance is smaller than the threshold 
-                if(airportInfo[2]>maxPopulationOut):#check if the city is more populated
-                    geolocatedInstanceOut=[iata,airportInfo[0],airportInfo[1]]#save the city with the highest population
-                    maxPopulationOut=airportInfo[2] #update the maxPopulation
-        """
-#-----geolocation fig jsac
-#        print disc.getHostname()+"\t"+str(disc.getRadius())+"\t"+str(len(listCityInside))+"\t"+",".join(listIataInside)+"\t"+','.join(str(x) for x in listCityInside)+"\t"+','.join(str(x) for x in listPopulation)+"\t"+','.join(str(x) for x in listDistanceFromCenter)
-#-----geolocation fig jsac
-        """
-        if(maxPopulation!=0):
-            return geolocatedInstance
-        elif(maxPopulationOut!=0):
-            return geolocatedInstanceOut
-        return False #no airports inside
-        """
-

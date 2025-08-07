@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import os.path
-import sys
 from anycast import Anycast, Object
 from disc import *
 

@@ -1,20 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#---------------------------------------------------------------
-# for convenience included in this igreedy package, available at GitHub: 
-# https://github.com/RIPE-Atlas-Community/ripe-atlas-community-contrib
-#---------------------------------------------------------------
-
-""" A module to perform measurements on the RIPE Atlas
-<http://atlas.ripe.net/> probes using the UDM (User Defined
-Measurements) creation API.
-
-Authorization key is expected in $HOME/.atlas/auth or have to be
-provided in the constructor's arguments.
-
-Stéphane Bortzmeyer <bortzmeyer+ripe@nic.fr>
-
-"""
 
 import os
 import json

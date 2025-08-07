@@ -1,5 +1,0 @@
-#! /bin/bash
-
-# Calls the igreedy script with the given arguments
-
-python3 ./code/igreedy.py $*
