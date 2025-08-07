@@ -54,7 +54,8 @@ class Anycast(object):
             # Group by 'rtt', then for each group, create a list of Disc objects.
             # .itertuples() is much faster than .iterrows().
             grouped_discs = df.groupby('rtt').apply(
-                lambda g: [Disc(row.hostname, row.lat, row.lon, row.rtt) for row in g.itertuples()]
+                lambda g: [Disc(row.hostname, row.lat, row.lon, g.name) for row in g.itertuples()],
+                include_groups=False
             )
             # The groupby operation sorts the keys (rtt) by default.
             self._setDisc = grouped_discs.to_dict()
