@@ -187,8 +187,8 @@ if __name__ == "__main__":
     split_dfs = {key: group for key, group in in_df.groupby('target')}
 
     # # Make output_directory if it does not exist
-    if not os.path.exists(args.out_dir):
-        os.makedirs(args.out_dir)
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
 
     num_targets = in_df['target'].nunique()
     print("Processed files (running iGreedy on this many targets): ", num_targets)
@@ -201,7 +201,7 @@ if __name__ == "__main__":
 
     print("Number of workers that will be generated: ", num_processes)
     # Use multiprocessing to run iGreedy in parallel
-    partial_process_file = partial(process_file, out_dir=args.out_dir)
+    partial_process_file = partial(process_file, out_dir=args.output)
     with Pool(num_workers) as pool:
 
         for _ in pool.imap_unordered(partial_process_file, list(split_dfs.items())):
