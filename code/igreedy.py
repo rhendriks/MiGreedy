@@ -1,49 +1,6 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# ----------------------------------------------------------------------
-# main user program to process  (./igreedy for help)
-# ---------------------------------------------------------------------.
-# NOTE: this is a stripped version of the iGreedy script.
-# It allows for running the iGreedy script on a directory
-# where each file contains latency data towards a target.
-# Through multi-threading, removing redundancy, and re-using certain computations,
-# this version is able to parse latency data towards the entire v4 space (/24 granularity)
-# in several minutes, which before took several hours. -Remi
-
-asciiart = """
-180 150W  120W  90W   60W   30W  000   30E   60E   90E   120E  150E 180
-|    |     |     |     |     |    |     |     |     |     |     |     |
-+90N-+-----+-----+-----+-----+----+-----+-----+-----+-----+-----+-----+
-|          . _..::__:  ,-"-"._       |7       ,     _,.__             |
-|  _.___ _ _<_>`!(._`.`-.    /        _._     `_ ,_/  '  '-._.---.-.__|
-|.{     " " `-==,',._\{  \  / {)     / _ ">_,-' `                mt-2_|
-+ \_.:--.       `._ )`^-. "'      , [_/( G        e      o     __,/-' +
-|'"'     \         "    _L       0o_,--'                )     /. (|   |
-|         | A  n     y,'          >_.\\._<> 6              _,' /  '   |
-|         `. c   s   /          [~/_'` `"(   l     o      <'}  )      |
-+30N       \\  a .-.t)          /   `-'"..' `:._        c  _)  '      +
-|   `        \  (  `(          /         `:\  > \  ,-^.  /' '         |
-|             `._,   ""        |           \`'   \|   ?_)  {\         |
-|                `=.---.       `._._ i     ,'     "`  |' ,- '.        |
-+000               |a    `-._       |     /          `:`<_|h--._      +
-|                  (      l >       .     | ,          `=.__.`-'\     |
-|                   `.     /        |     |{|              ,-.,\     .|
-|                    |   ,'          \ z / `'            ," a   \     |
-+30S                 |  /             |_'                |  __ t/     +
-|                    |o|                                 '-'  `-'  i\.|
-|                    |/                                        "  n / |
-|                    \.          _                              _     |
-+60S                            / \   _ __  _   _  ___ __ _ ___| |_   +
-|                     ,/       / _ \ | '_ \| | | |/ __/ _` / __| __|  |
-|    ,-----"-..?----_/ )      / ___ \| | | | |_| | (_| (_| \__ \ |_ _ |
-|.._(                  `----'/_/   \_\_| |_|\__, |\___\__,_|___/\__| -|
-+90S-+-----+-----+-----+-----+-----+-----+--___/ /--+-----+-----+-----+
-     Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/  
-
-"""
 
 import os.path
-
 import sys
 from anycast import Anycast, Object
 from disc import *
@@ -51,6 +8,51 @@ from disc import *
 from multiprocessing import Pool, cpu_count
 from functools import partial
 import pandas as pd
+
+import argparse
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="iGreedy: Geolocation with population-distance tradeoff (STRIPPED VERSION)",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+
+    parser.add_argument(
+        '-i', '--input', required=True,
+        help='Input CSV file containing:\n'
+             '    - target IP\n'
+             '    - hostname of prober\n'
+             '    - latitude and longitude of prober\n'
+             '    - RTT from prober to target IP'
+    )
+
+    parser.add_argument(
+        '-o', '--output', required=True,
+        help='Output directory (CSV and JSON files will be written here)'
+    )
+
+    parser.add_argument(
+        '-a', '--alpha', type=float, default=1.0,
+        help='Alpha (population vs distance score tuning, see INFOCOM\'15) [default: 1.0]'
+    )
+
+    parser.add_argument(
+        '-n', '--noise', type=float, default=0.0,
+        help='Average of exponentially distributed additive latency noise (for sensitivity) [default: 0.0]'
+    )
+
+    parser.add_argument(
+        '-t', '--threshold', type=float, default=float('inf'),
+        help='Discard disks with RTT > threshold (to bound error) [default: ∞]'
+    )
+
+    parser.add_argument(
+        '-m', '--measurement', default=None,
+        help='Optional measurement label or ID (optional)'
+    )
+
+    return parser.parse_args()
 
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -162,23 +164,6 @@ def output(discsSolution, outfile, numberOfInstance):
     json.write(data.to_JSON())
     json.close()
 
-
-def help():
-    print((asciiart + """
-usage     (STRIPPED VERSION)
-     igreedy.py -i in_df -o output [-a alpha (1)]  [-n noise (0)]  [-t threshold (\infty)] [-m measurement] 
-
-where:
-     -i input file (.csv with target IP, hostname of prober, lat of prober, lon of prober, rtt captured from prober to target IP) 
-     -o output directory (.csv,.json)
-     -a alpha (tune population vs distance score, see INFOCOM'15)
-     -n noise (average of exponentially distributed additive latency noise; only for sensitivity)
-     -t threshold (discard disks having latency larger than threshold to bound the error)
-     """))
-
-    sys.exit()
-
-
 def main(split_df, outfile):
     alpha = 1
     threshold = -1
@@ -193,23 +178,18 @@ def process_file(split_df, out_dir):
     target, df = split_df
     main(df, out_dir +  "/" + target)
 
-
+# TODO use argparse for command line arguments
 if __name__ == "__main__":
-    in_file = sys.argv[2]
-    out_dir = sys.argv[4]
+    args = parse_args()
 
-    in_df = pd.read_csv(in_file, skiprows=1, names=['target', 'hostname', 'lat', 'lon', 'rtt'])
+    in_df = pd.read_csv(args.input, skiprows=1, names=['target', 'hostname', 'lat', 'lon', 'rtt'])
 
     # split by target (i.e., create a small dataframe for each target)
     split_dfs = {key: group for key, group in in_df.groupby('target')}
 
-    # test on first N targets
-    # first_10_targets = list(split_dfs.items())[:10]  # Get the first 10 items from the dictionary
-    # split_dfs = dict(first_10_targets)
-
     # # Make output_directory if it does not exist
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
+    if not os.path.exists(args.out_dir):
+        os.makedirs(args.out_dir)
 
     num_targets = in_df['target'].nunique()
     print("Processed files (running iGreedy on this many targets): ", num_targets)
@@ -222,7 +202,7 @@ if __name__ == "__main__":
 
     print("Number of workers that will be generated: ", num_processes)
     # Use multiprocessing to run iGreedy in parallel
-    partial_process_file = partial(process_file, out_dir=out_dir)
+    partial_process_file = partial(process_file, out_dir=args.out_dir)
     with Pool(num_workers) as pool:
 
         for _ in pool.imap_unordered(partial_process_file, list(split_dfs.items())):
