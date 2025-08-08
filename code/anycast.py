@@ -13,7 +13,7 @@ class Object:
 
 
 class Anycast(object):
-    def __init__(self, in_df, airports, alpha, threshold=-1):
+    def __init__(self, in_df, airports, alpha):
         """
         Initializes the object by processing an input DataFrame of network measurements.
 
@@ -26,45 +26,21 @@ class Anycast(object):
 
         # --- Vectorized Refactoring Start ---
 
-        # 1. Create a working copy and perform initial data cleaning and type conversion.
-        # This is far more robust than using try/except inside a loop.
-        df = in_df.copy()
-        df['hostname'] = df['hostname'].astype(str) # Ensure hostname is always a string
-        
-        # Convert numeric columns, coercing errors to NaN (Not a Number)
-        numeric_cols = ['lat', 'lon', 'rtt']
-        for col in numeric_cols:
-            df[col] = pd.to_numeric(df[col], errors='coerce')
-        
-        # Drop any rows where numeric conversion failed
-        df.dropna(subset=numeric_cols, inplace=True)
-
-        # 2. Apply filters to the entire DataFrame at once.
-        # Filter out any rows commented with '#'
-        df = df[~df['hostname'].str.startswith('#')]
-
-        # Apply the RTT threshold filter if a positive threshold is provided.
-        # This is a clearer way to write the original complex condition.
-        if threshold > 0:
-            df = df[df['rtt'] <= threshold]
-        
         # 3. Build the dictionary using a highly efficient `groupby`.
         # This is the modern replacement for the manual loop and dictionary building.
-        if not df.empty:
-            # Group by 'rtt', then for each group, create a list of Disc objects.
-            # .itertuples() is much faster than .iterrows().
-            grouped_discs = df.groupby('rtt').apply(
-                lambda g: [Disc(row.hostname, row.lat, row.lon, g.name) for row in g.itertuples()],
-                include_groups=False
-            )
-            # The groupby operation sorts the keys (rtt) by default.
-            self._setDisc = grouped_discs.to_dict()
-        else:
-            self._setDisc = {}
+        # Group by 'rtt', then for each group, create a list of Disc objects.
+        # .itertuples() is much faster than .iterrows().
+        grouped_discs = in_df.groupby('rtt').apply(
+            lambda g: [Disc(row.hostname, row.lat, row.lon, g.name) for row in g.itertuples()],
+            include_groups=False
+        )
+        # The groupby operation sorts the keys (rtt) by default.
+        self._setDisc = grouped_discs.to_dict()
 
         # 4. Create the final ordered dictionary.
         # The keys from the groupby are already sorted, but using OrderedDict is explicit.
-        self._orderDisc = collections.OrderedDict(self._setDisc) 
+        self._orderDisc = collections.OrderedDict(self._setDisc)
+
     def detection(self):
         self._discsMis = Discs()
         for ping, setDiscs in self._orderDisc.items(): 
