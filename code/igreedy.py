@@ -7,6 +7,8 @@ from pathlib import Path
 from anycast import Anycast
 from disc import *
 
+from functools import partial
+
 from multiprocessing import Pool
 import pandas as pd
 
@@ -35,22 +37,12 @@ def parse_args():
 
     parser.add_argument(
         '-a', '--alpha', type=float, default=1.0,
-        help='Alpha (population vs distance score tuning, see INFOCOM\'15) [default: 1.0]'
-    )
-
-    parser.add_argument(
-        '-n', '--noise', type=float, default=0.0,
-        help='Average of exponentially distributed additive latency noise (for sensitivity) [default: 0.0]'
+        help='Alpha (population vs distance score tuning) [default: 1.0]'
     )
 
     parser.add_argument(
         '-t', '--threshold', type=float, default=-1,
         help='Discard disks with RTT > threshold (to bound error) [default: ∞]'
-    )
-
-    parser.add_argument(
-        '-m', '--measurement', default=None,
-        help='Optional measurement label or ID (optional)'
     )
 
     return parser.parse_args()
@@ -116,7 +108,7 @@ def analyze(in_df, alpha):
                 break
     return discsSolution, numberOfInstance
 
-def main(split_dfs, outfile, num_workers):
+def main(split_dfs, outfile, num_workers, alpha):
     """
     Main routine to run analysis in parallel and write a single aggregated output.
     """
@@ -128,7 +120,10 @@ def main(split_dfs, outfile, num_workers):
 
     with Pool(num_workers) as pool:
         # Use imap_unordered to process results as they are completed
-        for result in pool.imap_unordered(process_target, split_dfs.items()):
+        partial_process = partial(process_target, alpha=alpha)
+
+
+        for result in pool.imap_unordered(partial_process, split_dfs.items()):
             # Collect valid results returned by the workers
             if result:
                 target, discsSolution = result
@@ -144,13 +139,11 @@ def main(split_dfs, outfile, num_workers):
     else:
         print("\nNo valid anycast results were found to output.")
 
-def process_target(target_and_df):
+def process_target(target_and_df, alpha):
     """
     Worker function for the multiprocessing pool. It analyzes a single target
     and returns its results for aggregation.
     """
-    alpha = 1
-
     target, split_df = target_and_df
     discsSolution, numberOfInstance = analyze(split_df, alpha)
 
@@ -158,12 +151,6 @@ def process_target(target_and_df):
     if numberOfInstance > 1:
         return target, discsSolution
     return None
-
-# Call igreedy script on a single dataframe
-def process_file(split_df, out_dir):
-    target, df = split_df
-    main(df, out_dir +  "/" + target)
-
 
 def output_aggregated(all_results, outfile):
     """
@@ -249,4 +236,4 @@ if __name__ == "__main__":
     num_workers = os.cpu_count()
     print("Number of cpu cores: ", num_workers)
 
-    main(split_dfs, args.output, num_workers)
+    main(split_dfs, args.output, num_workers, args.alpha)
