@@ -1,15 +1,13 @@
 #!/usr/bin/env python
 import csv
-import json
 import os.path
 import sys
 from pathlib import Path
 
-from anycast import Anycast, Object
+from anycast import Anycast
 from disc import *
 
 from multiprocessing import Pool
-from functools import partial
 import pandas as pd
 
 import argparse
@@ -73,11 +71,11 @@ with open(iatafile, 'r', encoding='utf-8') as airportLines:
 airportLines.close()
 
 
-def analyze(in_df, alpha, threshold):
+def analyze(in_df, alpha):
     """
     Routine to iteratively enumerate and geolocate anycast instances
     """
-    anycast = Anycast(in_df, airports, alpha, threshold)
+    anycast = Anycast(in_df, airports, alpha)
 
     radiusGeolocated = 0.1
     iteration = True
@@ -152,10 +150,9 @@ def process_target(target_and_df):
     and returns its results for aggregation.
     """
     alpha = 1
-    threshold = -1
 
     target, split_df = target_and_df
-    discsSolution, numberOfInstance = analyze(split_df, alpha, threshold)
+    discsSolution, numberOfInstance = analyze(split_df, alpha)
 
     # Only return results if they are anycast (more than 1 instance)
     if numberOfInstance > 1:

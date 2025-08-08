@@ -12,10 +12,6 @@ class Disc(object):
         """ 
         self._radius    = ping*0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # in km:ping*98,615940132
         self._hostname  = hostname
-        #self._instance  = instance
-        #self._city=city
-        #self._valid=valid
-        #self._oldradius=oldradius
         self._latitude=latitude
         self._longitude=longitude
 
@@ -111,4 +107,3 @@ class Discs(object):
     def smallestDisc(self):
         self._orderDisc=collections.OrderedDict(sorted(self._setDisc.items()))
         return next(iter(self._orderDisc))
-

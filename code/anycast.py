@@ -89,12 +89,6 @@ class Anycast(object):
     
     def geolocation(self,disc): 
         airportsInsideDisk={}
-        """
-        listIataInside=[]
-        listPopulation=[] 
-        listDistanceFromCenter=[]
-        listCityInside=[]
-        """
 
         for iata, airportInfo in self._airports.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
             distanceFromBorder=disc.getRadius()-disc.distanceFromTheCenter(airportInfo[0],airportInfo[1])
