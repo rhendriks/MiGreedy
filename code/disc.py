@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 
 import math,collections
+import numpy as np
+
+EARTH_RADIUS = 6371.0
+
 
 class Disc(object):
     def __init__(self, hostname, latitude, longitude, radius):
@@ -28,43 +32,34 @@ class Disc(object):
         the sum of their radius.
         """
         
-        return (self.distanceFromTheCenter(other._latitude,other._longitude)) <= (self.getRadius() + other.getRadius())
+        return (self.haversine_distance(other._latitude,other._longitude)) <= (self.getRadius() + other.getRadius())
 
-    def distanceFromTheCenter(self,lat, longi):
+    def haversine_distance(self, lat2, lon2):
         """
-        Compute the distance in kilometers between the center of this disc
-        and another disc's center, given by its latitude and longitude.
+        Calculates the great-circle distance between two points on Earth.
+
+        Args:
+            self: The current disc object with latitude and longitude.
+            lat2_rad, lon2_rad: Latitude and longitude of other disc.
+
+        Returns:
+            float: The distance between the two points in kilometers.
         """
-        # Convert latitude and longitude to 
-        # spherical coordinates in radians.
-        degrees_to_radians = math.pi/180.0
-            
-        # phi = 90 - latitude
-        phi1 = (90.0 - self._latitude)*degrees_to_radians
-        phi2 = (90.0 - lat)*degrees_to_radians
-            
-        # theta = longitude
-        theta1 = self._longitude*degrees_to_radians
-        theta2 = longi*degrees_to_radians
-            
-        # Compute spherical distance from spherical coordinates.
-            
-        # For two locations in spherical coordinates 
-        # (1, theta, phi) and (1, theta, phi)
-        # cosine( arc length ) = 
-        #    sin phi sin phi' cos(theta-theta') + cos phi cos phi'
-        # distance = rho * arc length
-        
-        cos = (math.sin(phi1)*math.sin(phi2)*math.cos(theta1 - theta2) + 
-               math.cos(phi1)*math.cos(phi2))
-        if (abs(cos - 1.0) <0.000000000000001):
-            arc=0.0   
-        else:
-            arc = math.acos( cos )
-            
-        # Remember to multiply arc by the radius of the earth 
-        # in your favorite set of units to get length.
-        return arc*6371
+
+        # lat1_rad = math.radians(self._latitude)
+        # lon1_rad = math.radians(self._longitude)
+        #
+        # lon2_rad = math.radians(lon2)
+        # lat2_rad = math.radians(lat2)
+
+        dlon = lon2 - self._longitude
+        dlat = lat2 - self._latitude
+
+        a = np.sin(dlat / 2.0) ** 2 + np.cos(self._latitude) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+        distance = EARTH_RADIUS * c
+
+        return distance
 
 
     def __str__(self):

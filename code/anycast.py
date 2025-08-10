@@ -2,15 +2,7 @@
 
 from disc import *
 import collections
-import json
 import pandas as pd
-
-#class for print in Json
-class Object:
-    def to_JSON(self):
-        return json.dumps(self, default=lambda o: o.__dict__, 
-            sort_keys=True, indent=4)
-
 
 class Anycast(object):
     def __init__(self, in_df, airports, alpha):
@@ -56,11 +48,11 @@ class Anycast(object):
 
         for iata, airportInfo in airportsSet.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
             totalPopulation+= airportInfo[2]
-            totalDistanceFromCenter+=disc.distanceFromTheCenter(airportInfo[0],airportInfo[1])
+            totalDistanceFromCenter+=disc.haversine_distance(airportInfo[0],airportInfo[1])
 
         for iata, airportInfo in airportsSet.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
             popscore = float(airportInfo[2])/float(totalPopulation)
-            distscore = float(disc.distanceFromTheCenter(airportInfo[0],airportInfo[1]))/float(totalDistanceFromCenter)
+            distscore = float(disc.haversine_distance(airportInfo[0],airportInfo[1]))/float(totalDistanceFromCenter)
 
             #alpha=tunable knob
             score=  self.alpha*popscore + (1-self.alpha)*distscore
@@ -77,7 +69,7 @@ class Anycast(object):
         airportsInsideDisk={}
 
         for iata, airportInfo in self._airports.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
-            distanceFromBorder=disc.getRadius()-disc.distanceFromTheCenter(airportInfo[0],airportInfo[1])
+            distanceFromBorder=disc.getRadius()-disc.haversine_distance(airportInfo[0],airportInfo[1])
 #create a subset of airport inside the disk and after decide witch one is the one we guess
             if(distanceFromBorder>0): #if the airport is inside the disc
                 airportsInsideDisk[iata]=airportInfo
