@@ -31,6 +31,10 @@ class Disc(object):
         return (self.distanceFromTheCenter(other._latitude,other._longitude)) <= (self.getRadius() + other.getRadius())
 
     def distanceFromTheCenter(self,lat, longi):
+        """
+        Compute the distance in kilometers between the center of this disc
+        and another disc's center, given by its latitude and longitude.
+        """
         # Convert latitude and longitude to 
         # spherical coordinates in radians.
         degrees_to_radians = math.pi/180.0
@@ -89,7 +93,7 @@ class Discs(object):
     
 
     def add(self,disc,geolocated):
-        if(self._setDisc.get(disc.getRadius()) is None):
+        if self._setDisc.get(disc.getRadius()) is None:
            self._setDisc[disc.getRadius()]=[(disc,geolocated)]
         else:
             self._setDisc[disc.getRadius()].append((disc,geolocated))

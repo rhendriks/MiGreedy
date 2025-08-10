@@ -28,7 +28,7 @@ class Anycast(object):
         # Group by 'rtt', then for each group, create a list of Disc objects.
         # .itertuples() is much faster than .iterrows().
         grouped_discs = in_df.groupby('rtt').apply(
-            lambda g: [Disc(row.hostname, row.lat, row.lon, g.radius) for row in g.itertuples()],
+            lambda g: [Disc(row.hostname, row.lat, row.lon, row.radius) for row in g.itertuples()],
             include_groups=False
         )
         # The groupby operation sorts the keys (rtt) by default.
@@ -38,16 +38,6 @@ class Anycast(object):
         # The keys from the groupby are already sorted, but using OrderedDict is explicit.
         self._orderDisc = collections.OrderedDict(self._setDisc)
 
-    def detection(self):
-        self._discsMis = Discs()
-        for ping, setDiscs in self._orderDisc.items(): 
-            for disc in setDiscs:
-                if not self._discsMis.overlap(disc):
-                    self._discsMis.add(disc,False)
-                    if(len(self._discsMis)>1):
-                        return True
-        return False
-    
     def enumeration(self):
         numberOfDisc=0
         for ping, setDiscs in self._orderDisc.items(): 

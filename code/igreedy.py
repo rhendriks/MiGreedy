@@ -3,17 +3,23 @@ import csv
 import os.path
 import sys
 from pathlib import Path
+import numpy as np
 
 from anycast import Anycast
 from disc import *
 
 from functools import partial
+from math import radians, cos, sin, asin, sqrt
 
 from multiprocessing import Pool
 import pandas as pd
 
 import argparse
 
+# Radius of Earth in kilometers (mean radius)
+EARTH_RADIUS = 6371.0
+FIBER_RI = 1.52
+SPEED_OF_LIGHT = 299792.458 # km/s
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -151,6 +157,36 @@ def process_target(target_and_df, alpha):
         return target, discsSolution
     return None
 
+
+def haversine_distance(lat1_rad, lon1_rad, lat2_rad, lon2_rad):
+    """
+    Calculates the great-circle distance between two points on Earth.
+
+    Args:
+        lat1_rad, lon1_rad: Latitude and longitude of point 1 in radians.
+        lat2_rad, lon2_rad: Latitude and longitude of point 2 in radians.
+
+    Returns:
+        float: The distance between the two points in kilometers.
+    """
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1_rad) * np.cos(lat2_rad) * np.sin(dlon / 2.0) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+    distance = EARTH_RADIUS * c
+
+    return distance
+
+def overlap(lat_x, lon_x, radius_x, lat_y, lon_y, radius_y):
+    """
+    Checks if two circles overlap based on their latitude, longitude, and radius.
+    """
+    distance = haversine_distance(lat_x, lon_x, lat_y, lon_y)
+
+    # Check if the circles overlap
+    return distance <= (radius_x + radius_y)
+
 def output_aggregated(all_results, outfile):
     """
     Writes aggregated results from all targets to a single JSON and a single CSV file.
@@ -196,10 +232,19 @@ if __name__ == "__main__":
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
 
+    # Convert lat,lon to radians for consistency
+    # in_df['lat'] = in_df['lat'].apply(radians)
+    # in_df['lon'] = in_df['lon'].apply(radians)
+
     # Calculate the radius in km based on the RTT
-    in_df['radius'] = in_df['rtt'] / 2.0  # Assuming RTT is in milliseconds, convert to km
-    in_df['radius'] = in_df['radius'] * 0.299792458  # Convert ms to km (1 ms RTT ~ 0.299792458 km)
-    in_df['radius'] = in_df['radius'].astype(float)  # Ensure radius is float
+    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
+
+    print(in_df.head())
+
+    # group by target and sort by rtt
+    # in_df.sort_values(by=['target', 'rtt'], inplace=True)
+
+    #
 
     # split by target (i.e., create a small dataframe for each target)
     split_dfs = {key: group for key, group in in_df.groupby('target')}
