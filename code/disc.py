@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 
 import math,collections
-# Index of refraction for optical fiber
-FIBER_RI = 1.52
-SPEED_OF_LIGHT = 299792.458 # km/s
 
 class Disc(object):
-    def __init__(self, hostname, latitude, longitude, ping):
-        """
-        ping (float): (in ms)
-        """ 
-        self._radius    = ping*0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # in km:ping*98,615940132
+    def __init__(self, hostname, latitude, longitude, radius):
+        self._radius    = radius
         self._hostname  = hostname
         self._latitude=latitude
         self._longitude=longitude

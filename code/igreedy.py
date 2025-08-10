@@ -122,7 +122,6 @@ def main(split_dfs, outfile, num_workers, alpha):
         # Use imap_unordered to process results as they are completed
         partial_process = partial(process_target, alpha=alpha)
 
-
         for result in pool.imap_unordered(partial_process, split_dfs.items()):
             # Collect valid results returned by the workers
             if result:
@@ -196,6 +195,11 @@ if __name__ == "__main__":
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
+
+    # Calculate the radius in km based on the RTT
+    in_df['radius'] = in_df['rtt'] / 2.0  # Assuming RTT is in milliseconds, convert to km
+    in_df['radius'] = in_df['radius'] * 0.299792458  # Convert ms to km (1 ms RTT ~ 0.299792458 km)
+    in_df['radius'] = in_df['radius'].astype(float)  # Ensure radius is float
 
     # split by target (i.e., create a small dataframe for each target)
     split_dfs = {key: group for key, group in in_df.groupby('target')}

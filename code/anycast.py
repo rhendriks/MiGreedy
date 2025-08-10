@@ -16,13 +16,10 @@ class Anycast(object):
     def __init__(self, in_df, airports, alpha):
         """
         Initializes the object by processing an input DataFrame of network measurements.
-
-        This method uses a vectorized pandas approach for performance and robustness,
-        avoiding slow row-by-row iteration.
         """
         self.alpha = float(alpha)
         self._airports = airports
-        self._discsMis = Discs() # disc belong maximum indipendent set
+        self._discsMis = Discs() # disc belong maximum independent set
 
         # --- Vectorized Refactoring Start ---
 
@@ -31,7 +28,7 @@ class Anycast(object):
         # Group by 'rtt', then for each group, create a list of Disc objects.
         # .itertuples() is much faster than .iterrows().
         grouped_discs = in_df.groupby('rtt').apply(
-            lambda g: [Disc(row.hostname, row.lat, row.lon, g.name) for row in g.itertuples()],
+            lambda g: [Disc(row.hostname, row.lat, row.lon, g.radius) for row in g.itertuples()],
             include_groups=False
         )
         # The groupby operation sorts the keys (rtt) by default.
@@ -61,7 +58,6 @@ class Anycast(object):
         return [numberOfDisc,self._discsMis]    
 
     def geolocateCircle(self,disc,airportsSet):
-        #alpha parameter for the new igreedy with population
         totalPopulation=0
         totalDistanceFromCenter=0
         chosenCity=""
@@ -79,10 +75,10 @@ class Anycast(object):
             #alpha=tunable knob
             score=  self.alpha*popscore + (1-self.alpha)*distscore
 
-            if(score>oldscore):
+            if score > oldscore:
                 chosenCity=[iata,airportInfo[0],airportInfo[1],airportInfo[3],airportInfo[4]]
                 oldscore=score
-        if(score==0):
+        if score==0:
             return False
         else:
             return chosenCity
