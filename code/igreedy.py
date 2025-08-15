@@ -68,11 +68,20 @@ with open(iatafile, 'r', encoding='utf-8') as airportLines:
         airports[iata] = [radians(float(latitude)), radians(float(longitude)), int(pop), city, country_code]
 airportLines.close()
 
+# TODO file contains many duplicate entries
+"""
+PAR  0.855435   0.044506     2138551     Paris           FR
+CDG  0.855435   0.044506     2138551     Paris           FR
+LBG  0.854677   0.042610     2138551     Paris           FR
+ORY  0.850417   0.041180     2138551     Paris           FR
+"""
+airports_df = pd.DataFrame.from_dict(airports, orient='index', columns=['latitude', 'longitude', 'population', 'city', 'country_code'])
+
 def analyze(in_df, alpha):
     """
     Routine to iteratively enumerate and geolocate anycast instances
     """
-    anycast = Anycast(in_df, airports, alpha)
+    anycast = Anycast(in_df, airports_df, alpha) # TODO use airports_df instead
 
     radiusGeolocated = 0.1
     iteration = True

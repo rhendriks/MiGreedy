@@ -80,15 +80,17 @@ class Discs(object):
     def removeDisc(self, disc):
         self._setDisc[disc[0].getRadius()].remove(disc)
 
-    def overlap(self, other):
+    def overlap(self, other) -> bool:
+        """
+        Check if any disc in the set overlaps with a given disc.
 
-        for radius, listDisc in self._setDisc.items():
-            
-            for disc in listDisc:
-                if disc[0].overlap(other):
-                    return True
-        return False
-    
+        Args:
+            other: Another disc object to check overlap against.
+
+        Returns:
+            bool: True if there is any overlap, False otherwise.
+        """
+        return any(disc[0].overlap(other) for discs in self._setDisc.values() for disc in discs)
 
     def add(self,disc,geolocated):
         if self._setDisc.get(disc.getRadius()) is None:

@@ -13,65 +13,91 @@ class Anycast(object):
         self._airports = airports
         self._discsMis = Discs() # disc belong maximum independent set
 
-        # --- Vectorized Refactoring Start ---
-
-        # 3. Build the dictionary using a highly efficient `groupby`.
-        # This is the modern replacement for the manual loop and dictionary building.
-        # Group by 'rtt', then for each group, create a list of Disc objects.
-        # .itertuples() is much faster than .iterrows().
+        # Create a disc for each row in the DataFrame.
         grouped_discs = in_df.groupby('rtt').apply(
             lambda g: [Disc(row.hostname, row.lat, row.lon, row.radius) for row in g.itertuples()],
             include_groups=False
         )
-        # The groupby operation sorts the keys (rtt) by default.
-        self._setDisc = grouped_discs.to_dict()
 
-        # 4. Create the final ordered dictionary.
-        # The keys from the groupby are already sorted, but using OrderedDict is explicit.
-        self._orderDisc = collections.OrderedDict(self._setDisc)
+        # A list of discs for each ping, sorted by RTT (lowest first).
+        self._orderDisc = collections.OrderedDict(grouped_discs.to_dict())
 
     def enumeration(self):
-        numberOfDisc=0
-        for ping, setDiscs in self._orderDisc.items(): 
-            for disc in setDiscs:
-                if not self._discsMis.overlap(disc):
-                    numberOfDisc+=1
-                    self._discsMis.add(disc,False)
-        return [numberOfDisc,self._discsMis]    
+        """
+        Counts the minimum sets of discs to cover all pings without overlap.
+        The number of sets is the number of anycast sites.
 
-    def geolocateCircle(self,disc,airportsSet):
-        totalPopulation=0
-        totalDistanceFromCenter=0
-        chosenCity=""
-        oldscore=0
-        score=0
+        Returns:
+            tuple: (number_of_discs_added, _discsMis instance)
+        """
+        number_of_discs = 0
+        discs_mis = self._discsMis
 
-        for iata, airportInfo in airportsSet.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
-            totalPopulation+= airportInfo[2]
-            totalDistanceFromCenter+=disc.haversine_distance(airportInfo[0],airportInfo[1])
+        for ping, discs_set in self._orderDisc.items():
+            for disc in discs_set:
+                if not discs_mis.overlap(disc):
+                    number_of_discs += 1
+                    discs_mis.add(disc, False)
 
-        for iata, airportInfo in airportsSet.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
-            popscore = float(airportInfo[2])/float(totalPopulation)
-            distscore = float(disc.haversine_distance(airportInfo[0],airportInfo[1]))/float(totalDistanceFromCenter)
+        return number_of_discs, discs_mis
 
-            #alpha=tunable knob
-            score=  self.alpha*popscore + (1-self.alpha)*distscore
+    def geolocateCircle(self,disc,airports_df):
+        """
+        For a given disc, find the best matching airport inside the disc radius.
+        It calculates a score based on the population and distance from the disc center.
+        Args:
+            disc: The disc object.
+            airports_df: Dataframe containing all airports within the disc radius.
+        Returns:
+            A list containing the chosen airport's IATA code, latitude, longitude, city, and country code.
+            If no suitable airport is found, returns False.
+        """
+        if airports_df.empty:
+            return False # no airports within the disc radius
 
-            if score > oldscore:
-                chosenCity=[iata,airportInfo[0],airportInfo[1],airportInfo[3],airportInfo[4]]
-                oldscore=score
-        if score==0:
-            return False
-        else:
-            return chosenCity
-    
-    def geolocation(self,disc): 
-        airportsInsideDisk={}
+        airports_df = airports_df.copy()
 
-        for iata, airportInfo in self._airports.items(): #_airports[iata]=[float(latitude),float(longitude),int(pop),city,country_code]
-            distanceFromBorder=disc.getRadius()-disc.haversine_distance(airportInfo[0],airportInfo[1])
-#create a subset of airport inside the disk and after decide witch one is the one we guess
-            if(distanceFromBorder>0): #if the airport is inside the disc
-                airportsInsideDisk[iata]=airportInfo
+        # calculate population score
+        total_pop = airports_df['population'].sum()
+        airports_df['pop_score'] = airports_df['population'] / total_pop
 
-        return self.geolocateCircle(disc,airportsInsideDisk)
+        # calculate distance score
+        total_distance = airports_df['dist_from_disc_center'].sum()
+        airports_df['dist_score'] = airports_df['dist_from_disc_center'] / total_distance
+        airports_df['score'] = self.alpha * airports_df['pop_score'] + (1 - self.alpha) * airports_df['dist_score']
+
+        # get chosen airport with the highest score
+        best_airport_iata = airports_df['score'].idxmax()
+        chosen_airport = airports_df.loc[best_airport_iata]
+
+        return [
+            best_airport_iata,
+            chosen_airport['latitude'],
+            chosen_airport['longitude'],
+            chosen_airport['city'],
+            chosen_airport['country_code']
+        ]
+
+    def geolocation(self, disc):
+        """
+        For a given disc, find the best matching airport inside the disc radius.
+        First, it finds all airports within the disc radius.
+        Next, it finds the best matching airport using geolocateCircle.
+
+        Args:
+            disc: The disc object.
+
+        Returns:
+            The output of geolocateCircle with airports inside the disc.
+        """
+        radius = disc.getRadius()
+        # calculate the haversine distance from the disc center to each airport
+        self._airports['dist_from_disc_center'] = self._airports.apply(
+            lambda row: disc.haversine_distance(row['latitude'], row['longitude']),
+            axis=1
+        )
+        # filter on airports within the radius
+        airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius]
+
+        return self.geolocateCircle(disc, airports_inside_disk)
+
