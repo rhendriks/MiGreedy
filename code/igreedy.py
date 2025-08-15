@@ -53,63 +53,52 @@ def parse_args():
 
     return parser.parse_args()
 
+def get_airports(path=""):
+    if path == "":
+        path = os.path.join(os.path.dirname(__file__), '../datasets/airports.csv')
 
-script_dir = os.path.dirname(os.path.realpath(__file__))
-iatafile = os.path.join(script_dir, '../datasets/airports.csv')
+    column_names = [
+        'iata', 'size', 'name', 'lat_lon', 'country_code',
+        'city', 'pop_heuristic_lon_lat'
+    ]
+    airports_df = pd.read_csv(
+        path,
+        sep='\t',
+        comment='#',
+        names=column_names
+    )
 
-column_names = [
-    'iata', 'size', 'name', 'lat_lon', 'country_code',
-    'city', 'pop_heuristic_lon_lat'
-]
+    # clean columns
+    airports_df[['latitude', 'longitude']] = airports_df['lat_lon'].str.split(expand=True)
+    airports_df[['population', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
 
-# --- Main Logic ---
+    # remove unnecessary columns
+    airports_df.drop(columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'], inplace=True)
 
-# 1. Read the file directly into a DataFrame with pandas
-# We skip the header row and assign our own names.
-airports_df = pd.read_csv(
-    iatafile,
-    sep='\t',
-    header=None, # The file has no proper header to use
-    skiprows=1,  # Skip the original header line
-    names=column_names
-)
+    # data types
+    convert_dict = {
+        'latitude': float,
+        'longitude': float,
+        'population': int
+    }
+    airports_df = airports_df.astype(convert_dict)
 
-# 2. Split the combined columns using vectorized string operations
-# 'expand=True' creates new columns from the split results
-airports_df[['latitude', 'longitude']] = airports_df['lat_lon'].str.split(expand=True)
-airports_df[['population', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
+    # index by IATA code
+    airports_df.set_index('iata', inplace=True)
 
-# 3. Clean up: Drop the original combined and now-unnecessary columns
-airports_df.drop(columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'], inplace=True)
+    # convert latitude and longitude to radians for geolocation calculations
+    airports_df['latitude'] = np.radians(airports_df['latitude'])
+    airports_df['longitude'] = np.radians(airports_df['longitude'])
 
-# 4. Convert data types for entire columns at once
-# This is much faster than converting row by row
-convert_dict = {
-    'latitude': float,
-    'longitude': float,
-    'population': int
-}
-airports_df = airports_df.astype(convert_dict)
+    return airports_df
 
-# 5. Handle the duplicate entries as noted in the TODO
-# This removes rows that are duplicates based on city and coordinates, keeping the first entry (e.g., keeping 'PAR' for Paris)
-airports_df.drop_duplicates(subset=['city', 'latitude', 'longitude'], keep='first', inplace=True)
-
-# 6. Set the IATA code as the DataFrame index
-airports_df.set_index('iata', inplace=True)
-
-# 7. Convert latitude and longitude to radians (vectorized)
-airports_df['latitude'] = np.radians(airports_df['latitude'])
-airports_df['longitude'] = np.radians(airports_df['longitude'])
-
-# Display the final, cleaned DataFrame
-print(airports_df.head())
+airports_df = get_airports()  # Load airports data
 
 def analyze(in_df, alpha):
     """
     Routine to iteratively enumerate and geolocate anycast instances
     """
-    anycast = Anycast(in_df, airports_df, alpha) # TODO use airports_df instead
+    anycast = Anycast(in_df, airports_df, alpha)
 
     radiusGeolocated = 0.1
     iteration = True
@@ -245,14 +234,7 @@ if __name__ == "__main__":
     # Calculate the radius in km based on the RTT
     in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
 
-    print(in_df.head())
-
-    # group by target and sort by rtt
-    # in_df.sort_values(by=['target', 'rtt'], inplace=True)
-
-    #
-
-    # split by target (i.e., create a small dataframe for each target)
+    # create a dictionary of DataFrames, one for each target
     split_dfs = {key: group for key, group in in_df.groupby('target')}
 
     output_loc = Path(args.output)
