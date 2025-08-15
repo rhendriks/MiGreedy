@@ -57,25 +57,53 @@ def parse_args():
 script_dir = os.path.dirname(os.path.realpath(__file__))
 iatafile = os.path.join(script_dir, '../datasets/airports.csv')
 
-# ------------------load airport---------------
-airports = {}
-with open(iatafile, 'r', encoding='utf-8') as airportLines:
-    airportLines.readline()
-    for line in airportLines.readlines():
-        iata, size, name, latLon, country_code, city, popHeuristicGooglemapslonlat = line.strip().split("\t")
-        latitude, longitude = latLon.strip().split()
-        pop, Heuristic, lon, lat = popHeuristicGooglemapslonlat.strip().split()
-        airports[iata] = [radians(float(latitude)), radians(float(longitude)), int(pop), city, country_code]
-airportLines.close()
+column_names = [
+    'iata', 'size', 'name', 'lat_lon', 'country_code',
+    'city', 'pop_heuristic_lon_lat'
+]
 
-# TODO file contains many duplicate entries
-"""
-PAR  0.855435   0.044506     2138551     Paris           FR
-CDG  0.855435   0.044506     2138551     Paris           FR
-LBG  0.854677   0.042610     2138551     Paris           FR
-ORY  0.850417   0.041180     2138551     Paris           FR
-"""
-airports_df = pd.DataFrame.from_dict(airports, orient='index', columns=['latitude', 'longitude', 'population', 'city', 'country_code'])
+# --- Main Logic ---
+
+# 1. Read the file directly into a DataFrame with pandas
+# We skip the header row and assign our own names.
+airports_df = pd.read_csv(
+    iatafile,
+    sep='\t',
+    header=None, # The file has no proper header to use
+    skiprows=1,  # Skip the original header line
+    names=column_names
+)
+
+# 2. Split the combined columns using vectorized string operations
+# 'expand=True' creates new columns from the split results
+airports_df[['latitude', 'longitude']] = airports_df['lat_lon'].str.split(expand=True)
+airports_df[['population', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
+
+# 3. Clean up: Drop the original combined and now-unnecessary columns
+airports_df.drop(columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'], inplace=True)
+
+# 4. Convert data types for entire columns at once
+# This is much faster than converting row by row
+convert_dict = {
+    'latitude': float,
+    'longitude': float,
+    'population': int
+}
+airports_df = airports_df.astype(convert_dict)
+
+# 5. Handle the duplicate entries as noted in the TODO
+# This removes rows that are duplicates based on city and coordinates, keeping the first entry (e.g., keeping 'PAR' for Paris)
+airports_df.drop_duplicates(subset=['city', 'latitude', 'longitude'], keep='first', inplace=True)
+
+# 6. Set the IATA code as the DataFrame index
+airports_df.set_index('iata', inplace=True)
+
+# 7. Convert latitude and longitude to radians (vectorized)
+airports_df['latitude'] = np.radians(airports_df['latitude'])
+airports_df['longitude'] = np.radians(airports_df['longitude'])
+
+# Display the final, cleaned DataFrame
+print(airports_df.head())
 
 def analyze(in_df, alpha):
     """
@@ -186,9 +214,9 @@ def output_aggregated(all_results, outfile):
             for instance in discsSolution:
                 tempCircle, tempMarker = instance[0], instance[1]
                 writer.writerow([
-                    target, tempCircle.getHostname(), tempCircle.getLatitude(),
-                    tempCircle.getLongitude(), tempCircle.getRadius(),
-                    tempMarker[0], tempMarker[1], tempMarker[2]
+                    target, tempCircle.getHostname(), np.degrees(tempCircle.getLatitude()),
+                    np.degrees(tempCircle.getLongitude()), tempCircle.getRadius(),
+                    tempMarker[0], np.degrees(tempMarker[1]), np.degrees(tempMarker[2])
                 ])
 
 if __name__ == "__main__":
