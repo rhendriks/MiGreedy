@@ -41,48 +41,21 @@ class Anycast(object):
 
         return number_of_discs, discs_mis
 
-    def geolocateCircle(self,disc,airports_df):
+    def find_best_airport(self, airports_df):
         """
         For a given disc, find the best matching airport inside the disc radius.
         It calculates a score based on the population and distance from the disc center.
         Args:
-            disc: The disc object.
             airports_df: Dataframe containing all airports within the disc radius.
         Returns:
             A list containing the chosen airport's IATA code, latitude, longitude, city, and country code.
             If no suitable airport is found, returns False.
         """
-        if airports_df.empty:
-            return False # no airports within the disc radius
-
-        airports_df = airports_df.copy()
-
-        # calculate population score
-        total_pop = airports_df['population'].sum()
-        airports_df['pop_score'] = airports_df['population'] / total_pop
-
-        # calculate distance score
-        total_distance = airports_df['dist_from_disc_center'].sum()
-        airports_df['dist_score'] = airports_df['dist_from_disc_center'] / total_distance
-        airports_df['score'] = self.alpha * airports_df['pop_score'] + (1 - self.alpha) * airports_df['dist_score']
-
-        # get chosen airport with the highest score
-        best_airport_iata = airports_df['score'].idxmax()
-        chosen_airport = airports_df.loc[best_airport_iata]
-
-        return [
-            best_airport_iata,
-            chosen_airport['latitude'],
-            chosen_airport['longitude'],
-            chosen_airport['city'],
-            chosen_airport['country_code']
-        ]
-
     def geolocation(self, disc):
         """
         For a given disc, find the best matching airport inside the disc radius.
         First, it finds all airports within the disc radius.
-        Next, it finds the best matching airport using geolocateCircle.
+        Next, it finds the best matching airport based on the population and distance from the disc center.
 
         Args:
             disc: The disc object.
@@ -97,7 +70,28 @@ class Anycast(object):
             axis=1
         )
         # filter on airports within the radius
-        airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius]
+        airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius].copy()
 
-        return self.geolocateCircle(disc, airports_inside_disk)
+        if airports_inside_disk.empty:
+            return False # no airports within the disc radius
 
+        # calculate population score
+        total_pop = airports_inside_disk['population'].sum()
+        airports_inside_disk['pop_score'] = airports_inside_disk['population'] / total_pop
+
+        # calculate distance score
+        total_distance = airports_inside_disk['dist_from_disc_center'].sum()
+        airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance
+        airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] + (1 - self.alpha) * airports_inside_disk['dist_score']
+
+        # get chosen airport with the highest score
+        best_airport_iata = airports_inside_disk['score'].idxmax()
+        chosen_airport = airports_inside_disk.loc[best_airport_iata]
+
+        return [
+            best_airport_iata,
+            chosen_airport['latitude'],
+            chosen_airport['longitude'],
+            chosen_airport['city'],
+            chosen_airport['country_code']
+        ]
