@@ -30,7 +30,6 @@
 ```
 
 # TODOs
-* implement single file output writing (.csv and .json)
 * update iata airports file
 * test and re-implement RIPE Atlas
 * create automated testing with sample latencies file

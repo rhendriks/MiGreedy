@@ -41,16 +41,6 @@ class Anycast(object):
 
         return number_of_discs, discs_mis
 
-    def find_best_airport(self, airports_df):
-        """
-        For a given disc, find the best matching airport inside the disc radius.
-        It calculates a score based on the population and distance from the disc center.
-        Args:
-            airports_df: Dataframe containing all airports within the disc radius.
-        Returns:
-            A list containing the chosen airport's IATA code, latitude, longitude, city, and country code.
-            If no suitable airport is found, returns False.
-        """
     def geolocation(self, disc):
         """
         For a given disc, find the best matching airport inside the disc radius.
