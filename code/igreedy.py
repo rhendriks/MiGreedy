@@ -211,17 +211,26 @@ def output_aggregated(all_results, outfile):
 if __name__ == "__main__":
     args = parse_args()
 
-    in_df = pd.read_csv(args.input, skiprows=1, names=['target', 'hostname', 'lat', 'lon', 'rtt'])
+    columns = ['target', 'hostname', 'lat', 'lon', 'rtt']
+    column_types = {
+        'target': str,
+        'hostname': str,
+        'lat': np.float64,
+        'lon': np.float64,
+        'rtt': np.float32
+    }
 
-    in_df['hostname'] = in_df['hostname'].astype(str)  # Ensure hostname is always a string
+    in_df = pd.read_csv(
+        args.input,
+        skiprows=1,
+        names=columns,
+        dtype=column_types
+    )
 
-    # Convert numeric columns, coercing errors to NaN (Not a Number)
-    numeric_cols = ['lat', 'lon', 'rtt']
-    for col in numeric_cols:
-        in_df[col] = pd.to_numeric(in_df[col], errors='coerce')
-
-    # Drop any rows where numeric conversion failed
-    in_df.dropna(subset=numeric_cols, inplace=True)
+    print(f"Input file '{args.input}' loaded. Total records: {len(in_df)}")
+    if in_df.empty:
+        print("ERROR: Input file is empty or improperly formatted.")
+        sys.exit(1)
 
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
