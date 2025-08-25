@@ -33,6 +33,9 @@ This is an implementation of iGreedy (https://github.com/fp7mplane/demo-infra/tr
 It provides a multi-processing solution of the iGrteedy algorithm using pandas, that combined reduce processing time siginificantly
 (making it suitable for daily large-scale anycast censuses).
 
+Furthermore, instead of reading individual files, it reads a single .csv (or .csv.gz) and produces output as a single .csv instead of individual output files.
+It can be ran on GCD results from MAnycastR (https://rhendriks.github.io/MAnycastR)
+
 # TODOs
 * update iata airports file
 * test and re-implement RIPE Atlas
