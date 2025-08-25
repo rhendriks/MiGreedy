@@ -29,6 +29,10 @@
      Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/  
 ```
 
+This is an implementation of iGreedy (https://github.com/fp7mplane/demo-infra/tree/master/igreedy) by Cicalese et al.
+It provides a multi-processing solution of the iGrteedy algorithm using pandas, that combined reduce processing time siginificantly
+(making it suitable for daily large-scale anycast censuses).
+
 # TODOs
 * update iata airports file
 * test and re-implement RIPE Atlas
