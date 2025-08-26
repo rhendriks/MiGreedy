@@ -9,7 +9,7 @@ from anycast import Anycast
 from disc import *
 
 from functools import partial
-from math import radians, cos, sin, asin, sqrt
+from math import radians
 
 from multiprocessing import Pool
 import pandas as pd
@@ -92,12 +92,12 @@ def get_airports(path=""):
 
     return airports_df
 
-airports_df = get_airports()  # Load airports data
-
 def analyze(in_df, alpha):
     """
     Routine to iteratively enumerate and geolocate anycast instances
     """
+    airports_df = get_airports()  # Load airports data
+
     anycast = Anycast(in_df, airports_df, alpha)
 
     radiusGeolocated = 0.1
@@ -116,13 +116,13 @@ def analyze(in_df, alpha):
             return 0, 1
         for radius, discList in resultEnumeration[1].getOrderedDisc().items():
             for disc in discList:
-                if (not disc[1]):  # if the disc was not geolocated before, geolocate it!
+                if not disc[1]:  # if the disc was not geolocated before, geolocate it!
                     # used for the csv output
                     # discs.append(disc[0])#append the disc to the results #used for the csv output
                     resultEnumeration[1].removeDisc(disc)  # remove old disc from MIS of disc
                     city = anycast.geolocation(disc[0])  # result geolocation
 
-                    if (city != False):  # if there is a city inside the disc
+                    if city != False:  # if there is a city inside the disc
                         iteration = True  # geolocated one disc, re-run enumeration!
                         # markers.append(newDisc)#save for the results the city#used for the csv output
                         discsSolution.append((disc[0], city))  # disc, marker
@@ -135,7 +135,7 @@ def analyze(in_df, alpha):
                         discsSolution.append((disc[0], ["NoCity", disc[0].getLatitude(), disc[0].getLongitude(), "N/A",
                                                         "N/A"]))  # disc, marker
 
-            if (iteration):
+            if iteration:
                 break
     return discsSolution, numberOfInstance
 
@@ -196,7 +196,7 @@ def output_aggregated(all_results, outfile):
         writer = csv.writer(csv_file, delimiter=',')
         # Write header with the new 'target' column
         writer.writerow(["target", "vp", "vp_lat", "vp_lon", "radius",
-                         "pop_iata", "pop_lat", "pop_lon"])
+                         "pop_iata", "pop_lat", "pop_lon", "pop_city", "pop_cc"])
 
         # Iterate through each target and its solution
         for target, discsSolution in all_results.items():
@@ -205,7 +205,8 @@ def output_aggregated(all_results, outfile):
                 writer.writerow([
                     target, tempCircle.getHostname(), np.degrees(tempCircle.getLatitude()),
                     np.degrees(tempCircle.getLongitude()), tempCircle.getRadius(),
-                    tempMarker[0], np.degrees(tempMarker[1]), np.degrees(tempMarker[2])
+                    tempMarker[0], np.degrees(tempMarker[1]), np.degrees(tempMarker[2]),
+                    tempMarker[3], tempMarker[4]
                 ])
 
 if __name__ == "__main__":

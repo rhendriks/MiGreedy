@@ -11,7 +11,7 @@ class Measurement(object):
         if(self.checkIP(ip)):
             self._ip = ip
         else:
-            print(("Target must be an IP address, NOT AN HOST NAME"), file=sys.stderr)
+            print(("Target must be an IP address"), file=sys.stderr)
             sys.exit(1)
         self._ripeProbes = ripeProbes
         self._numberOfPacket =2 #to improve

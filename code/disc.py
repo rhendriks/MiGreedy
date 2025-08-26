@@ -34,8 +34,6 @@ class Disc(object):
         
         return (self.haversine_distance(other._latitude,other._longitude)) <= (self.getRadius() + other.getRadius())
 
-    import math
-
     def haversine_distance(self, lat2: float, lon2: float) -> float:
         """
         Calculate the great-circle distance between this disc and another point.
