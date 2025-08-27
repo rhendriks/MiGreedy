@@ -109,17 +109,17 @@ def analyze(in_df, alpha):
     iteration = True
     discsSolution = []
 
-    numberOfInstance = 0
+    enumeration_count = 0
     while iteration is True:
 
         iteration = False
         resultEnumeration = anycast.enumeration()
 
-        numberOfInstance += resultEnumeration[0]
-        if (numberOfInstance <= 1):
-            # print("No anycast instance detected")
+        enumeration_count += resultEnumeration[0]
+        if enumeration_count <= 1: # unicast
             return 0, 1
-        for radius, discList in resultEnumeration[1].getOrderedDisc().items():
+
+        for radius, discList in resultEnumeration[1].getOrderedDisc().items(): # anycast
             for disc in discList:
                 if not disc[1]:  # if the disc was not geolocated before, geolocate it!
                     # used for the csv output
@@ -142,7 +142,7 @@ def analyze(in_df, alpha):
 
             if iteration:
                 break
-    return discsSolution, numberOfInstance
+    return discsSolution, enumeration_count
 
 def main(split_dfs, outfile, num_workers, alpha):
     """
@@ -150,7 +150,7 @@ def main(split_dfs, outfile, num_workers, alpha):
     """
     num_targets = len(split_dfs)
     processed_targets = 0
-    all_results = {}
+    all_rows_for_df = [] # Changed: Collect all rows as a list of dictionaries
 
     print(f"Starting parallel processing for {num_targets} targets...")
 
@@ -158,18 +158,19 @@ def main(split_dfs, outfile, num_workers, alpha):
         # Use imap_unordered to process results as they are completed
         partial_process = partial(process_target, alpha=alpha)
 
-        for result in pool.imap_unordered(partial_process, split_dfs.items()):
+        for result_rows_from_target in pool.imap_unordered(partial_process, split_dfs.items()):
             # Collect valid results returned by the workers
-            if result:
-                target, discsSolution = result
-                all_results[target] = discsSolution
+            if result_rows_from_target: # This will be a list of dictionaries (or None if no valid instances)
+                all_rows_for_df.extend(result_rows_from_target)
 
             processed_targets += 1
             print(f"Progress: {processed_targets}/{num_targets}", end="\r")
 
-    # After the pool is finished, write the single aggregated files
-    if all_results:
-        output_aggregated(all_results, outfile)
+    # After the pool is finished, create a single DataFrame and write it
+    if all_rows_for_df:
+        # Create the DataFrame once from all collected rows
+        final_df = pd.DataFrame.from_records(all_rows_for_df)
+        write_results(final_df, outfile) # Call the new Pandas output function
         print(f"\nProcessing complete. Results saved to {outfile}")
     else:
         print("\nNo valid anycast results were found to output.")
@@ -177,42 +178,43 @@ def main(split_dfs, outfile, num_workers, alpha):
 def process_target(target_and_df, alpha):
     """
     Worker function for the multiprocessing pool. It analyzes a single target
-    and returns its results for aggregation.
+    and returns its results as a list of dictionaries for aggregation.
     """
     target, split_df = target_and_df
     discsSolution, numberOfInstance = analyze(split_df, alpha)
 
     # Only return results if they are anycast (more than 1 instance)
     if numberOfInstance > 1:
-        return target, discsSolution
-    return None
+        # Transform discsSolution into a list of dictionaries, one for each row
+        rows_for_target = []
+        for instance in discsSolution:
+            tempCircle, tempMarker = instance[0], instance[1]
+            rows_for_target.append({
+                "target": target,
+                "vp": tempCircle.getHostname(),
+                "vp_lat": np.degrees(tempCircle.getLatitude()),
+                "vp_lon": np.degrees(tempCircle.getLongitude()),
+                "radius": tempCircle.getRadius(),
+                "pop_iata": tempMarker[0],
+                "pop_lat": np.degrees(tempMarker[1]),
+                "pop_lon": np.degrees(tempMarker[2]),
+                "pop_city": tempMarker[3],
+                "pop_cc": tempMarker[4]
+            })
+        return rows_for_target # Return a list of dicts for this target
+    return None # Return None if no valid instances for this target
 
-def output_aggregated(all_results, outfile):
+def write_results(final_df, outfile):
     """
-    Writes aggregated results from all targets to a single JSON and a single CSV file.
+    Writes aggregated results from a single Pandas DataFrame to a single CSV file.
 
     Args:
-        all_results (dict): A dictionary where keys are targets and values are their 'discsSolution'.
-        outfile_prefix (str): The base name for the output .csv and .json files.
+        final_df (pd.DataFrame): The DataFrame containing all aggregated results.
+        outfile (str): The path to the output .csv file.
     """
-    # 1. Write aggregated results to a single CSV file
     print(f"\nWriting aggregated CSV to {outfile}...")
-    with open(outfile, "w", newline="") as csv_file:
-        writer = csv.writer(csv_file, delimiter=',') # TODO change delimiter (comma may be in city names)
-        # Write header with the new 'target' column
-        writer.writerow(["target", "vp", "vp_lat", "vp_lon", "radius",
-                         "pop_iata", "pop_lat", "pop_lon", "pop_city", "pop_cc"])
-
-        # Iterate through each target and its solution
-        for target, discsSolution in all_results.items():
-            for instance in discsSolution:
-                tempCircle, tempMarker = instance[0], instance[1]
-                writer.writerow([
-                    target, tempCircle.getHostname(), np.degrees(tempCircle.getLatitude()),
-                    np.degrees(tempCircle.getLongitude()), tempCircle.getRadius(),
-                    tempMarker[0], np.degrees(tempMarker[1]), np.degrees(tempMarker[2]),
-                    tempMarker[3], tempMarker[4]
-                ])
+    # Using tab as delimiter as specified in your original csv.writer
+    final_df.to_csv(outfile, index=False, sep='\t')
 
 if __name__ == "__main__":
     args = parse_args()
@@ -233,7 +235,7 @@ if __name__ == "__main__":
         print(f"Error: Hosts file not found at {args.hosts}")
         sys.exit(1)
 
-    columns = ['target', 'hostname' 'rtt']
+    columns = ['target', 'hostname', 'rtt']
     column_types = {
         'target': str,
         'hostname': str,
@@ -242,7 +244,7 @@ if __name__ == "__main__":
 
     in_df = pd.read_csv(
         args.input,
-        skiprows=1,
+        skiprows=1, # skip header
         names=columns,
         dtype=column_types
     )
@@ -264,7 +266,7 @@ if __name__ == "__main__":
     in_df['lon'] = in_df['lon'].apply(radians)
 
     # Calculate the radius in km based on the RTT
-    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
+    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km TODO save as int?
 
     # create a dictionary of DataFrames, one for each target
     split_dfs = {key: group for key, group in in_df.groupby('target')}
