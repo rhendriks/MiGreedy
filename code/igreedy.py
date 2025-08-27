@@ -51,6 +51,11 @@ def parse_args():
         help='Discard disks with RTT > threshold (to bound error) [default: ∞]'
     )
 
+    parser.add_argument(
+        '-h', '--hosts', required=True,
+        help='Path to a mapping of hostnames to lat,lon'
+    )
+
     return parser.parse_args()
 
 def get_airports(path=""):
@@ -193,7 +198,7 @@ def output_aggregated(all_results, outfile):
     # 1. Write aggregated results to a single CSV file
     print(f"\nWriting aggregated CSV to {outfile}...")
     with open(outfile, "w", newline="") as csv_file:
-        writer = csv.writer(csv_file, delimiter=',')
+        writer = csv.writer(csv_file, delimiter=',') # TODO change delimiter (comma may be in city names)
         # Write header with the new 'target' column
         writer.writerow(["target", "vp", "vp_lat", "vp_lon", "radius",
                          "pop_iata", "pop_lat", "pop_lon", "pop_city", "pop_cc"])
@@ -212,12 +217,26 @@ def output_aggregated(all_results, outfile):
 if __name__ == "__main__":
     args = parse_args()
 
-    columns = ['target', 'hostname', 'lat', 'lon', 'rtt']
+    # Load the hosts file to map hostnames to lat,lon
+    try:
+        host_column_types = {
+            'hostname': str,
+            'lat': np.float64,
+            'lon': np.float64
+        }
+        host_df = pd.read_csv(
+            args.hosts,
+            names=['hostname', 'lat', 'lon'],
+            dtype=host_column_types
+        )
+    except FileNotFoundError:
+        print(f"Error: Hosts file not found at {args.hosts}")
+        sys.exit(1)
+
+    columns = ['target', 'hostname' 'rtt']
     column_types = {
         'target': str,
         'hostname': str,
-        'lat': np.float64,
-        'lon': np.float64,
         'rtt': np.float32
     }
 
@@ -227,6 +246,9 @@ if __name__ == "__main__":
         names=columns,
         dtype=column_types
     )
+
+    # Merge with host_df to get lat, lon for each hostname
+    in_df = in_df.merge(host_df, on='hostname', how='left')
 
     print(f"Input file '{args.input}' loaded. Total records: {len(in_df)}")
     if in_df.empty:

@@ -40,3 +40,4 @@ It can be ran on GCD results from MAnycastR (https://rhendriks.github.io/MAnycas
 * update iata airports file
 * test and re-implement RIPE Atlas
 * create automated testing with sample latencies file
+* load in list of VPs from file, rather than having the lat and lon repeated for each data point
