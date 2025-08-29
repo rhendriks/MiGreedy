@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import argparse
-import csv
 import os
 import sys
 from functools import partial
@@ -11,6 +10,7 @@ import numpy as np
 import pandas as pd
 from math import radians
 from tqdm import tqdm
+import csv
 
 from anycast import AnycastDF
 
@@ -204,41 +204,6 @@ def process_group(group_tuple, alpha, airports_df):
     target_name, group_df = group_tuple
     return analyze_df(group_df, alpha, airports_df)
 
-# global variables for worker processes
-main_df = None
-airports_data = None
-
-def worker_init(df, airports):
-    """
-    Initializer for each worker process. Makes the DataFrames global to that process.
-    This avoids passing the large DataFrame repeatedly.
-    """
-    global main_df, airports_data
-    main_df = df
-    airports_data = airports
-
-
-def process_targets_chunk(target_list, alpha):
-    """
-    This is the new function that each worker process will execute.
-    It takes a list of target IPs, filters the global main_df, and processes them.
-    """
-    global main_df, airports_data
-
-    # Filter the main DataFrame to only include rows for this worker's targets
-    chunk_df = main_df[main_df['target'].isin(target_list)]
-
-    results = []
-    for target_name, group_df in chunk_df.groupby('target'):
-        result = analyze_df(group_df, alpha, airports_data)
-        if result is not None:
-            results.append(result)
-
-    if not results:
-        return None
-
-    # Concatenate results for this chunk before returning
-    return pd.concat(results, ignore_index=True)
 
 def main(in_df, outfile, alpha):
     """
@@ -251,24 +216,10 @@ def main(in_df, outfile, alpha):
     """
     airports_df = get_airports()  # Load airports data
 
-    # get unique targets
-    all_targets = in_df['target'].unique()
-    num_targets = len(all_targets)
-
-    if num_targets == 0:
-        print("No targets to process. Exiting.")
-        return
-
-    num_chunks = min(100_000, num_targets)
-    chunk_size = (num_targets + num_chunks - 1) // num_chunks
-
-    # split targets into chunks
-    target_chunks = [all_targets[i:i + chunk_size] for i in range(0, num_targets, chunk_size)]
-    num_chunks = len(target_chunks)
-
-    num_processes = os.cpu_count() or 4
-
-    print(f"Starting parallel processing with {num_processes} cores for {num_targets} targets across {num_chunks} chunks...")
+    num_targets = in_df['target'].nunique()
+    print(
+        f"Starting parallel processing for {num_targets} targets using available CPU cores...")  # create a partial function with fixed alpha and airports_df
+    worker_func = partial(process_group, alpha=alpha, airports_df=airports_df)
 
     with open(outfile, 'w', newline='') as f:
         # Define the header based on your analyze_df output
@@ -281,20 +232,22 @@ def main(in_df, outfile, alpha):
         writer.writeheader()
 
         # Pool of worker processes
-        with Pool(processes=num_processes, initializer=worker_init, initargs=(in_df, airports_df)) as pool:
-            # Partial function to fix the alpha parameter
-            worker_func = partial(process_targets_chunk, alpha=alpha)
+        with Pool() as pool:
+            # Get chunks of results
+            chunksize = 500
+            results_iterator = pool.imap_unordered(
+                worker_func,
+                in_df.groupby('target'),
+                chunksize=chunksize
+            )
 
-            # Use imap_unordered to get results as they complete
-            results_iterator = pool.imap_unordered(worker_func, target_chunks)
-
-            for result_chunk_df in tqdm(results_iterator, total=num_chunks):
-                if result_chunk_df is not None and not result_chunk_df.empty:
-                    for record in result_chunk_df.to_dict('records'):
+            # Write results as they come in
+            for result_df in tqdm(results_iterator, total=num_targets):
+                if result_df is not None and not result_df.empty:
+                    for record in result_df.to_dict('records'):
                         writer.writerow(record)
 
     print(f"Results successfully saved to '{outfile}'.")
-
 
 if __name__ == "__main__":
     args = parse_args()
