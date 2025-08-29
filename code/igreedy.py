@@ -13,12 +13,44 @@ import argparse
 from multiprocessing import Pool
 from functools import partial
 from tqdm import tqdm
+from numba import jit
 
 EARTH_RADIUS_KM = 6371.0 # earth radius
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
 
 pd.options.mode.copy_on_write = True
+
+
+@jit(nopython=True, cache=True)
+def haversine_numba(lat1, lon1, lat2_array, lon2_array):
+    """
+    Calculates the great-circle distance from a single point to an array of other points.
+    This function is JIT-compiled by Numba for C-like speed.
+
+    Args:
+        lat1 (float): Latitude of the single point in radians.
+        lon1 (float): Longitude of the single point in radians.
+        lat2_array (np.ndarray): A NumPy array of other latitudes in radians.
+        lon2_array (np.ndarray): A NumPy array of other longitudes in radians.
+
+    Returns:
+        np.ndarray: A NumPy array of distances in kilometers.
+    """
+
+    # Pre-allocate the result array
+    distances = np.empty(lat2_array.shape[0])
+
+    # Numba requires explicit loops
+    for i in range(lat2_array.shape[0]):
+        dlat = lat2_array[i] - lat1
+        dlon = lon2_array[i] - lon1
+
+        a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2_array[i]) * np.sin(dlon / 2.0) ** 2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+        distances[i] = EARTH_RADIUS_KM * c
+
+    return distances
 
 def haversine(lat1_rad, lon1_rad, other_df):
     """
@@ -92,10 +124,11 @@ class AnycastDF(object):
 
             # Check for overlap against the MIS DataFrame directly, if it's not empty.
             if not mis_df.empty:
-                distances = haversine(
+                distances = haversine_numba(
                     candidate_disc['lat_rad'],
                     candidate_disc['lon_rad'],
-                    mis_df
+                    mis_df['lat_rad'].to_numpy(dtype=np.float32),
+                    mis_df['lon_rad'].to_numpy(dtype=np.float32)
                 )
                 sum_of_radii = candidate_disc['radius'] + mis_df['radius']
 
@@ -147,10 +180,11 @@ class AnycastDF(object):
             return False  # No airports even in the rough vicinity.
 
         # calculate distance from disc center to each candidate airport
-        candidate_airports['dist_from_disc_center'] = haversine(
+        candidate_airports['dist_from_disc_center'] = haversine_numba(
             center_lat_rad,
             center_lon_rad,
-            candidate_airports
+            candidate_airports['lat_rad'].to_numpy(dtype=np.float32),
+            candidate_airports['lon_rad'].to_numpy(dtype=np.float32),
         )
 
         # get airports within the disc radius
