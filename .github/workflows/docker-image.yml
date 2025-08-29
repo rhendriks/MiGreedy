@@ -1,0 +1,33 @@
+name: Build and Publish Docker image
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]   # build tagged releases too
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/igreedy:latest
+            ghcr.io/${{ github.repository_owner }}/igreedy:${{ github.sha }}
