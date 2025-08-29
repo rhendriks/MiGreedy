@@ -1,6 +1,6 @@
 # A fast, parallel implementations of the iGreedy algorithm for large-scale anycast census
 
-<pre>
+```text
 180 150W  120W  90W   60W   30W  000   30E   60E   90E   120E  150E 180
 |    |     |     |     |     |    |     |     |     |     |     |     |
 +90N-+-----+-----+-----+-----+----+-----+-----+-----+-----+-----+-----+
@@ -29,7 +29,7 @@
 |.._(                  `----'/_/   \_\_| |_|\__, |\___\__,_|___/\__| -|
 +90S-+-----+-----+-----+-----+-----+-----+--___/ /--+-----+-----+-----+
      Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/
-</pre>
+```
 
 This repository contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
 originally developed by [Cicalsese et al.](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
