@@ -2,3 +2,7 @@
 *igreedy_latencies
 *.csv
 testing/
+code/__pycache__
+__pycache__/
+*.pyc
+*.pyo
