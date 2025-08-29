@@ -31,7 +31,7 @@
      Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/
 ```
 
-This repository contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
+[This repository](https://github.com/rhendriks/MiGreedy) contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
 originally developed by [Cicalsese et al.](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
 
 The goal of this implementation is to reduce processing time for [large-scale anycast censuses](github.com/anycast-census/anycast-census).
