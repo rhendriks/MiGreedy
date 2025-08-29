@@ -38,7 +38,6 @@ The goal of this implementation is to reduce processing time for [large-scale an
 It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
 outputting a single file with geolocation results.
 
-
 ## Installation
 
 1.  Clone this repository:
@@ -52,16 +51,69 @@ outputting a single file with geolocation results.
     pip install -r requirements.txt
     ```
 
+Of course. The tables were missing the Markdown pipe `|` separators, and the overall structure could be cleaned up for better readability.
+
+Here is the corrected and properly formatted version. I've converted the argument and data format descriptions into clean Markdown tables and organized the roadmap into a checklist.
+
+You can copy and paste this directly into your `README.md` file.
+
 ## Usage
 
 The script is run from the command line, with arguments to specify the input and output files, as well as tuning parameters.
 
 ```bash
-python igreedy.py -i path/to/measurements.csv -o path/to/results.csv
+python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 0.8 -t 50
 ```
 
-### TODOs
-* update iata airports file
-* test and re-implement RIPE Atlas
-* create automated testing with sample latencies file
-* load in list of VPs from file, rather than having the lat and lon repeated for each data point
+### Command-Line Arguments
+
+| Argument | Default | Description |
+| :--- | :--- | :--- |
+| `-i`, `--input` | **(Required)** | Path to the input CSV file containing RTT measurements. |
+| `-o`, `--output` | **(Required)** | Path for the output CSV file where results will be saved. |
+| `-a`, `--alpha` | `1.0` | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
+| `-t`, `--threshold`| `None` | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error. |
+
+## Data Format
+
+### Input File Format
+
+The input CSV file **must not have a header** and should contain the following columns in this specific order:
+
+| Column | Data Type | Description |
+| :--- | :--- | :--- |
+| `target` | string | The anycast IP address being measured. |
+| `hostname` | string | The hostname or ID of the prober (VP). |
+| `lat` | float | The latitude of the prober. |
+| `lon` | float | The longitude of the prober. |
+| `rtt` | float | The round-trip time (in ms) to the target. |
+
+### Output File Format
+
+The output CSV file will have a header and contain the following columns:
+
+| Column | Description |
+| :--- | :--- |
+| `target` | The anycast IP address. |
+| `vp` | The hostname of the vantage point that defined the disc. |
+| `vp_lat` | The latitude of the vantage point. |
+| `vp_lon` | The longitude of the vantage point. |
+| `radius` | The radius of the disc in kilometers. |
+| `pop_iata` | The IATA code of the geolocated airport. "NoCity" if none found. |
+| `pop_lat` | The latitude of the geolocated airport. |
+| `pop_lon` | The longitude of the geolocated airport. |
+| `pop_city` | The city of the geolocated airport. |
+| `pop_cc` | The country code of the geolocated airport. |
+
+## Author
+
+*   **Remi Hendriks**
+*   **GitHub:** [@rhendriks](https://github.com/rhendriks)
+*   **Contact:** `remi.hendriks@utwente.nl`
+
+## TODOs
+
+- [ ] **Update Airports Dataset:** The `airports.csv` file should be updated to a more recent version to improve geolocation accuracy.
+- [ ] **RIPE Atlas:** Update the RIPE Atlas scripts.
+- [ ] **Scamper**: Add support for Scamper measurements.
+- [ ] **Hosts df** Implement a method to load vantage point locations from a separate file to avoid repeating lat/lon data for each measurement.
