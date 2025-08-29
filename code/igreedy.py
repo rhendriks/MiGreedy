@@ -1,19 +1,16 @@
 #!/usr/bin/env python
-import os.path
+import os
 import sys
 from pathlib import Path
-import numpy as np
-
 from math import radians
-
-import pandas as pd
-
-import argparse
-
-from multiprocessing import Pool
 from functools import partial
+
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
 from numba import jit
+from multiprocessing import Pool
+import argparse
 
 EARTH_RADIUS_KM = 6371.0 # earth radius
 FIBER_RI = 1.52
@@ -51,41 +48,6 @@ def haversine_numba(lat1, lon1, lat2_array, lon2_array):
         distances[i] = EARTH_RADIUS_KM * c
 
     return distances
-
-def haversine(lat1_rad, lon1_rad, other_df):
-    """
-    Calculates the great-circle distance from a single point to a DataFrame of other points using vectorized NumPy operations.
-
-    Args:
-        lat1_rad: Latitude of the single point in radians.
-        lon1_rad: Longitude of the single point in radians.
-        other_df (pd.DataFrame): A DataFrame containing 'lat_rad' and 'lon_rad' columns (in radians).
-
-    Returns:
-        pd.Series: A Series of distances in kilometers.
-    """
-    if other_df.empty:
-        return pd.Series(dtype=np.float64)
-
-    # Extract coordinates as numpy arrays
-    lat2 = other_df["lat_rad"].to_numpy(dtype=np.float64)
-    lon2 = other_df["lon_rad"].to_numpy(dtype=np.float64)
-
-    # Ensure reference point is float64
-    lat1 = float(lat1_rad)
-    lon1 = float(lon1_rad)
-
-    # Vectorized differences
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-
-    # Vectorized haversine formula
-    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
-    distances = EARTH_RADIUS_KM * c
-
-    return pd.Series(distances, index=other_df.index)
-
 
 class AnycastDF(object):
     def __init__(self, in_df, airports, alpha):
