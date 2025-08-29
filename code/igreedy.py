@@ -204,10 +204,9 @@ def process_group(group_tuple, alpha, airports_df):
     target_name, group_df = group_tuple
     return analyze_df(group_df, alpha, airports_df)
 
-
+# global variables for worker processes
 main_df = None
 airports_data = None
-
 
 def worker_init(df, airports):
     """
@@ -226,12 +225,10 @@ def process_targets_chunk(target_list, alpha):
     """
     global main_df, airports_data
 
-    # Filter the main DataFrame to get only the rows for the targets in this chunk.
-    # Using .query() can be faster for large DataFrames.
+    # Filter the main DataFrame to only include rows for this worker's targets
     chunk_df = main_df[main_df['target'].isin(target_list)]
 
     results = []
-    # Now, group by target within this smaller, local DataFrame.
     for target_name, group_df in chunk_df.groupby('target'):
         result = analyze_df(group_df, alpha, airports_data)
         if result is not None:
@@ -258,9 +255,12 @@ def main(in_df, outfile, alpha):
     all_targets = in_df['target'].unique()
     num_targets = len(all_targets)
 
-    # get number of processes and chunk size
-    num_processes = os.cpu_count() or 4
-    chunk_size = max(1, num_targets // (num_processes * 4))
+    if num_targets == 0:
+        print("No targets to process. Exiting.")
+        return
+
+    num_chunks = min(100_000, num_targets)
+    chunk_size = (num_targets + num_chunks - 1) // num_chunks
 
     # split targets into chunks
     target_chunks = [all_targets[i:i + chunk_size] for i in range(0, num_targets, chunk_size)]
