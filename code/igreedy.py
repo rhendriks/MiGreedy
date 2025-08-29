@@ -9,196 +9,155 @@ from math import radians
 import pandas as pd
 
 import argparse
-import collections
-import math
-
 
 # Radius of Earth in kilometers (mean radius)
-EARTH_RADIUS = 6371.0
+EARTH_RADIUS_KM = 6371.0
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
 
 
-### Disc class
-class Disc(object):
-    def __init__(self, hostname, latitude, longitude, radius):
-        self._radius = radius
-        self._hostname = hostname
-        self._latitude = latitude
-        self._longitude = longitude
+def haversine(lat1_rad, lon1_rad, other_df):
+    """
+    Calculates the great-circle distance from a single point to a DataFrame of other points.
 
-    def getHostname(self):
-        return self._hostname
+    Args:
+        lat1_rad (float): Latitude of the single point in radians.
+        lon1_rad (float): Longitude of the single point in radians.
+        other_df (pd.DataFrame): A DataFrame containing 'lat_rad' and 'lon_rad' columns.
 
-    def getLatitude(self):
-        return self._latitude
+    Returns:
+        pd.Series: A Series of distances in kilometers.
+    """
+    dlon = other_df['lon_rad'] - lon1_rad
+    dlat = other_df['lat_rad'] - lat1_rad
 
-    def getLongitude(self):
-        return self._longitude
+    a = np.sin(dlat / 2) ** 2 + np.cos(lat1_rad) * np.cos(other_df['lat_rad']) * np.sin(dlon / 2) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
 
-    def getRadius(self):
-        return self._radius
-
-    def overlap(self, other):
-        """
-        Two discs overlap if the distance between their centers is lower than
-        the sum of their radius.
-        """
-
-        return (self.haversine_distance(other._latitude, other._longitude)) <= (self.getRadius() + other.getRadius())
-
-    def haversine_distance(self, lat2: float, lon2: float) -> float:
-        """
-        Calculate the great-circle distance between this disc and another point.
-
-        Args:
-            lat2 (float): Latitude of the other point in radians.
-            lon2 (float): Longitude of the other point in radians.
-
-        Returns:
-            float: Distance between points in kilometers.
-        """
-
-        lat1 = self._latitude
-        lon1 = self._longitude
-
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-
-        cos_lat1 = math.cos(lat1)
-        cos_lat2 = math.cos(lat2)
-
-        a = (math.sin(dlat / 2) ** 2 +
-             cos_lat1 * cos_lat2 * math.sin(dlon / 2) ** 2)
-
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = EARTH_RADIUS * c
-
-        return distance
-
-    def __str__(self):
-        return "%s\t%s\t%s\t%s\n" % (self._hostname, self._latitude, self._longitude, self._radius)
+    distances = EARTH_RADIUS_KM * c
+    return distances
 
 
-class Discs(object):
-
-    def __init__(self):
-        self._setDisc = {}
-        self._orderDisc = collections.OrderedDict()
-
-    def removeDisc(self, disc):
-        self._setDisc[disc[0].getRadius()].remove(disc)
-
-    def overlap(self, other) -> bool:
-        """
-        Check if any disc in the set overlaps with a given disc.
-
-        Args:
-            other: Another disc object to check overlap against.
-
-        Returns:
-            bool: True if there is any overlap, False otherwise.
-        """
-        return any(disc[0].overlap(other) for discs in self._setDisc.values() for disc in discs)
-
-    def add(self, disc, geolocated):
-        if self._setDisc.get(disc.getRadius()) is None:
-            self._setDisc[disc.getRadius()] = [(disc, geolocated)]
-        else:
-            self._setDisc[disc.getRadius()].append((disc, geolocated))
-
-    def getOrderedDisc(self):
-        self._orderDisc = collections.OrderedDict(sorted(self._setDisc.items()))
-        return self._orderDisc
-###
-
-### Anycast class
-class Anycast(object):
+class AnycastDF(object):
     def __init__(self, in_df, airports, alpha):
         """
-        Initializes the object by processing an input DataFrame of network measurements.
+        Initializes the object using input DataFrames.
+
+        Args:
+            in_df (pd.DataFrame): DataFrame with probe measurements including ['hostname', 'lat_rad', 'lon_rad', 'rtt', 'radius'].
+            airports (pd.DataFrame): DateFrame with airport data including ['lat_rad', 'lon_rad', 'pop'].
+            alpha (float): The weighting factor for the geolocation score.
         """
         self.alpha = float(alpha)
+
         self._airports = airports
-        self._discsMis = Discs() # disc belong maximum independent set
 
-        # Create a disc for each row in the DataFrame.
-        grouped_discs = in_df.groupby('rtt').apply(
-            lambda g: [Disc(row.hostname, row.lat, row.lon, row.radius) for row in g.itertuples()],
-            include_groups=False
-        )
+        # Prepare the discs DataFrame, sorted by RTT as required by the algorithm
+        self._all_discs_df = in_df.sort_values('rtt').reset_index(drop=True)
 
-        # A list of discs for each ping, sorted by RTT (lowest first).
-        self._orderDisc = collections.OrderedDict(grouped_discs.to_dict())
+        # This DataFrame will store the discs belonging to the maximum independent set (MIS)
+        self._mis_df = pd.DataFrame()
 
     def enumeration(self):
         """
-        Counts the minimum sets of discs to cover all pings without overlap.
-        The number of sets is the number of anycast sites.
+        Finds a maximum independent set of non-overlapping discs using a greedy algorithm.
+        The number of discs in the set is the number of anycast sites.
 
         Returns:
-            tuple: (number_of_discs_added, _discsMis instance)
+            tuple: (number_of_sites, mis_df) where mis_df is the DataFrame of chosen discs.
         """
-        number_of_discs = 0
-        discs_mis = self._discsMis
 
-        for ping, discs_set in self._orderDisc.items():
-            for disc in discs_set:
-                if not discs_mis.overlap(disc):
-                    number_of_discs += 1
-                    discs_mis.add(disc, False)
+        # Prepare the list of columns for the MIS DataFrame
+        mis_discs_list = []
 
-        return number_of_discs, discs_mis
+        # Iterate through each candidate disc (row), ordered by RTT
+        for _, candidate_disc in self._all_discs_df.iterrows():
+            is_overlapping = False
 
-    def geolocation(self, disc):
+            # If we have already selected some discs, check for overlap
+            if not mis_discs_list == []:
+                # Create a DataFrame from the list of selected discs for vectorized calculation
+                current_mis_df = pd.DataFrame(mis_discs_list)
+
+                # Calculate distance from the candidate to ALL selected discs at once
+                distances = haversine(
+                    candidate_disc['lat_rad'],
+                    candidate_disc['lon_rad'],
+                    current_mis_df
+                )
+
+                # The sum of radii for the check
+                sum_of_radii = candidate_disc['radius'] + current_mis_df['radius']
+
+                # Check if ANY distance is less than the sum of radii
+                if (distances <= sum_of_radii).any():
+                    is_overlapping = True
+
+            # If it doesn't overlap with any disc in our set, add it
+            if not is_overlapping:
+                mis_discs_list.append(candidate_disc)
+
+        self._mis_df = pd.DataFrame(mis_discs_list).reset_index(drop=True)
+
+        return len(self._mis_df), self._mis_df
+
+    def geolocation(self, disc_series):
         """
-        For a given disc, find the best matching airport inside the disc radius.
-        First, it finds all airports within the disc radius.
-        Next, it finds the best matching airport based on the population and distance from the disc center.
+        For a given disc (as a Pandas Series), find the best matching airport inside its radius.
 
         Args:
-            disc: The disc object.
+            disc_series (pd.Series): A row from a DataFrame representing a single disc.
+                                     Must include 'lat_rad', 'lon_rad', and 'radius'.
 
         Returns:
-            The output of geolocateCircle with airports inside the disc.
+            list or bool: A list with the best airport's details, or False if no airport is found.
         """
-        radius = disc.getRadius()
-        # calculate the haversine distance from the disc center to each airport
-        self._airports['dist_from_disc_center'] = self._airports.apply(
-            lambda row: disc.haversine_distance(row['latitude'], row['longitude']),
-            axis=1
+        radius = disc_series['radius']
+
+        # Calculate haversine distance from the disc center to ALL airports in a vectorized way
+        self._airports['dist_from_disc_center'] = haversine(
+            disc_series['lat_rad'],
+            disc_series['lon_rad'],
+            self._airports
         )
-        # filter on airports within the radius
+
+        # Filter on airports within the radius
         airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius].copy()
 
         if airports_inside_disk.empty:
-            return False # no airports within the disc radius
+            return False  # No airports within the disc radius
 
-        # calculate population score
-        total_pop = airports_inside_disk['population'].sum()
-        airports_inside_disk['pop_score'] = airports_inside_disk['population'] / total_pop
+        # Calculate scores
+        total_pop = airports_inside_disk['pop'].sum()
+        if total_pop > 0:
+            airports_inside_disk['pop_score'] = airports_inside_disk['pop'] / total_pop
+        else:
+            airports_inside_disk['pop_score'] = 0
 
-        # calculate distance score
         total_distance = airports_inside_disk['dist_from_disc_center'].sum()
-        airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance
-        airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] + (1 - self.alpha) * airports_inside_disk['dist_score']
 
-        # get chosen airport with the highest score
-        best_airport_iata = airports_inside_disk['score'].idxmax()
-        chosen_airport = airports_inside_disk.loc[best_airport_iata]
+        if total_distance > 0:
+            airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance
+        else:
+            airports_inside_disk['dist_score'] = 0
+
+        airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] - (1 - self.alpha) * \
+                                        airports_inside_disk['dist_score']
+
+        # Get chosen airport with the highest score
+        best_airport_row = airports_inside_disk.loc[airports_inside_disk['score'].idxmax()]
 
         return [
-            best_airport_iata,
-            chosen_airport['latitude'],
-            chosen_airport['longitude'],
-            chosen_airport['city'],
-            chosen_airport['country_code']
+            best_airport_row.name, # IATA code
+            best_airport_row['lat'],
+            best_airport_row['lon'],
+            best_airport_row['city'],
+            best_airport_row['country_code']
         ]
-###
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="iGreedy: Geolocation with population-distance tradeoff (STRIPPED VERSION)",
+        description="iGreedy: Geolocation with population-distance tradeoff",
         formatter_class=argparse.RawTextHelpFormatter
     )
 
@@ -244,17 +203,17 @@ def get_airports(path=""):
     )
 
     # clean columns
-    airports_df[['latitude', 'longitude']] = airports_df['lat_lon'].str.split(expand=True)
-    airports_df[['population', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
+    airports_df[['lat', 'lon']] = airports_df['lat_lon'].str.split(expand=True)
+    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
 
     # remove unnecessary columns
     airports_df.drop(columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'], inplace=True)
 
     # data types
     convert_dict = {
-        'latitude': float,
-        'longitude': float,
-        'population': int
+        'lat': np.float32,
+        'lon': np.float32,
+        'pop': int
     }
     airports_df = airports_df.astype(convert_dict)
 
@@ -262,77 +221,110 @@ def get_airports(path=""):
     airports_df.set_index('iata', inplace=True)
 
     # convert latitude and longitude to radians for geolocation calculations
-    airports_df['latitude'] = np.radians(airports_df['latitude'])
-    airports_df['longitude'] = np.radians(airports_df['longitude'])
+    airports_df['lat_rad'] = np.radians(airports_df['lat'])
+    airports_df['lon_rad'] = np.radians(airports_df['lon'])
 
     return airports_df
 
-def analyze(in_df, alpha, airports_df):
+
+def analyze_df(in_df, alpha, airports_df):
     """
-    Routine to iteratively enumerate and geolocate anycast instances.
-    Returns DateFrame with results
+    Routine to iteratively enumerate and geolocate anycast instances using a
+    DataFrame-based approach. This version corrects for multiple VPs mapping to the same airport.
+
+    Args:
+        in_df (pd.DataFrame): The input measurements.
+        alpha (float): The weighting factor for geolocation scoring.
+        airports_df (pd.DataFrame): DataFrame of airport data.
+
+    Returns:
+        pd.DataFrame: A DataFrame containing the geolocated results, or None if
+                      the input is considered unicast.
     """
-    anycast = Anycast(in_df, airports_df, alpha)
+    anycast = AnycastDF(in_df, airports_df, alpha)
+    anycast._all_discs_df['processed'] = False
 
-    radiusGeolocated = 0.1
-    iteration = True
-    rows = []  # collect results as dicts
+    radius_geolocated = np.float32(0.1)
+    results_rows = []
 
-    enumeration_count = 0
-    while iteration is True:
+    # Avoid duplicate airports being geolocated
+    chosen_airports = set()
 
-        iteration = False
-        resultEnumeration = anycast.enumeration()
+    should_iterate = True
+    while should_iterate:
+        should_iterate = False
 
-        enumeration_count += resultEnumeration[0]
-        if enumeration_count <= 1:  # unicast
+        num_sites, mis_df = anycast.enumeration()
+
+        if num_sites <= 1:
             return None
 
-        for radius, discList in resultEnumeration[1].getOrderedDisc().items():  # anycast
-            for disc in discList:
-                if not disc[1]:  # if the disc was not geolocated before, geolocate it!
-                    resultEnumeration[1].removeDisc(disc)  # remove old disc from MIS
-                    city = anycast.geolocation(disc[0])  # result geolocation
+        # Iterate through the discs in the current MIS, using original index to access master df
+        for index, disc_row in mis_df.iterrows():
 
-                    if city is not False:  # if there is a city inside the disc
-                        iteration = True  # geolocated one disc, re-run enumeration!
-                        rows.append({
-                            "target": in_df['target'].iloc[0],
-                            "vp": disc[0].getHostname(),
-                            "vp_lat": np.degrees(disc[0].getLatitude()),
-                            "vp_lon": np.degrees(disc[0].getLongitude()),
-                            "radius": disc[0].getRadius(),
-                            "pop_iata": city[0],
-                            "pop_lat": np.degrees(city[1]),
-                            "pop_lon": np.degrees(city[2]),
-                            "pop_city": city[3],
-                            "pop_cc": city[4]
-                        })
-                        resultEnumeration[1].add(
-                            Disc("Geolocated", float(city[1]), float(city[2]), radiusGeolocated),
-                            True
-                        )  # insert the new disc in the MIS
-                        break  # exit for rerun MIS
-                    else:
-                        resultEnumeration[1].add(disc[0], True)  # insert the old disc in the MIS
-                        rows.append({
-                            "target": in_df['target'].iloc[0],
-                            "vp": disc[0].getHostname(),
-                            "vp_lat": np.degrees(disc[0].getLatitude()),
-                            "vp_lon": np.degrees(disc[0].getLongitude()),
-                            "radius": disc[0].getRadius(),
-                            "pop_iata": "NoCity",
-                            "pop_lat": np.degrees(disc[0].getLatitude()),
-                            "pop_lon": np.degrees(disc[0].getLongitude()),
-                            "pop_city": "N/A",
-                            "pop_cc": "N/A"
-                        })
+            # Use the original index of the disc to check its 'processed' status
+            original_index = disc_row.name
+            if not anycast._all_discs_df.loc[original_index, 'processed']:
 
-            if iteration:
-                break
+                geolocation_result = anycast.geolocation(disc_row)
 
-    return pd.DataFrame(rows)
+                if geolocation_result:
+                    iata = geolocation_result[0]
 
+                    if iata in chosen_airports:
+                        # This airport was already identified by a lower-RTT disc.
+                        anycast._all_discs_df.loc[original_index, 'processed'] = True
+                        continue
+
+                    chosen_airports.add(iata)
+                    should_iterate = True
+
+                    _, lat, lon, city, cc = geolocation_result
+
+                    results_rows.append({
+                        "target": in_df['target'].iloc[0],
+                        "vp": disc_row['hostname'],
+                        "vp_lat": disc_row['lat'],
+                        "vp_lon": disc_row['lon'],
+                        "radius": disc_row['radius'],
+                        "pop_iata": iata,
+                        "pop_lat": lat,
+                        "pop_lon": lon,
+                        "pop_city": city,
+                        "pop_cc": cc
+                    })
+
+                    master_df = anycast._all_discs_df
+                    master_df.loc[original_index, 'lat_rad'] = np.radians(lat)
+                    master_df.loc[original_index, 'lon_rad'] = np.radians(lon)
+                    master_df.loc[original_index, 'radius'] = radius_geolocated
+                    master_df.loc[original_index, 'processed'] = True
+
+                    break  # Break inner 'for' loop to re-run enumeration
+
+                else:  # Geolocation failed (NoCity)
+                    anycast._all_discs_df.loc[original_index, 'processed'] = True
+
+                    results_rows.append({
+                        "target": in_df['target'].iloc[0],
+                        "vp": disc_row['hostname'],
+                        "vp_lat": disc_row['lat'],
+                        "vp_lon": disc_row['lon'],
+                        "radius": disc_row['radius'],
+                        "pop_iata": "NoCity",
+                        "pop_lat": disc_row['lat'],
+                        "pop_lon": disc_row['lon'],
+                        "pop_city": "N/A",
+                        "pop_cc": "N/A"
+                    })
+
+        if should_iterate:
+            continue
+
+    if not results_rows:
+        return None
+
+    return pd.DataFrame(results_rows)
 
 def main(split_dfs, outfile, alpha):
     """
@@ -349,7 +341,7 @@ def main(split_dfs, outfile, alpha):
     # perform analysis for each target
     for split_df in split_dfs:
         # run the iGreedy algorithm on the split DataFrame
-        discsSolution = analyze(split_df, alpha, airports_df)
+        discsSolution = analyze_df(split_df, alpha, airports_df)
 
         # Only return results if they are anycast (more than 1 instance)
         if discsSolution is not None:
@@ -401,12 +393,12 @@ if __name__ == "__main__":
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
 
-    # Convert lat,lon to radians for consistency
-    in_df['lat'] = in_df['lat'].apply(radians)
-    in_df['lon'] = in_df['lon'].apply(radians)
+    # Get lat/lon in radians for haversine calculations
+    in_df['lat_rad'] = in_df['lat'].apply(radians)
+    in_df['lon_rad'] = in_df['lon'].apply(radians)
 
     # Calculate the radius in km based on the RTT
-    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km TODO save as int?
+    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
 
     # create a dictionary of DataFrames, one for each target
     split_dfs = [group for _, group in in_df.groupby("target")]
