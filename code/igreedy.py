@@ -1,22 +1,23 @@
 #!/usr/bin/env python
+import argparse
 import os
 import sys
-from pathlib import Path
-from math import radians
 from functools import partial
+from multiprocessing import Pool
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from math import radians
 from tqdm import tqdm
-from multiprocessing import Pool
-import argparse
 
 from anycast import AnycastDF
 
 FIBER_RI = 1.52
-SPEED_OF_LIGHT = 299792.458 # km/s
+SPEED_OF_LIGHT = 299792.458  # km/s
 
 pd.options.mode.copy_on_write = True
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -50,6 +51,7 @@ def parse_args():
 
     return parser.parse_args()
 
+
 def get_airports(path=""):
     if path == "":
         path = os.path.join(os.path.dirname(__file__), '../datasets/airports.csv')
@@ -67,10 +69,13 @@ def get_airports(path=""):
 
     # clean columns
     airports_df[['lat', 'lon']] = airports_df['lat_lon'].str.split(expand=True)
-    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(expand=True)
+    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(
+        expand=True)
 
     # remove unnecessary columns
-    airports_df.drop(columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'], inplace=True)
+    airports_df.drop(
+        columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'],
+        inplace=True)
 
     # data types
     convert_dict = {
@@ -189,6 +194,7 @@ def analyze_df(in_df, alpha, airports_df):
 
     return pd.DataFrame(results_rows)
 
+
 def process_group(group_tuple, alpha, airports_df):
     """
     Wrapper to be used with pool.imap_unordered.
@@ -196,6 +202,7 @@ def process_group(group_tuple, alpha, airports_df):
     """
     target_name, group_df = group_tuple
     return analyze_df(group_df, alpha, airports_df)
+
 
 def main(in_df, outfile, alpha):
     """
@@ -209,7 +216,8 @@ def main(in_df, outfile, alpha):
     airports_df = get_airports()  # Load airports data
 
     num_targets = in_df['target'].nunique()
-    print(f"Starting parallel processing for {num_targets} targets using available CPU cores...")    # create a partial function with fixed alpha and airports_df
+    print(
+        f"Starting parallel processing for {num_targets} targets using available CPU cores...")  # create a partial function with fixed alpha and airports_df
     worker_func = partial(process_group, alpha=alpha, airports_df=airports_df)
 
     final_results = []
@@ -248,7 +256,7 @@ if __name__ == "__main__":
 
     in_df = pd.read_csv(
         args.input,
-        skiprows=1, # skip header
+        skiprows=1,  # skip header
         names=columns,
         dtype=column_types
     )
@@ -262,7 +270,6 @@ if __name__ == "__main__":
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
-
 
     print("Adding calculated fields...")
     # Get lat/lon in radians for haversine calculations
