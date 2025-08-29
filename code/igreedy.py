@@ -297,6 +297,7 @@ def analyze(in_df, alpha, airports_df):
                     if city is not False:  # if there is a city inside the disc
                         iteration = True  # geolocated one disc, re-run enumeration!
                         rows.append({
+                            "target": in_df['target'].iloc[0],
                             "vp": disc[0].getHostname(),
                             "vp_lat": np.degrees(disc[0].getLatitude()),
                             "vp_lon": np.degrees(disc[0].getLongitude()),
@@ -315,6 +316,7 @@ def analyze(in_df, alpha, airports_df):
                     else:
                         resultEnumeration[1].add(disc[0], True)  # insert the old disc in the MIS
                         rows.append({
+                            "target": in_df['target'].iloc[0],
                             "vp": disc[0].getHostname(),
                             "vp_lat": np.degrees(disc[0].getLatitude()),
                             "vp_lon": np.degrees(disc[0].getLongitude()),
