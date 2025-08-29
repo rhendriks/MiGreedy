@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import csv
 import os
 import sys
 from functools import partial
@@ -206,7 +207,7 @@ def process_group(group_tuple, alpha, airports_df):
 
 def main(in_df, outfile, alpha):
     """
-    Main function to process all targets in parallel.
+    Main function to process all targets in parallel and write results to a file (live).
 
     Args:
         in_df (pd.DataFrame): The complete input DataFrame containing all targets.
@@ -222,24 +223,33 @@ def main(in_df, outfile, alpha):
 
     final_results = []
 
-    # create a pool for the worker processes
-    with Pool() as pool:
-        # distribute the work and collect results with a progress bar
-        results_iterator = pool.imap_unordered(worker_func, in_df.groupby('target'))
+    with open(outfile, 'w', newline='') as f:
+        # Define the header based on your analyze_df output
+        header = [
+            "target", "vp", "vp_lat", "vp_lon", "radius", "pop_iata",
+            "pop_lat", "pop_lon", "pop_city", "pop_cc"
+        ]
 
-        # iterate through results with tqdm progress bar
-        for result_df in tqdm(results_iterator, total=num_targets):
-            if result_df is not None:
-                final_results.append(result_df)
+        writer = csv.DictWriter(f, fieldnames=header, delimiter='\t')
+        writer.writeheader()
 
-    # After the loop, concatenate all DataFrames
-    if final_results:
-        print(f"\nFound anycast results for {len(final_results)} targets. Concatenating and saving...")
-        final_df = pd.concat(final_results, ignore_index=True)
-        final_df.to_csv(outfile, index=False, sep='\t')
-        print(f"Results successfully saved to '{outfile}'.")
-    else:
-        print("\nNo valid anycast results were found to output.")
+        # Pool of worker processes
+        with Pool() as pool:
+            # Get chunks of results
+            chunksize = 500
+            results_iterator = pool.imap_unordered(
+                worker_func,
+                in_df.groupby('target'),
+                chunksize=chunksize
+            )
+
+            # Write results as they come in
+            for result_df in tqdm(results_iterator, total=num_targets):
+                if result_df is not None and not result_df.empty:
+                    for record in result_df.to_dict('records'):
+                        writer.writerow(record)
+
+    print(f"Results successfully saved to '{outfile}'.")
 
 
 if __name__ == "__main__":
