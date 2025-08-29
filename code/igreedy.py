@@ -10,6 +10,10 @@ import pandas as pd
 
 import argparse
 
+from multiprocessing import Pool
+from functools import partial
+from tqdm import tqdm
+
 # Radius of Earth in kilometers (mean radius)
 EARTH_RADIUS_KM = 6371.0
 FIBER_RI = 1.52
@@ -331,29 +335,27 @@ def main(split_dfs, outfile, alpha):
     Main function to process multiple targets and save results to a file.
     """
     num_targets = len(split_dfs)
-    processed_targets = 0
-    df_list = []
 
     airports_df = get_airports()  # Load airports data
 
     print(f"Starting parallel processing for {num_targets} targets...")
+    # create a partial function with fixed alpha and airports_df
+    worker_func = partial(analyze_df, alpha=alpha, airports_df=airports_df)
 
-    # perform analysis for each target
-    for split_df in split_dfs:
-        # run the iGreedy algorithm on the split DataFrame
-        discsSolution = analyze_df(split_df, alpha, airports_df)
+    # create a pool for the worker processes
+    with Pool() as pool:
+        # distribute the work and collect results with a progress bar
+        results_list = list(tqdm(pool.map(worker_func, split_dfs), total=num_targets))
 
-        # Only return results if they are anycast (more than 1 instance)
-        if discsSolution is not None:
-            df_list.append(discsSolution)
-
-        processed_targets += 1
-        print(f"Progress: {processed_targets}/{num_targets}", end="\r")
+    # filter out None results
+    final_results = [df for df in results_list if df is not None]
 
     # After the loop, concatenate all DataFrames
-    if df_list:
-        final_df = pd.concat(df_list, ignore_index=True)
+    if final_results:
+        print(f"\nFound anycast results for {len(final_results)} targets. Concatenating and saving...")
+        final_df = pd.concat(final_results, ignore_index=True)
         final_df.to_csv(outfile, index=False, sep='\t')
+        print(f"Results successfully saved to '{outfile}'.")
     else:
         print("\nNo valid anycast results were found to output.")
 
