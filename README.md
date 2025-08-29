@@ -39,6 +39,66 @@ The goal of this implementation is to reduce processing time for [large-scale an
 It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
 outputting a single file with geolocation results.
 
+---
+
+## Running with Docker
+
+The code can be ran using Docker.
+
+### Step 1: Pull the Docker Image
+
+Pull the latest pre-built image from the GitHub Container Registry:
+
+```bash
+docker pull ghcr.io/rhendriks/igreedy:latest
+```
+
+### Step 2: Prepare Your Data Directory
+
+You need a local directory containing your input CSV file (e.g., `measurements.csv`).
+This directory will be mounted into the Docker container.
+
+```bash
+# Example: Create a directory and move your data into it
+mkdir igreedy_data
+mv measurements.csv igreedy_data/
+```
+
+### Step 3: Run the Script
+
+Execute the `docker run` command, which mounts your data directory into the container's `/app/data` directory. The script then reads from and writes to this folder.
+
+The command below will:
+*   Run the container and automatically remove it once it's finished (`--rm`).
+*   Mount your current working directory's `igreedy_data` subfolder to `/app/data` inside the container (`-v`).
+*   Execute the iGreedy script with the correct paths *inside the container*.
+
+```bash
+# For Linux / macOS
+docker run --rm \
+  -v "$(pwd)"/igreedy_data:/app/data \
+  ghcr.io/rhendriks/igreedy:latest \
+  -i /app/data/measurements.csv \
+  -o /app/data/results.csv \
+  -a 0.8
+```
+
+```bash
+# For Windows (Command Prompt)
+docker run --rm ^
+  -v "%cd%\igreedy_data":/app/data ^
+  ghcr.io/rhendriks/igreedy:latest ^
+  -i /app/data/measurements.csv ^
+  -o /app/data/results.csv ^
+  -a 0.8
+```
+
+### Step 4: Results
+
+After the command finishes, the output file (`results.csv`) will appear in your local `igreedy_data` directory.
+
+---
+
 ## Installation
 
 1.  Clone this repository:
@@ -105,6 +165,8 @@ The output CSV file will have a header and contain the following columns:
 | `pop_lon` | The longitude of the geolocated airport. |
 | `pop_city` | The city of the geolocated airport. |
 | `pop_cc` | The country code of the geolocated airport. |
+
+---
 
 ## Author
 
