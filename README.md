@@ -28,7 +28,7 @@
 |    ,-----"-..?----_/ )      / ___ \| | | | |_| | (_| (_| \__ \ |_ _ |
 |.._(                  `----'/_/   \_\_| |_|\__, |\___\__,_|___/\__| -|
 +90S-+-----+-----+-----+-----+-----+-----+--___/ /--+-----+-----+-----+
-     Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/  
+     Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/
 </pre>
 
 This repository contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
