@@ -241,8 +241,10 @@ def main(in_df, outfile, alpha):
                 chunksize=chunksize
             )
 
+            bar_format = "{l_bar}{bar} | {n:,}/{total:,} [{elapsed}<{remaining}, {rate_fmt}{postfix}]"
+
             # Write results as they come in
-            for result_df in tqdm(results_iterator, total=num_targets):
+            for result_df in tqdm(results_iterator, total=num_targets, bar_format=bar_format):
                 if result_df is not None and not result_df.empty:
                     for record in result_df.to_dict('records'):
                         writer.writerow(record)
