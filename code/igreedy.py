@@ -279,6 +279,7 @@ if __name__ == "__main__":
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
+        print(f"Applied RTT threshold filter: {args.threshold} ms. Records after filtering: {len(in_df)}")
 
     print("Adding calculated fields...")
     # Get lat/lon in radians for haversine calculations
