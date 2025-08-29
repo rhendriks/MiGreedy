@@ -51,7 +51,6 @@ outputting a single file with geolocation results.
     ```bash
     pip install -r requirements.txt
     ```
-    *(Note: You should create a `requirements.txt` file by running `pip freeze > requirements.txt` in your development environment).*
 
 ## Usage
 
