@@ -9,38 +9,52 @@ from math import radians
 import pandas as pd
 
 import argparse
+import math
+
 
 from multiprocessing import Pool
 from functools import partial
 from tqdm import tqdm
 
-# Radius of Earth in kilometers (mean radius)
-EARTH_RADIUS_KM = 6371.0
+EARTH_RADIUS_KM = 6371.0 # earth radius
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
 
 
+import math
+
 def haversine(lat1_rad, lon1_rad, other_df):
     """
     Calculates the great-circle distance from a single point to a DataFrame of other points.
+    TODO replace math with numpy for speed, once the numpy ufunc issue is resolved.
 
     Args:
-        lat1_rad (float): Latitude of the single point in radians.
-        lon1_rad (float): Longitude of the single point in radians.
+        lat1_rad (float or np.float32): Latitude of the single point in radians.
+        lon1_rad (float or np.float32): Longitude of the single point in radians.
         other_df (pd.DataFrame): A DataFrame containing 'lat_rad' and 'lon_rad' columns.
 
     Returns:
         pd.Series: A Series of distances in kilometers.
     """
-    dlon = other_df['lon_rad'] - lon1_rad
-    dlat = other_df['lat_rad'] - lat1_rad
+    def calculate_single_distance(row):
+        # Force all inputs into native Python floats for absolute type safety.
+        lat1 = float(lat1_rad)
+        lon1 = float(lon1_rad)
+        lat2 = float(row['lat_rad'])
+        lon2 = float(row['lon_rad'])
 
-    a = np.sin(dlat / 2) ** 2 + np.cos(lat1_rad) * np.cos(other_df['lat_rad']) * np.sin(dlon / 2) ** 2
-    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1 - a))
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
 
-    distances = EARTH_RADIUS_KM * c
-    return distances
+        a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance = EARTH_RADIUS_KM * c
+        return distance
 
+    if other_df.empty:
+        return pd.Series(dtype=np.float64) # Handle empty dataframe case
+
+    return other_df.apply(calculate_single_distance, axis=1)
 
 class AnycastDF(object):
     def __init__(self, in_df, airports, alpha):
@@ -70,39 +84,29 @@ class AnycastDF(object):
         Returns:
             tuple: (number_of_sites, mis_df) where mis_df is the DataFrame of chosen discs.
         """
+        # Start with an empty MIS DataFrame with the same columns and types as _all_discs_df.
+        mis_df = pd.DataFrame(columns=self._all_discs_df.columns).astype(self._all_discs_df.dtypes)
 
-        # Prepare the list of columns for the MIS DataFrame
-        mis_discs_list = []
-
-        # Iterate through each candidate disc (row), ordered by RTT
-        for _, candidate_disc in self._all_discs_df.iterrows():
+        # Iterate through each candidate disc in _all_discs_df.
+        for index, candidate_disc in self._all_discs_df.iterrows():
             is_overlapping = False
 
-            # If we have already selected some discs, check for overlap
-            if not mis_discs_list == []:
-                # Create a DataFrame from the list of selected discs for vectorized calculation
-                current_mis_df = pd.DataFrame(mis_discs_list)
-
-                # Calculate distance from the candidate to ALL selected discs at once
+            # Check for overlap against the MIS DataFrame directly, if it's not empty.
+            if not mis_df.empty:
                 distances = haversine(
                     candidate_disc['lat_rad'],
                     candidate_disc['lon_rad'],
-                    current_mis_df
+                    mis_df
                 )
+                sum_of_radii = candidate_disc['radius'] + mis_df['radius']
 
-                # The sum of radii for the check
-                sum_of_radii = candidate_disc['radius'] + current_mis_df['radius']
-
-                # Check if ANY distance is less than the sum of radii
                 if (distances <= sum_of_radii).any():
                     is_overlapping = True
 
-            # If it doesn't overlap with any disc in our set, add it
             if not is_overlapping:
-                mis_discs_list.append(candidate_disc)
+                mis_df.loc[index] = candidate_disc
 
-        self._mis_df = pd.DataFrame(mis_discs_list).reset_index(drop=True)
-
+        self._mis_df = mis_df
         return len(self._mis_df), self._mis_df
 
     def geolocation(self, disc_series):
@@ -330,25 +334,40 @@ def analyze_df(in_df, alpha, airports_df):
 
     return pd.DataFrame(results_rows)
 
-def main(split_dfs, outfile, alpha):
+def process_group(group_tuple, alpha, airports_df):
     """
-    Main function to process multiple targets and save results to a file.
+    Wrapper to be used with pool.imap_unordered.
+    It unpacks the (name, group_df) tuple yielded by df.groupby().
     """
-    num_targets = len(split_dfs)
+    target_name, group_df = group_tuple
+    return analyze_df(group_df, alpha, airports_df)
 
+def main(in_df, outfile, alpha):
+    """
+    Main function to process all targets in parallel.
+
+    Args:
+        in_df (pd.DataFrame): The complete input DataFrame containing all targets.
+        outfile (str): Path to the output CSV file.
+        alpha (float): The alpha parameter for the analysis.
+    """
     airports_df = get_airports()  # Load airports data
 
-    print(f"Starting parallel processing for {num_targets} targets...")
-    # create a partial function with fixed alpha and airports_df
-    worker_func = partial(analyze_df, alpha=alpha, airports_df=airports_df)
+    num_targets = in_df['target'].nunique()
+    print(f"Starting parallel processing for {num_targets} targets using available CPU cores...")    # create a partial function with fixed alpha and airports_df
+    worker_func = partial(process_group, alpha=alpha, airports_df=airports_df)
+
+    final_results = []
 
     # create a pool for the worker processes
     with Pool() as pool:
         # distribute the work and collect results with a progress bar
-        results_list = list(tqdm(pool.map(worker_func, split_dfs), total=num_targets))
+        results_iterator = pool.imap_unordered(worker_func, in_df.groupby('target'))
 
-    # filter out None results
-    final_results = [df for df in results_list if df is not None]
+        # iterate through results with tqdm progress bar
+        for result_df in tqdm(results_iterator, total=num_targets):
+            if result_df is not None:
+                final_results.append(result_df)
 
     # After the loop, concatenate all DataFrames
     if final_results:
@@ -381,29 +400,21 @@ if __name__ == "__main__":
 
     print(f"Input file '{args.input}' loaded. Total records: {len(in_df)}")
 
-    print(in_df.head())
     if in_df.empty:
         print("ERROR: Input file is empty or improperly formatted.")
         sys.exit(1)
-
-    # temporary RTT filter for testing
-    in_df = in_df[in_df['rtt'] < 20]
-
-    print(f"Records after temporary RTT filter (<20ms): {len(in_df)}")
 
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
 
+
+    print("Adding calculated fields...")
     # Get lat/lon in radians for haversine calculations
     in_df['lat_rad'] = in_df['lat'].apply(radians)
     in_df['lon_rad'] = in_df['lon'].apply(radians)
-
     # Calculate the radius in km based on the RTT
     in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
-
-    # create a dictionary of DataFrames, one for each target
-    split_dfs = [group for _, group in in_df.groupby("target")]
 
     output_loc = Path(args.output)
     output_dir = output_loc.parent
@@ -438,4 +449,4 @@ if __name__ == "__main__":
     num_targets = in_df['target'].nunique()
     print("Processed files (running iGreedy on this many targets): ", num_targets)
 
-    main(split_dfs, args.output, args.alpha)
+    main(in_df, args.output, args.alpha)
