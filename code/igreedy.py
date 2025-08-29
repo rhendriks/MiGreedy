@@ -9,8 +9,6 @@ from math import radians
 import pandas as pd
 
 import argparse
-import math
-
 
 from multiprocessing import Pool
 from functools import partial
@@ -19,6 +17,8 @@ from tqdm import tqdm
 EARTH_RADIUS_KM = 6371.0 # earth radius
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
+
+pd.options.mode.copy_on_write = True
 
 def haversine(lat1_rad, lon1_rad, other_df):
     """
@@ -108,9 +108,12 @@ class AnycastDF(object):
         self._mis_df = mis_df
         return len(self._mis_df), self._mis_df
 
+        # In: class AnycastDF(object):
+
     def geolocation(self, disc_series):
         """
         For a given disc (as a Pandas Series), find the best matching airport inside its radius.
+        This version is optimized with a geospatial pre-filtering step.
 
         Args:
             disc_series (pd.Series): A row from a DataFrame representing a single disc.
@@ -120,21 +123,43 @@ class AnycastDF(object):
             list or bool: A list with the best airport's details, or False if no airport is found.
         """
         radius = disc_series['radius']
+        center_lat_rad = disc_series['lat_rad']
+        center_lon_rad = disc_series['lon_rad']
 
-        # Calculate haversine distance from the disc center to ALL airports in a vectorized way
-        self._airports['dist_from_disc_center'] = haversine(
-            disc_series['lat_rad'],
-            disc_series['lon_rad'],
-            self._airports
+        # create bounding box around the disc center
+        delta_lat_rad = radius / EARTH_RADIUS_KM
+        min_lat_rad = center_lat_rad - delta_lat_rad
+        max_lat_rad = center_lat_rad + delta_lat_rad
+        delta_lon_rad = radius / (EARTH_RADIUS_KM * np.cos(center_lat_rad))
+
+        min_lon_rad = center_lon_rad - delta_lon_rad
+        max_lon_rad = center_lon_rad + delta_lon_rad
+
+        # filter on airports within the bounding box
+        candidate_airports = self._airports[
+            (self._airports['lat_rad'] >= min_lat_rad) &
+            (self._airports['lat_rad'] <= max_lat_rad) &
+            (self._airports['lon_rad'] >= min_lon_rad) &
+            (self._airports['lon_rad'] <= max_lon_rad)
+            ].copy()
+
+        if candidate_airports.empty:
+            return False  # No airports even in the rough vicinity.
+
+        # calculate distance from disc center to each candidate airport
+        candidate_airports['dist_from_disc_center'] = haversine(
+            center_lat_rad,
+            center_lon_rad,
+            candidate_airports
         )
 
-        # Filter on airports within the radius
-        airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius].copy()
+        # get airports within the disc radius
+        airports_inside_disk = candidate_airports[candidate_airports['dist_from_disc_center'] <= radius].copy()
 
         if airports_inside_disk.empty:
             return False  # No airports within the disc radius
 
-        # Calculate scores
+        # calculate population and distance scores
         total_pop = airports_inside_disk['pop'].sum()
         if total_pop > 0:
             airports_inside_disk['pop_score'] = airports_inside_disk['pop'] / total_pop
@@ -151,11 +176,11 @@ class AnycastDF(object):
         airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] - (1 - self.alpha) * \
                                         airports_inside_disk['dist_score']
 
-        # Get chosen airport with the highest score
+        # select the airport with the highest score
         best_airport_row = airports_inside_disk.loc[airports_inside_disk['score'].idxmax()]
 
         return [
-            best_airport_row.name, # IATA code
+            best_airport_row.name,  # IATA code
             best_airport_row['lat'],
             best_airport_row['lon'],
             best_airport_row['city'],
