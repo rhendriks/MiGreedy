@@ -268,6 +268,8 @@ def main(in_df, outfile, alpha):
 
     print(f"Starting parallel processing for {num_targets} targets across {num_chunks} chunks...")
 
+    num_processes = os.cpu_count() or 4
+
     with open(outfile, 'w', newline='') as f:
         # Define the header based on your analyze_df output
         header = [
