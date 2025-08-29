@@ -5,6 +5,8 @@ import time
 import socket
 import RIPEAtlas
 
+# TODO adapt code
+
 class Measurement(object):
     def __init__(self, ip,ripeProbes=None):
 

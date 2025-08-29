@@ -25,6 +25,9 @@ maximum_time_for_results_factor = 5
 # "long enough". The time to wait is not documented so the values
 # above have been found mostly with trial-and-error.
 
+# TODO adapt code
+
+
 class AuthFileNotFound(Exception):
     pass
 
