@@ -33,6 +33,7 @@
 
 [This repository](https://github.com/rhendriks/MiGreedy) contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
 originally developed by [Cicalsese et al.](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
+that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
 
 The goal of this implementation is to reduce processing time for [large-scale anycast censuses](github.com/anycast-census/anycast-census).
 It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
