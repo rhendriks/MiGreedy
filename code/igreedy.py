@@ -1,12 +1,8 @@
 #!/usr/bin/env python
-import csv
 import os.path
 import sys
 from pathlib import Path
 import numpy as np
-
-from anycast import Anycast
-from disc import *
 
 from functools import partial
 from math import radians
@@ -15,11 +11,199 @@ from multiprocessing import Pool
 import pandas as pd
 
 import argparse
+import collections
+import math
+
 
 # Radius of Earth in kilometers (mean radius)
 EARTH_RADIUS = 6371.0
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
+
+
+### Disc class
+class Disc(object):
+    def __init__(self, hostname, latitude, longitude, radius):
+        self._radius = radius
+        self._hostname = hostname
+        self._latitude = latitude
+        self._longitude = longitude
+
+    def getHostname(self):
+        return self._hostname
+
+    def getLatitude(self):
+        return self._latitude
+
+    def getLongitude(self):
+        return self._longitude
+
+    def getRadius(self):
+        return self._radius
+
+    def overlap(self, other):
+        """
+        Two discs overlap if the distance between their centers is lower than
+        the sum of their radius.
+        """
+
+        return (self.haversine_distance(other._latitude, other._longitude)) <= (self.getRadius() + other.getRadius())
+
+    def haversine_distance(self, lat2: float, lon2: float) -> float:
+        """
+        Calculate the great-circle distance between this disc and another point.
+
+        Args:
+            lat2 (float): Latitude of the other point in radians.
+            lon2 (float): Longitude of the other point in radians.
+
+        Returns:
+            float: Distance between points in kilometers.
+        """
+
+        lat1 = self._latitude
+        lon1 = self._longitude
+
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+
+        cos_lat1 = math.cos(lat1)
+        cos_lat2 = math.cos(lat2)
+
+        a = (math.sin(dlat / 2) ** 2 +
+             cos_lat1 * cos_lat2 * math.sin(dlon / 2) ** 2)
+
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        distance = EARTH_RADIUS * c
+
+        return distance
+
+    def __str__(self):
+        return "%s\t%s\t%s\t%s\n" % (self._hostname, self._latitude, self._longitude, self._radius)
+
+
+class Discs(object):
+
+    def __init__(self):
+        self._setDisc = {}
+        self._orderDisc = collections.OrderedDict()
+
+    def getDiscs(self):
+        return self._setDisc
+
+    def removeDisc(self, disc):
+        self._setDisc[disc[0].getRadius()].remove(disc)
+
+    def overlap(self, other) -> bool:
+        """
+        Check if any disc in the set overlaps with a given disc.
+
+        Args:
+            other: Another disc object to check overlap against.
+
+        Returns:
+            bool: True if there is any overlap, False otherwise.
+        """
+        return any(disc[0].overlap(other) for discs in self._setDisc.values() for disc in discs)
+
+    def add(self, disc, geolocated):
+        if self._setDisc.get(disc.getRadius()) is None:
+            self._setDisc[disc.getRadius()] = [(disc, geolocated)]
+        else:
+            self._setDisc[disc.getRadius()].append((disc, geolocated))
+
+    def getOrderedDisc(self):
+        self._orderDisc = collections.OrderedDict(sorted(self._setDisc.items()))
+        return self._orderDisc
+
+    def smallestDisc(self):
+        self._orderDisc = collections.OrderedDict(sorted(self._setDisc.items()))
+        return next(iter(self._orderDisc))
+###
+
+### Anycast class
+class Anycast(object):
+    def __init__(self, in_df, airports, alpha):
+        """
+        Initializes the object by processing an input DataFrame of network measurements.
+        """
+        self.alpha = float(alpha)
+        self._airports = airports
+        self._discsMis = Discs() # disc belong maximum independent set
+
+        # Create a disc for each row in the DataFrame.
+        grouped_discs = in_df.groupby('rtt').apply(
+            lambda g: [Disc(row.hostname, row.lat, row.lon, row.radius) for row in g.itertuples()],
+            include_groups=False
+        )
+
+        # A list of discs for each ping, sorted by RTT (lowest first).
+        self._orderDisc = collections.OrderedDict(grouped_discs.to_dict())
+
+    def enumeration(self):
+        """
+        Counts the minimum sets of discs to cover all pings without overlap.
+        The number of sets is the number of anycast sites.
+
+        Returns:
+            tuple: (number_of_discs_added, _discsMis instance)
+        """
+        number_of_discs = 0
+        discs_mis = self._discsMis
+
+        for ping, discs_set in self._orderDisc.items():
+            for disc in discs_set:
+                if not discs_mis.overlap(disc):
+                    number_of_discs += 1
+                    discs_mis.add(disc, False)
+
+        return number_of_discs, discs_mis
+
+    def geolocation(self, disc):
+        """
+        For a given disc, find the best matching airport inside the disc radius.
+        First, it finds all airports within the disc radius.
+        Next, it finds the best matching airport based on the population and distance from the disc center.
+
+        Args:
+            disc: The disc object.
+
+        Returns:
+            The output of geolocateCircle with airports inside the disc.
+        """
+        radius = disc.getRadius()
+        # calculate the haversine distance from the disc center to each airport
+        self._airports['dist_from_disc_center'] = self._airports.apply(
+            lambda row: disc.haversine_distance(row['latitude'], row['longitude']),
+            axis=1
+        )
+        # filter on airports within the radius
+        airports_inside_disk = self._airports[self._airports['dist_from_disc_center'] <= radius].copy()
+
+        if airports_inside_disk.empty:
+            return False # no airports within the disc radius
+
+        # calculate population score
+        total_pop = airports_inside_disk['population'].sum()
+        airports_inside_disk['pop_score'] = airports_inside_disk['population'] / total_pop
+
+        # calculate distance score
+        total_distance = airports_inside_disk['dist_from_disc_center'].sum()
+        airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance
+        airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] + (1 - self.alpha) * airports_inside_disk['dist_score']
+
+        # get chosen airport with the highest score
+        best_airport_iata = airports_inside_disk['score'].idxmax()
+        chosen_airport = airports_inside_disk.loc[best_airport_iata]
+
+        return [
+            best_airport_iata,
+            chosen_airport['latitude'],
+            chosen_airport['longitude'],
+            chosen_airport['city'],
+            chosen_airport['country_code']
+        ]
+###
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -49,11 +233,6 @@ def parse_args():
     parser.add_argument(
         '-t', '--threshold', type=float, default=-1,
         help='Discard disks with RTT > threshold (to bound error) [default: ∞]'
-    )
-
-    parser.add_argument(
-        '-h', '--hosts', required=True,
-        help='Path to a mapping of hostnames to lat,lon'
     )
 
     return parser.parse_args()
@@ -219,27 +398,13 @@ def write_results(final_df, outfile):
 if __name__ == "__main__":
     args = parse_args()
 
-    # Load the hosts file to map hostnames to lat,lon
-    try:
-        host_column_types = {
-            'hostname': str,
-            'lat': np.float64,
-            'lon': np.float64
-        }
-        host_df = pd.read_csv(
-            args.hosts,
-            names=['hostname', 'lat', 'lon'],
-            dtype=host_column_types
-        )
-    except FileNotFoundError:
-        print(f"Error: Hosts file not found at {args.hosts}")
-        sys.exit(1)
-
-    columns = ['target', 'hostname', 'rtt']
+    columns = ['target', 'hostname', 'rtt', 'lat', 'lon']
     column_types = {
         'target': str,
         'hostname': str,
-        'rtt': np.float32
+        'rtt': np.float32,
+        'lat': np.float32,
+        'lon': np.float32,
     }
 
     in_df = pd.read_csv(
@@ -248,9 +413,6 @@ if __name__ == "__main__":
         names=columns,
         dtype=column_types
     )
-
-    # Merge with host_df to get lat, lon for each hostname
-    in_df = in_df.merge(host_df, on='hostname', how='left')
 
     print(f"Input file '{args.input}' loaded. Total records: {len(in_df)}")
     if in_df.empty:
