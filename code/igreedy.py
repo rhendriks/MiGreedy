@@ -20,41 +20,40 @@ EARTH_RADIUS_KM = 6371.0 # earth radius
 FIBER_RI = 1.52
 SPEED_OF_LIGHT = 299792.458 # km/s
 
-
-import math
-
 def haversine(lat1_rad, lon1_rad, other_df):
     """
-    Calculates the great-circle distance from a single point to a DataFrame of other points.
-    TODO replace math with numpy for speed, once the numpy ufunc issue is resolved.
+    Calculates the great-circle distance from a single point to a DataFrame of other points using vectorized NumPy operations.
 
     Args:
-        lat1_rad (float or np.float32): Latitude of the single point in radians.
-        lon1_rad (float or np.float32): Longitude of the single point in radians.
-        other_df (pd.DataFrame): A DataFrame containing 'lat_rad' and 'lon_rad' columns.
+        lat1_rad: Latitude of the single point in radians.
+        lon1_rad: Longitude of the single point in radians.
+        other_df (pd.DataFrame): A DataFrame containing 'lat_rad' and 'lon_rad' columns (in radians).
 
     Returns:
         pd.Series: A Series of distances in kilometers.
     """
-    def calculate_single_distance(row):
-        # Force all inputs into native Python floats for absolute type safety.
-        lat1 = float(lat1_rad)
-        lon1 = float(lon1_rad)
-        lat2 = float(row['lat_rad'])
-        lon2 = float(row['lon_rad'])
-
-        dlon = lon2 - lon1
-        dlat = lat2 - lat1
-
-        a = math.sin(dlat / 2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2)**2
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        distance = EARTH_RADIUS_KM * c
-        return distance
-
     if other_df.empty:
-        return pd.Series(dtype=np.float64) # Handle empty dataframe case
+        return pd.Series(dtype=np.float64)
 
-    return other_df.apply(calculate_single_distance, axis=1)
+    # Extract coordinates as numpy arrays
+    lat2 = other_df["lat_rad"].to_numpy(dtype=np.float64)
+    lon2 = other_df["lon_rad"].to_numpy(dtype=np.float64)
+
+    # Ensure reference point is float64
+    lat1 = float(lat1_rad)
+    lon1 = float(lon1_rad)
+
+    # Vectorized differences
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+
+    # Vectorized haversine formula
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
+    c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+    distances = EARTH_RADIUS_KM * c
+
+    return pd.Series(distances, index=other_df.index)
+
 
 class AnycastDF(object):
     def __init__(self, in_df, airports, alpha):
