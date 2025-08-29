@@ -42,8 +42,8 @@ outputting a single file with geolocation results.
 
 1.  Clone this repository:
     ```bash
-    git clone [your-repository-url]
-    cd [repository-folder]
+    git clone [https://github.com/rhendriks/MiGreedy]
+    cd [MiGreedy]
     ```
 
 2.  Install the required Python packages using `pip`:
@@ -62,7 +62,7 @@ You can copy and paste this directly into your `README.md` file.
 The script is run from the command line, with arguments to specify the input and output files, as well as tuning parameters.
 
 ```bash
-python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 0.8 -t 50
+python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 1.0 -t 100
 ```
 
 ### Command-Line Arguments
