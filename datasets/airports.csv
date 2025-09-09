@@ -1,8 +1,6 @@
 #IATA	size	name	lat long	country_code	city	pop	heuristic	1	2	3
 ASH	large_airport	Ashburn Airport	39.043611 -77.4875	US	Ashburn	43511 0 0 0
 AMX	large_airport	Amsterdam Airport Schiphol	52.3086013794 4.7638897896	NL	Amsterdam	741636 0 0 0 
-AMS	large_airport	Amsterdam Airport Schiphol	52.3086013794 4.7638897896	NL	Amsterdam	741636 0 0 0 
-AMZ	large_airport	Amsterdam Airport Schiphol	52.3086013794 4.7638897896	NL	Amsterdam	741636 0 0 0 
 PIX	large_airport	San Francisco International Airport	37.6189994812 -122.375	US	San Francisco	805235 0 -122.389979 37.615223
 CHI	large_airport	Chicago Midway International Airport	41.7859992981 -87.7524032593	US	Chicago	2695598 0 -87.7521884 41.7867759
 HKX	large_airport	Chek Lap Kok International Airport	22.308889 113.914722	HK	Hong Kong	7012738 0 113.9184808 22.308047
@@ -113,8 +111,6 @@ AMA	large_airport	Rick Husband Amarillo International Airport	35.2193984985 -101
 AMD	medium_airport	Sardar Vallabhbhai Patel International Airport	23.0771999359 72.6346969604	IN	Ahmedabad	3719710 0 0 0 
 AMM	large_airport	Queen Alia International Airport	31.7226009369 35.9931983948	JO	Amman	1275857 0 0 0 
 AMQ	medium_airport	Pattimura Airport Ambon	-3.7102599144 128.0890045166	ID	Ambon	355596 0 0 0 
-AMS	large_airport	Amsterdam Airport Schiphol	52.3086013794 4.7638897896	NL	Amsterdam	741636 0 0 0 
-AMS-IX	 	Amsterdam	52.3747158 4.8986167	NL	Amsterdam	741636 0 0 0 
 ANB	medium_airport	Anniston Metropolitan Airport	33.58819962 -85.85810089	US	Anniston	23106 0 0 0 
 ANC	large_airport	Ted Stevens Anchorage International Airport	61.1744003296 -149.9960021973	US	Anchorage	291826 0 0 0 
 AND	medium_airport	Anderson Regional Airport	34.4945983887 -82.7093963623	US	Anderson	26686 0 0 0 
@@ -645,7 +641,6 @@ DBI	large_airport	Dubai International Airport	25.2527999878 55.3643989563	AE	Dub
 DBO	medium_airport	Dubbo City Regional Airport	-32.2167015076 148.574996948	AU	Dubbo	32327 0 0 0 
 DBQ	large_airport	Dubuque Regional Airport	42.40200043 -90.70950317	US	Dubuque	57637 0 0 0 
 DBV	medium_airport	Dubrovnik Airport	42.5614013672 18.2681999207	HR	Dubrovnik	28428 0 0 0 
-DCA	large_airport	Ronald Reagan Washington National Airport	38.8521003723 -77.0376968384	US	Washington	18761 2 0 0 
 DCI	medium_airport	Decimomannu Airport	39.3541984558 8.9724798203	IT	Decimomannu	7168 0 0 0 
 DCM	medium_airport	Castres-Mazamet Airport	43.5563011169 2.2891800404	FR	Castres/Mazamet	11479 3 0 0 
 DDC	medium_airport	Dodge City Regional Airport	37.7634010315 -99.9655990601	US	Dodge City	27340 0 0 0 
@@ -657,7 +652,6 @@ DED	medium_airport	Dehradun Airport	30.189699173 78.1802978516	IN	Dehradun	52208
 DEL	large_airport	Indira Gandhi International Airport	28.5664997101 77.1031036377	IN	New Delhi	317797 0 0 0 
 DELHI	 	Delhi	28.6070051 77.2140499	IN	Delhi	10927986 0 0 0 
 DEN	large_airport	Denver International Airport	39.8616981506 -104.672996521	US	Denver	600158 0 0 0 
-DENIC	 	Frankfurt-am-Main	50.121212 8.6365638	DE	Frankfurt-am-Main	650000 0 0 0 
 DET	medium_airport	Coleman A. Young Municipal Airport	42.40919876 -83.00990295	US	Detroit	713777 0 0 0 
 DEZ	medium_airport	Deir ez-Zor Airport	35.2854003906 40.1759986877	SY	Deir ez-Zor	242565 0 0 0 
 DFW	large_airport	Dallas Fort Worth International Airport	32.8968009949 -97.0380020142	US	Dallas-Fort Worth	741206 3 0 0 
@@ -831,7 +825,6 @@ FBG	medium_airport	Simmons Army Air Field	35.13180161 -78.93669891	US	Fort Bragg
 FBK	medium_airport	Ladd AAF Airfield	64.83750153 -147.6139984	US	Fairbanks/Ft Wainwright	31535 3 0 0 
 FBM	medium_airport	Lubumbashi International Airport	-11.5913000107 27.5308990479	CD	Lubumbashi	1373770 0 0 0 
 FCA	medium_airport	Glacier Park International Airport	48.3105010986 -114.2559967041	US	Kalispell	19927 0 0 0 
-FCN		Frankfurt-am-Main	50.121212 8.6365638	DE	Frankfurt-am-Main	650000 0 8.6075693 50.1054773
 FCO	large_airport	Leonardo Da Vinci (Fiumicino) International Airport	41.8045005798 12.2508001328	IT	Rome	2318895 0 0 0 
 FCS	medium_airport	Butts AAF (Fort Carson) Air Field	38.67839813 -104.7570038	US	Fort Carson	13813 0 0 0 
 FDF	medium_airport	Martinique Aimé Césaire International Airport	14.5909996033 -61.003200531	MQ	Fort-de-France	89995 0 0 0 
@@ -2376,7 +2369,6 @@ SSG	medium_airport	Malabo Airport	3.7552700043 8.7087202072	GQ	Malabo	155963 0 0
 SSH	medium_airport	Sharm El Sheikh International Airport	27.9773006439 34.3950004578	EG	Sharm el-Sheikh	12000 0 0 0 
 SSY	medium_airport	Mbanza Congo Airport	-6.2698998451 14.2469997406	AO	Mbanza Congo	24220 0 0 0 
 SSZ	medium_airport	Base Aérea de Santos Airport	-23.9280567169 -46.2997207642	BR	Guarujá	310424 0 0 0 
-STH	large_airport	Stockholm-Arlanda Airport	59.6519012451 17.9186000824	SE	Stockholm	1253309 0 0 0 
 STI	medium_airport	Cibao International Airport	19.4060993195 -70.6046981812	DO	Santiago	1200000 2 0 0 
 STL	large_airport	Lambert St Louis International Airport	38.7486991882 -90.3700027466	US	St Louis	319294 0 0 0 
 STM	medium_airport	Maestro Wilson Fonseca Airport	-2.4247219563 -54.7858314514	BR	Santarém	189047 0 0 0 
@@ -3014,16 +3006,11 @@ CBF	X	Council Bluffs Municipal Airport	41.2592010498 -95.760597229	US	Council Bl
 MRN	X	Morganton Airport	35.7507 -81.6953	US	Morganton	16807 0 0 0 
 DLS	X	The Dalles Airport	45.5995 -121.1905	US	The Dalles	15158 0 0 0
 BTH	X	Hang Nadim	1.121028 104.118753	ID	Batam	944285 0 0 0
-WAS		Ronald Reagan Washington National Airport	38.8521003723 -77.0376968384	US	Washington	18761 2 0 0 
 YAN	large_airport	Zvartnots International Airport	40.1473007202 44.3959007263	AM	Yerevan	1093485 0 0 0
 LUL	large_airport	Luleå Airport	65.543800354 22.1219997406	SE	Luleå	45551 0 0 0 
 VUX	medium_airport	Port Vila Bauerfield Airport	-17.699300766 168.3200073242	VU	Port Vila	35901 0 0 0 
 PHI	large_airport	Ninoy Aquino International Airport	14.508600235 121.019996643	PH	Manila	10444527 0 0 0 
 JKT	large_airport	Soekarno-Hatta International Airport	-6.1255698204 106.65599823	ID	Jakarta	8540121 0 0 0 
 FTY	large_airport	Hartsfield Jackson Atlanta International Airport	33.6366996765 -84.4281005859	US	Atlanta	420003 0 0 0 
-FRF		Frankfurt-am-Main	50.121212 8.6365638	DE	Frankfurt-am-Main	650000 0 8.6075693 50.1054773
-CPM	large_airport	Los Angeles International Airport	33.94250107 -118.4079971	US	Los Angeles	3792621 0 0 0 
-OXR	large_airport	Los Angeles International Airport	33.94250107 -118.4079971	US	Los Angeles	3792621 0 0 0 
 RHV	medium_airport	Evelio Javier Airport	10.765999794 121.932998657	PH	San Jose	118807 2 0 0 
-STO	large_airport	Stockholm-Arlanda Airport	59.6519012451 17.9186000824	SE	Stockholm	1253309 0 0 0 
 CNJ	large_airport	Newark Liberty International Airport	40.6925010681 -74.1687011719	US	Newark	277140 0 0 0 
