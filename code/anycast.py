@@ -4,7 +4,6 @@ from numba import jit
 
 EARTH_RADIUS_KM = 6371.0  # earth radius
 
-
 @jit(nopython=True, cache=True)
 def haversine_numba(lat1, lon1, lat2_array, lon2_array):
     """
@@ -61,33 +60,57 @@ class AnycastDF(object):
         Finds a maximum independent set of non-overlapping discs using a greedy algorithm.
         The number of discs in the set is the number of anycast sites.
 
+        Assumes that the input DataFrame (_all_discs_df) is sorted by increasing RTT.
+        I.e., it prioritizes discs with lower RTT.
+
         Returns:
             tuple: (number_of_sites, mis_df) where mis_df is the DataFrame of chosen discs.
         """
-        # Start with an empty MIS DataFrame with the same columns and types as _all_discs_df.
-        mis_df = pd.DataFrame(columns=self._all_discs_df.columns).astype(self._all_discs_df.dtypes)
+        # Start with an empty MIS list to put the non-overlapping discs into.
+        mis_series_list = []
+
+        # temporary lists for calculating overlaps
+        mis_lats = []
+        mis_lons = []
+        mis_radii = []
 
         # Iterate through each candidate disc in _all_discs_df.
         for index, candidate_disc in self._all_discs_df.iterrows():
             is_overlapping = False
 
-            # Check for overlap against the MIS DataFrame directly, if it's not empty.
-            if not mis_df.empty:
+            # check for overlap with existing discs in the MIS
+            if mis_series_list: # only check if MIS is not empty
+                # create arrays from the MIS lists
+                lat2_array = np.array(mis_lats)
+                lon2_array = np.array(mis_lons)
+
+                # get distance to all existing discs in the MIS
                 distances = haversine_numba(
                     candidate_disc['lat_rad'],
                     candidate_disc['lon_rad'],
-                    mis_df['lat_rad'].to_numpy(dtype=np.float32),
-                    mis_df['lon_rad'].to_numpy(dtype=np.float32)
+                    lat2_array,
+                    lon2_array
                 )
-                sum_of_radii = candidate_disc['radius'] + mis_df['radius']
 
-                if (distances <= sum_of_radii).any():
+                # calculate sum of radii (i.e., overlap threshold)
+                radii_array = np.array(mis_radii)
+                sum_of_radii = candidate_disc['radius'] + radii_array
+
+                if np.any(distances <= sum_of_radii):
                     is_overlapping = True
 
             if not is_overlapping:
-                mis_df.loc[index] = candidate_disc
+                # add to MIS if no overlap with any existing disc
+                mis_lats.append(candidate_disc['lat_rad'])
+                mis_lons.append(candidate_disc['lon_rad'])
+                mis_radii.append(candidate_disc['radius'])
+                mis_series_list.append(candidate_disc)
 
-        self._mis_df = mis_df
+        # store the MIS as a DataFrame
+        if mis_series_list:
+            self._mis_df = pd.DataFrame(mis_series_list, index=[s.name for s in mis_series_list])
+        else:
+            self._mis_df = pd.DataFrame(columns=self._all_discs_df.columns).astype(self._all_discs_df.dtypes)
         return len(self._mis_df), self._mis_df
 
     def geolocation(self, disc_series):
