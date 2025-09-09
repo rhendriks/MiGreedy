@@ -7,13 +7,11 @@ HKX	large_airport	Chek Lap Kok International Airport	22.308889 113.914722	HK	Hon
 WEL	large_airport	Wellington International Airport	-41.3272018433 174.804992676	NZ	Wellington	381900 0 174.8075984 -41.3275941
 TOK		Tokyo	35.673343 139.710388	JP	Tokyo	8336599 0 139.6917064 35.6894875
 TAI	large_airport	Taiwan Taoyuan International Airport	25.0776996613 121.233001709	TW	Taipei	7871900 0 121.5598345 25.091075
-KAT	medium_airport	Kathmandu	27.7 85.333333	NE	Kathmandu	1006656 0 0 0
 WIE	large_airport	Vienna International Airport	48.1102981567 16.5697002411	AT	Vienna	1691468 0 16.5665751 48.1158333
 NIX	large_airport	Oslo Gardermoen Airport	60.193901062 11.100399971	NO	Oslo	580000 0 11.1004153 60.1975501
 RWX	large_airport	Kigali Airport	-1.943889 30.059444	X	Kigali	851024 0 0 0
 DEX		Frankfurt-am-Main	50.121212 8.6365638	DE	Frankfurt-am-Main	650000 0 8.6075693 50.1054773
-PAR	large_airport	Charles de Gaulle International Airport	49.0127983093 2.5499999523	FR	Paris	2138551 0 2.5711 49.004
-AAL	large_airport	Aalborg Airport	57.0927589138 9.8492431641	DK	Aalborg	122219 0 0 0 
+AAL	large_airport	Aalborg Airport	57.0927589138 9.8492431641	DK	Aalborg	122219 0 0 0
 AAN	medium_airport	Al Ain International Airport	24.2616996765 55.6091995239	AE	Al Ain	408733 0 0 0 
 AAO	medium_airport	Anaco Airport	9.4302253723 -64.4707260132	VE	Anaco	117596 0 0 0 
 AAQ	medium_airport	Anapa Airport	45.0021018982 37.3473014832	RU	Anapa	53600 0 0 0 
@@ -217,8 +215,7 @@ BBI	medium_airport	Biju Patnaik Airport	20.2444000244 85.8178024292	IN	Bhubanesw
 BBK	medium_airport	Kasane Airport	-17.8328990936 25.162399292	BW	Kasane	9250 0 0 0 
 BBM	medium_airport	Battambang Airport	13.0956001282 103.2239990234	KH	Battambang	150444 0 0 0 
 BBO	medium_airport	Berbera Airport	10.3892002106 44.9411010742	SO	Berbera	242344 0 0 0 
-BBS	medium_airport	Blackbushe Airport	51.3238983154 -0.8475000262	GB	Yateley	20214 0 0 0 
-BBT	medium_airport	Berbérati Airport	4.2215800285 15.7863998413	CF	Berbérati	61815 0 0 0 
+BBT	medium_airport	Berbérati Airport	4.2215800285 15.7863998413	CF	Berbérati	61815 0 0 0
 BBU	medium_airport	Băneasa International Airport	44.503200531 26.1021003723	RO	Bucharest	1877155 0 0 0 
 BCA	medium_airport	Gustavo Rizo Airport	20.3652992249 -74.5062026978	CU	Baracoa	48362 0 0 0 
 BCD	medium_airport	Bacolod-Silay City International Airport	10.7763996124 123.0149993896	PH	Bacolod City	454898 0 0 0 
@@ -311,8 +308,7 @@ BKK	large_airport	Suvarnabhumi Airport	13.6810998917 100.7470016479	TH	Bangkok	5
 BKL	medium_airport	Burke Lakefront Airport	41.5175018311 -81.6832962036	US	Cleveland	396815 0 0 0 
 BKS	medium_airport	Padang Kemiling (Fatmawati Soekarno) Airport	-3.863699913 102.3389968872	ID	Bengkulu-Sumatra Island	309712 3 0 0 
 BKW	medium_airport	Raleigh County Memorial Airport	37.7873001099 -81.1241989136	US	Beckley	17614 0 0 0 
-BKX	large_airport	Suvarnabhumi Airport	13.6810998917 100.7470016479	TH	Bangkok	5104476 0 0 0 
-BLA	medium_airport	General Jose Antonio Anzoategui International Airport	10.1070995331 -64.689201355	VE	Barcelona	424795 0 0 0 
+BLA	medium_airport	General Jose Antonio Anzoategui International Airport	10.1070995331 -64.689201355	VE	Barcelona	424795 0 0 0
 BLF	medium_airport	Mercer County Airport	37.2957992554 -81.2077026367	US	Bluefield	10447 0 0 0 
 BLH	medium_airport	Blythe Airport	33.6192016602 -114.717002869	US	Blythe	20817 0 0 0 
 BLI	medium_airport	Bellingham International Airport	48.7928009033 -122.5380020142	US	Bellingham	80885 0 0 0 
@@ -471,8 +467,7 @@ CEI	medium_airport	Chiang Rai International Airport	19.952299118 99.8828964233	T
 CEK	medium_airport	Chelyabinsk Balandino Airport	55.3058013916 61.5032997131	RU	Chelyabinsk	1062919 0 0 0 
 CEN	medium_airport	Ciudad Obregón International Airport	27.3925991058 -109.8330001831	MX	Ciudad Obregón	258162 0 0 0 
 CEQ	medium_airport	Cannes-Mandelieu Airport	43.5419998169 6.9534797668	FR	Cannes/Mandelieu	70011 3 0 0 
-CERN	 	Geneva	46.204705 6.1431301	CH	Geneva	183981 0 0 0 
-CET	medium_airport	Cholet Le Pontreau Airport	47.0820999146 -0.8770639896	FR	Cholet/Le Pontreau	53160 3 0 0 
+CET	medium_airport	Cholet Le Pontreau Airport	47.0820999146 -0.8770639896	FR	Cholet/Le Pontreau	53160 3 0 0
 CFE	medium_airport	Clermont-Ferrand Auvergne Airport	45.7867012024 3.1691699028	FR	Clermont-Ferrand/Auvergne	11025 3 0 0 
 CFG	medium_airport	Jaime Gonzalez Airport	22.1499996185 -80.4141998291	CU	Cienfuegos	186644 0 0 0 
 CFN	medium_airport	Donegal Airport	55.0442008972 -8.3409996033	IE	Donegal	2607 0 0 0 
@@ -571,8 +566,7 @@ CRC	medium_airport	Santa Ana Airport	4.75818 -75.9557	CO	Cartago	134827 2 0 0
 CRD	medium_airport	General E. Mosconi Airport	-45.7853 -67.4655	AR	Comodoro Rivadavia	140850 0 0 0 
 CRI	medium_airport	Colonel Hill Airport	22.7455997467 -74.1824035645	BS	Colonel Hill	240 0 0 0 
 CRK	large_airport	Diosdado Macapagal International Airport	15.1859998703 120.559997559	PH	Angeles City	299391 0 0 0 
-CRL	medium_airport	Brussels South Charleroi Airport	50.4592018127 4.4538202286	BE	Brussels	1019022 0 0 0 
-CRM	medium_airport	Catarman National Airport	12.5024003983 124.6360015869	PH	Catarman	47449 2 0 0 
+CRM	medium_airport	Catarman National Airport	12.5024003983 124.6360015869	PH	Catarman	47449 2 0 0
 CRP	large_airport	Corpus Christi International Airport	27.7703990936 -97.5011978149	US	Corpus Christi	305215 0 0 0 
 CRV	medium_airport	Crotone Airport	38.9972000122 17.0802001953	IT	Crotone	48704 0 0 0 
 CRW	large_airport	Yeager Airport	38.3731002808 -81.5932006836	US	Charleston	51400 0 0 0 
@@ -632,8 +626,7 @@ DAL	large_airport	Dallas Love Field	32.8470993042 -96.8517990112	US	Dallas	11978
 DAM	large_airport	Damascus International Airport	33.4114990234 36.5155982971	SY	Damascus	1569394 0 0 0 
 DAN	medium_airport	Danville Regional Airport	36.5728988647 -79.3360977173	US	Danville	43055 0 0 0 
 DAR	large_airport	Julius Nyerere International Airport	-6.8780555556 39.2033333333	TZ	Dar es Salaam	2698652 0 0 0 
-TIX	 	Dar es Salaam	-6.8780555556 39.2033333333	TZ	Dar es Salaam	2698652 0 0 0 
-DAU	medium_airport	Daru Airport	-9.0867595673 143.207992554	PG	Daru	15214 0 0 0 
+DAU	medium_airport	Daru Airport	-9.0867595673 143.207992554	PG	Daru	15214 0 0 0
 DAV	medium_airport	Enrique Malek International Airport	8.390999794 -82.4349975586	PA	David	82859 0 0 0 
 DAY	large_airport	James M Cox Dayton International Airport	39.9024009705 -84.2193984985	US	Dayton	141527 0 0 0 
 DBB	medium_airport	El Alamein International Airport	30.9244995117 28.4613990784	EG	El Alamein	7400 0 0 0 
@@ -699,8 +692,7 @@ DNZ	medium_airport	Çardak Airport	37.7855987549 29.7012996674	TR	Denizli	313238
 DOD	medium_airport	Dodoma Airport	-6.170440197 35.7526016235	TZ	Dodoma	180541 0 0 0 
 DOG	medium_airport	Dongola Airport	19.1539001465 30.4300994873	SD	Dongola	13473 0 0 0 
 DOH	large_airport	Doha International Airport	25.261100769 51.5651016235	QA	Doha	344939 0 0 0 
-OOREDOO	 	Doha	25.261100769 51.5651016235	QA	Doha	344939 0 0 0 
-DOK	large_airport	Donetsk International Airport	48.073600769 37.7397003174	UA	Donetsk	1024700 0 0 0 
+DOK	large_airport	Donetsk International Airport	48.073600769 37.7397003174	UA	Donetsk	1024700 0 0 0
 DOL	medium_airport	Deauville-Saint-Gatien Airport	49.3652992249 0.1543059945	FR	Deauville	4677 0 0 0 
 DOM	medium_airport	Melville Hall Airport	15.5469999313 -61.2999992371	DM	Marigot	2669 0 0 0 
 DOY	medium_airport	Dongying Shengli Airport	37.5085983276 118.788002014	CN	Dongying	306450 0 0 0 
@@ -727,14 +719,12 @@ DUS	large_airport	Düsseldorf International Airport	51.2895011902 6.7667798996	D
 DUT	medium_airport	Unalaska Airport	53.900100708 -166.5440063477	US	Unalaska	4376 0 0 0 
 DVO	large_airport	Francisco Bangoy International Airport	7.1255202293 125.6460037231	PH	Davao City	1212504 0 0 0 
 DWC	large_airport	Al Maktoum International Airport	24.8966666667 55.1613888889	AE	Dubai	1137347 0 0 0 
-DXB	large_airport	Dubai International Airport	25.2527999878 55.3643989563	AE	Dubai	1137347 0 0 0 
-DYR	medium_airport	Ugolny Airport	64.7349014282 177.7409973145	RU	Anadyr	10332 0 0 0 
+DYR	medium_airport	Ugolny Airport	64.7349014282 177.7409973145	RU	Anadyr	10332 0 0 0
 DYS	large_airport	Dyess Air Force Base	32.4207992554 -99.854598999	US	Abilene	117063 0 0 0 
 DYU	medium_airport	Dushanbe Airport	38.5433006287 68.8249969482	TJ	Dushanbe	679400 0 0 0 
 DZA	medium_airport	Dzaoudzi Pamandzi International Airport	-12.8046998978 45.2811012268	YT	Dzaoudzi	15339 0 0 0 
 DZN	medium_airport	Dzhezkazgan Airport	47.7708015442 67.6734008789	KZ	Dzhezkazgan	104357 0 0 0 
-DZN	medium_airport	Zhezkazgan Airport	47.7083015442 67.7332992554	KZ	Zhezkazgan	104357 0 0 0 
-DZO	medium_airport	Santa Bernardina International Airport	-33.3588981628 -56.4991989136	UY	Durazno	33926 0 0 0 
+DZO	medium_airport	Santa Bernardina International Airport	-33.3588981628 -56.4991989136	UY	Durazno	33926 0 0 0
 EAS	medium_airport	San Sebastian Airport	43.3564987183 -1.7906099558	ES	Hondarribia	16458 0 0 0 
 EAT	medium_airport	Pangborn Memorial Airport	47.3988990784 -120.207000732	US	Wenatchee	31925 0 0 0 
 EAU	medium_airport	Chippewa Valley Regional Airport	44.8657989502 -91.4842987061	US	Eau Claire	65883 0 0 0 
@@ -746,8 +736,7 @@ EBL	medium_airport	Erbil International Airport	36.2375984192 43.9631996155	IQ	Ar
 ECG	medium_airport	Elizabeth City Regional Airport & Coast Guard Air Station	36.26060104 -76.17459869	US	Elizabeth City	18683 0 0 0 
 ECN	medium_airport	Ercan International Airport	35.1547012329 33.4961013794	CY	Nicosia	200452 0 0 0 
 ECV	medium_airport	Cuatro Vientos Airport	40.3707008362 -3.7851400375	ES	Madrid	3255944 0 0 0 
-EDF	medium_airport	Elmendorf Air Force Base	61.2509994507 -149.8070068359	US	Anchorage	291826 0 0 0 
-EDI	large_airport	Edinburgh Airport	55.9500007629 -3.3724999428	GB	Edinburgh	435791 0 0 0 
+EDI	large_airport	Edinburgh Airport	55.9500007629 -3.3724999428	GB	Edinburgh	435791 0 0 0
 EDL	medium_airport	Eldoret International Airport	0.4044579864 35.238899231	KE	Eldoret	218446 0 0 0 
 EDO	medium_airport	Balıkesir Körfez Airport	39.554599762 27.0137996674	TR	Edremit	40777 0 0 0 
 EEN	medium_airport	Dillant Hopkins Airport	42.898399353 -72.2707977295	US	Keene	23409 0 0 0 
@@ -771,8 +760,7 @@ ELB	medium_airport	Las Flores Airport	9.04554 -73.9749	CO	El Banco	54522 0 0 0
 ELD	medium_airport	South Arkansas Regional At Goodwin Field	33.2210006714 -92.8133010864	US	El Dorado	18884 0 0 0 
 ELF	medium_airport	El Fasher Airport	13.6148996353 25.3246002197	SD	El Fasher	252609 0 0 0 
 ELM	medium_airport	Elmira Corning Regional Airport	42.1599006653 -76.8916015625	US	Elmira/Corning	11183 3 0 0 
-ELP	medium_airport	El Paso International Airport	31.80719948 -106.3779984	US	El Paso	649121 0 0 0 
-ELS	medium_airport	Ben Schoeman Airport	-33.0355987549 27.8258991241	ZA	East London	478676 0 0 0 
+ELS	medium_airport	Ben Schoeman Airport	-33.0355987549 27.8258991241	ZA	East London	478676 0 0 0
 EMA	large_airport	East Midlands Airport	52.8311004639 -1.3280600309	GB	Nottingham	246654 0 0 0 
 EMD	medium_airport	Emerald Airport	-23.5674991608 148.179000854	AU	Emerald	9398 0 0 0 
 EMIX	 	Abu Dhabi	24.3865481 54.5635059	AE	Abu Dhabi	603492 0 0 0 
@@ -805,8 +793,7 @@ EVW	medium_airport	Evanston-Uinta County Airport-Burns Field	41.27479935 -111.03
 EVX	medium_airport	Évreux-Fauville (BA 105) Air Base	49.0287017822 1.2198599577	FR	Évreux/Fauville	57795 3 0 0 
 EWB	medium_airport	New Bedford Regional Airport	41.6761016846 -70.9569015503	US	New Bedford	95072 0 0 0 
 EWN	medium_airport	Coastal Carolina Regional Airport	35.0730018616 -77.0429000854	US	New Bern	29524 0 0 0 
-EWR	large_airport	Newark Liberty International Airport	40.6925010681 -74.1687011719	US	Newark	277140 0 0 0 
-EXT	large_airport	Exeter International Airport	50.7344017029 -3.4138898849	GB	Exeter	113118 0 0 0 
+EXT	large_airport	Exeter International Airport	50.7344017029 -3.4138898849	GB	Exeter	113118 0 0 0
 EYK	medium_airport	Beloyarskiy Airport	63.6869010925 66.698600769	RU		5549 0 0 0 
 EYP	medium_airport	El Yopal Airport	5.31911 -72.384	CO	El Yopal	61029 0 0 0 
 EYW	medium_airport	Key West International Airport	24.5561008453 -81.7595977783	US	Key West	24649 0 0 0 
@@ -833,8 +820,7 @@ FDO	medium_airport	San Fernando Airport	-34.4532 -58.5896	AR	San Fernando	188812
 FEL	medium_airport	Fürstenfeldbruck Airport	48.2055549622 11.2669439316	DE	Fürstenfeldbruck	33533 0 0 0 
 FEZ	medium_airport	Saïss Airport	33.9272994995 -4.9779601097	MA	Fes	964891 0 0 0 
 FFD	large_airport	RAF Fairford	51.6822013855 -1.7900300026	GB	Fairford	3026 0 0 0 
-FICIX	 	Helsinki	60.1733244 24.9410248	FI	Helsinki	558457 0 0 0 
-FIH	medium_airport	Ndjili International Airport	-4.3857498169 15.4446001053	CD	Kinshasa	7785965 0 0 0 
+FIH	medium_airport	Ndjili International Airport	-4.3857498169 15.4446001053	CD	Kinshasa	7785965 0 0 0
 FIX	 	Helsinki	60.1733244 24.9410248	FI	Helsinki	558457 0 0 0 
 FKB	large_airport	Karlsruhe Baden-Baden Airport	48.7793998718 8.0804996491	DE	Baden-Baden	54239 0 0 0 
 FKI	medium_airport	Bangoka International Airport	0.4816389978 25.3379993439	CD	Kisangani	539158 0 0 0 
@@ -952,8 +938,7 @@ GME	medium_airport	Gomel Airport	52.5270004272 31.0167007446	BY	Gomel	480951 0 0
 GML	medium_airport	Gostomel Airport	50.6035003662 30.1919002533	UA	Kiev	2797553 0 0 0 
 GMO	medium_airport	Gombe Lawanti International Airport	10.2983333333 10.8963888889	NG	Gombe	250258 0 0 0 
 GMP	large_airport	Gimpo International Airport	37.5583000183 126.791000366	KR	Seoul	10349312 0 0 0 
-SEL	large_airport	Gimpo International Airport	37.5583000183 126.791000366	KR	Seoul	10349312 0 0 0 
-GMU	medium_airport	Greenville Downtown Airport	34.8479003906 -82.3499984741	US	Greenville	58409 0 0 0 
+GMU	medium_airport	Greenville Downtown Airport	34.8479003906 -82.3499984741	US	Greenville	58409 0 0 0
 GNA	medium_airport	Hrodna Airport	53.6020011902 24.0538005829	BY	Hrodna	317365 0 0 0 
 GND	medium_airport	Point Salines International Airport	12.0041999817 -61.7862014771	GD	Saint George's	7500 0 0 0 
 GNV	medium_airport	Gainesville Regional Airport	29.6900997162 -82.2717971802	US	Gainesville	124354 0 0 0 
@@ -997,8 +982,7 @@ GUP	medium_airport	Gallup Municipal Airport	35.511100769 -108.789001465	US	Gallu
 GUQ	medium_airport	Guanare Airport	9.0269441605 -69.7551498413	VE	Guanare	112286 0 0 0 
 GUT	medium_airport	Gütersloh Airport	51.9227981567 8.3063297272	DE	Gütersloh	96180 0 0 0 
 GUW	medium_airport	Atyrau Airport	47.1218986511 51.8213996887	KZ	Atyrau	180000 0 0 0 
-GVA	large_airport	Geneva Cointrin International Airport	46.2380981445 6.1089501381	CH	Geneva	183981 0 0 0 
-GVN	medium_airport	Maygatka Airport.	48.9269981384 140.033996582	RU	Sovetskaya Gavan	29740 0 0 0 
+GVN	medium_airport	Maygatka Airport.	48.9269981384 140.033996582	RU	Sovetskaya Gavan	29740 0 0 0
 GWD	medium_airport	Gwadar International Airport	25.2332992554 62.329498291	PK	Gwadar	51901 0 0 0 
 GWE	medium_airport	Thornhill Air Base	-19.4363994598 29.8619003296	ZW	Gweru	146073 0 0 0 
 GWL	medium_airport	Gwalior Airport	26.2933006287 78.2277984619	IN	Gwalior	882458 0 0 0 
@@ -1007,8 +991,7 @@ GWY	medium_airport	Galway Airport	53.300201416 -8.9415903091	IE	Galway	70686 0 0
 GXQ	medium_airport	Teniente Vidal Airport	-45.5942001343 -72.1061019897	CL	Coyhaique	45787 0 0 0 
 GYD	large_airport	Heydar Aliyev International Airport	40.4674987793 50.0466995239	AZ	Baku	1116513 0 0 0 
 GYE	medium_airport	Simon Bolivar International Airport	-2.15741992 -79.8835983276	EC	Guayaquil	1952029 0 0 0 
-GYI	medium_airport	Gisenyi Airport	-1.6771999598 29.2588996887	RW	Gisenyi	83623 0 0 0 
-GYM	medium_airport	General José María Yáñez International Airport	27.9689998627 -110.9250030518	MX	Guaymas	103449 0 0 0 
+GYM	medium_airport	General José María Yáñez International Airport	27.9689998627 -110.9250030518	MX	Guaymas	103449 0 0 0
 GYN	medium_airport	Santa Genoveva Airport	-16.6319999695 -49.2206993103	BR	Goiânia	1171195 0 0 0 
 GYS	medium_airport	Guangyuan Airport	32.3911018372 105.702003479	CN	Guangyuan	213365 0 0 0 
 GYY	medium_airport	Gary Chicago International Airport	41.6162986755 -87.4128036499	US	Gary	80294 0 0 0 
@@ -1032,8 +1015,7 @@ HDM	medium_airport	Hamadan Airport	34.8692016602 48.5525016785	IR	Hamadan	528256
 HDY	medium_airport	Hat Yai International Airport	6.9332098961 100.392997742	TH	Hat Yai	191696 0 0 0 
 HEK	medium_airport	Heihe Airport	50.1716209371 127.308883667	CN	Heihe	109427 0 0 0 
 HEL	large_airport	Helsinki Vantaa Airport	60.317199707 24.963300705	FI	Helsinki	558457 0 0 0 
-HEM	medium_airport	Helsinki Malmi Airport	60.2546005249 25.0428009033	FI	Helsinki	558457 0 0 0 
-HER	large_airport	Heraklion International Nikos Kazantzakis Airport	35.3396987915 25.1802997589	GR	Heraklion	137154 0 0 0 
+HER	large_airport	Heraklion International Nikos Kazantzakis Airport	35.3396987915 25.1802997589	GR	Heraklion	137154 0 0 0
 HET	medium_airport	Baita International Airport	40.851398468 111.823997498	CN	Hohhot	774477 0 0 0 
 HFA	medium_airport	Haifa International Airport	32.8093986511 35.0430984497	IL	Haifa	267300 0 0 0 
 HFE	medium_airport	Hefei Luogang International Airport	31.7800006866 117.297996521	CN	Hefei	1388904 0 0 0 
@@ -1053,8 +1035,7 @@ HIR	medium_airport	Honiara International Airport	-9.4280004501 160.0549926758	SB
 HJJ	medium_airport	Zhijiang Airport	27.4411111111 109.7	CN	Huaihua	127322 0 0 0 
 HJR	medium_airport	Khajuraho Airport	24.817199707 79.9186019897	IN	Khajuraho	25662 0 0 0 
 HKD	medium_airport	Hakodate Airport	41.7700004578 140.822006226	JP	Hakodate	275730 0 0 0 
-HKG	large_airport	Chek Lap Kok International Airport	22.308889 113.914722	HK	Hong Kong	7012738 0 0 0 
-HKT	medium_airport	Phuket International Airport	8.1132001877 98.3169021606	TH	Phuket	89072 0 0 0 
+HKT	medium_airport	Phuket International Airport	8.1132001877 98.3169021606	TH	Phuket	89072 0 0 0
 HKY	medium_airport	Hickory Regional Airport	35.74110031 -81.38950348	US	Hickory	40010 0 0 0 
 HLA	medium_airport	Lanseria Airport	-25.9384994507 27.9260997772	ZA	Johannesburg	4434827 0 0 0 
 HLD	medium_airport	Dongshan Airport	49.2050018311 119.824996948	CN	Hailar	211066 0 0 0 
@@ -1220,8 +1201,7 @@ JAD	medium_airport	Perth Jandakot Airport	-32.0974998474 115.8809967041	AU	Perth
 JAF	medium_airport	Kankesanturai Airport	9.7923297882 80.070098877	LK	Jaffna	169102 0 0 0 
 JAG	medium_airport	Shahbaz Air Base	28.2842006683 68.4496994019	PK	Jacobabad	170588 0 0 0 
 JAI	medium_airport	Jaipur International Airport	26.8241996765 75.8122024536	IN	Jaipur	2711758 0 0 0 
-JAK	large_airport	Soekarno-Hatta International Airport	-6.1255698204 106.65599823	ID	Jakarta	8540121 0 0 0 
-JAL	medium_airport	El Lencero Airport	19.4750995636 -96.7975006104	MX	Xalapa	425148 0 0 0 
+JAL	medium_airport	El Lencero Airport	19.4750995636 -96.7975006104	MX	Xalapa	425148 0 0 0
 JAM	medium_airport	Bezmer Air Base	42.4548988342 26.3521995544	BG	Yambol	80116 0 0 0 
 JAN	large_airport	Jackson-Medgar Wiley Evers International Airport	32.3111991882 -90.0758972168	US	Jackson	173514 0 0 0 
 JAU	medium_airport	Francisco Carle Airport	-11.7831001282 -75.4733963013	PE	Jauja	21057 0 0 0 
@@ -1261,8 +1241,7 @@ JOI	medium_airport	Lauro Carneiro de Loyola Airport	-26.2245006561 -48.797401428
 JOK	medium_airport	Yoshkar-Ola Airport	56.7005996704 47.9047012329	RU	Yoshkar-Ola	279100 0 0 0 
 JOS	medium_airport	Yakubu Gowon Airport	9.6398296356 8.8690500259	NG	Jos	816824 0 0 0 
 JPA	medium_airport	Presidente Castro Pinto International Airport	-7.1458330154 -34.9486122131	BR	João Pessoa	650883 0 0 0 
-JPP	large_airport	Tokyo International Airport	35.5522994995 139.7799987793	JP	Tokyo	8336599 0 0 0 
-JRH	medium_airport	Jorhat Airport	26.7315006256 94.1754989624	IN	Jorhat	69033 0 0 0 
+JRH	medium_airport	Jorhat Airport	26.7315006256 94.1754989624	IN	Jorhat	69033 0 0 0
 JRO	medium_airport	Kilimanjaro International Airport	-3.4294099808 37.0745010376	TZ	Arusha	341136 0 0 0 
 JSI	medium_airport	Skiathos Island National Airport	39.1771011353 23.5037002563	GR	Skiathos	5187 0 0 0 
 JST	medium_airport	John Murtha Johnstown Cambria County Airport	40.3161010742 -78.8339004517	US	Johnstown	20978 0 0 0 
@@ -1301,8 +1280,7 @@ KGF	large_airport	Sary-Arka Airport	49.6707992554 73.3343963623	KZ	Karaganda	451
 KGG	medium_airport	Kédougou Airport	12.5722999573 -12.2202997208	SN	Kédougou	17922 0 0 0 
 KGI	medium_airport	Kalgoorlie Boulder Airport	-30.7894001007 121.461997986	AU	Kalgoorlie	31107 0 0 0 
 KGJ	medium_airport	Karonga Airport	-9.9535703659 33.8930015564	MW	Karonga	34207 0 0 0 
-KGL	medium_airport	Kigali International Airport	-1.9686299563 30.1394996643	RW	Kigali	745261 0 0 0 
-KGP	medium_airport	Kogalym International Airport	62.1903991699 74.5337982178	RU	Kogalym	57800 0 0 0 
+KGP	medium_airport	Kogalym International Airport	62.1903991699 74.5337982178	RU	Kogalym	57800 0 0 0
 KHG	medium_airport	Kashgar Airport	39.5429000854 76.0199966431	CN	Kashgar	274717 0 0 0 
 KHH	large_airport	Kaohsiung International Airport	22.5771007538 120.3499984741	TW	Kaohsiung City	1519711 0 0 0 
 KHI	medium_airport	Jinnah International Airport	24.9064998627 67.1607971191	PK	Karachi	11624219 0 0 0 
@@ -1420,8 +1398,7 @@ LBC	medium_airport	Lübeck Blankensee Airport	53.8054008484 10.7192001343	DE	Lü
 LBD	medium_airport	Khudzhand Airport	40.2154006958 69.6947021484	TJ	Khudzhand	144865 0 0 0 
 LBE	medium_airport	Arnold Palmer Regional Airport	40.27590179 -79.40480042	US	Latrobe	8338 0 0 0 
 LBF	medium_airport	North Platte Regional Airport Lee Bird Field	41.12620163 -100.6839981	US	North Platte	24733 0 0 0 
-LBG	medium_airport	Paris-Le Bourget Airport	48.9693984985 2.4413900375	FR	Paris	2138551 0 0 0 
-LBI	medium_airport	Albi-Le Séquestre Airport	43.913898468 2.1130599976	FR	Albi/Le Séquestre	52409 3 0 0 
+LBI	medium_airport	Albi-Le Séquestre Airport	43.913898468 2.1130599976	FR	Albi/Le Séquestre	52409 3 0 0
 LBL	medium_airport	Liberal Mid-America Regional Airport	37.0442009 -100.9599991	US	Liberal	20525 0 0 0 
 LBQ	medium_airport	Lambarene Airport	-0.7043889761 10.2456998825	GA	Lambarene	20714 0 0 0 
 LBU	medium_airport	Labuan Airport	5.3006801605 115.25	MY	Labuan	73653 0 0 0 
@@ -1470,8 +1447,7 @@ LIH	medium_airport	Lihue Airport	21.9759998322 -159.3390045166	US	Lihue	6455 0 0
 LIL	medium_airport	Lille-Lesquin Airport	50.5619010925 3.0894401073	FR	Lille/Lesquin	6424 3 0 0 
 LIM	large_airport	Jorge Chávez International Airport	-12.021900177 -77.1143035889	PE	Lima	7737002 0 0 0 
 LIN	large_airport	Linate Airport	45.445098877 9.2767400742	IT	Milan	1236837 2 0 0 
-MIX	 	Milan	45.445098877 9.2767400742	IT	Milan	1236837 2 0 0 
-LINX	 	London	51.5286416 -0.1015987	GB	London	7556900 0 0 0 
+LINX	 	London	51.5286416 -0.1015987	GB	London	7556900 0 0 0
 LIO	medium_airport	Limon International Airport	9.9579601288 -83.0220031738	CR	Puerto Limon	63081 0 0 0 
 LIP	medium_airport	Lins Airport	-21.6639995575 -49.7304992676	BR	Lins	69451 0 0 0 
 LIR	medium_airport	Daniel Oduber Quiros International Airport	10.5932998657 -85.5444030762	CR	Liberia	45380 0 0 0 
@@ -1495,8 +1471,7 @@ LND	medium_airport	Hunt Field	42.8152008057 -108.730003357	US	Lander	7487 0 0 0
 LNK	medium_airport	Lincoln Airport	40.8510017395 -96.7592010498	US	Lincoln	258379 0 0 0 
 LNS	medium_airport	Lancaster Airport	40.1217002869 -76.2960968018	US	Lancaster	59322 0 0 0 
 LNY	medium_airport	Lanai Airport	20.7856006622 -156.9510040283	US	Lanai City	3102 0 0 0 
-LNX	large_airport	London City Airport	51.5052986145 0.0552779995	GB	London	7556900 0 0 0 
-LNZ	medium_airport	Linz Airport	48.2332000732 14.1875	AT	Linz	181162 0 0 0 
+LNZ	medium_airport	Linz Airport	48.2332000732 14.1875	AT	Linz	181162 0 0 0
 LOK	medium_airport	Lodwar Airport	3.1219699383 35.6086997986	KE	Lodwar	20219 0 0 0 
 LOO	medium_airport	Laghouat Airport	33.7644004822 2.9283399582	DZ	Laghouat	113872 0 0 0 
 LOP	medium_airport	Bandara International Lombok Airport	-8.757322 116.276675	ID	Mataram	318674 0 0 0 
@@ -1596,8 +1571,7 @@ MDK	medium_airport	Mbandaka Airport	0.0226000007 18.2887001038	CD	Mbandaka	18418
 MDL	large_airport	Mandalay International Airport	21.7021999359 95.977897644	MM	Mandalay	1208099 0 0 0 
 MDQ	medium_airport	Ástor Piazzola International Airport	-37.9342 -57.5733	AR	Mar del Plata	553935 0 0 0 
 MDT	medium_airport	Harrisburg International Airport	40.1935005188 -76.7633972168	US	Harrisburg	49528 0 0 0 
-MDW	large_airport	Chicago Midway International Airport	41.7859992981 -87.7524032593	US	Chicago	2695598 0 0 0 
-MDZ	medium_airport	El Plumerillo Airport	-32.8316993713 -68.7929000854	AR	Mendoza	876884 0 0 0 
+MDZ	medium_airport	El Plumerillo Airport	-32.8316993713 -68.7929000854	AR	Mendoza	876884 0 0 0
 MEA	medium_airport	Macaé Airport	-22.343000412 -41.7659988403	BR	Macaé	143029 0 0 0 
 MEC	medium_airport	Eloy Alfaro International Airport	-0.9460780025 -80.6788024902	EC	Manta	183166 0 0 0 
 MED	large_airport	Prince Mohammad Bin Abdulaziz Airport	24.5534000397 39.7051010132	SA	Medina	1300000 0 0 0 
@@ -1629,10 +1603,8 @@ MHH	medium_airport	Marsh Harbour International Airport	26.5114002228 -77.0835037
 MHK	medium_airport	Manhattan Regional Airport	39.1409988403 -96.6707992554	US	Manhattan	52281 0 0 0 
 MHP	medium_airport	Minsk 1 Airport	53.8644981384 27.5396995544	BY	Minsk	1742124 0 0 0 
 MHT	large_airport	Manchester Airport	42.932598114 -71.4356994629	US	Manchester	109565 0 0 0 
-MHZ	large_airport	RAF Mildenhall	52.3619003296 0.4864059985	GB	Mildenhall	477 0 0 0 
-MIA	large_airport	Miami International Airport	25.7931995392 -80.2906036377	US	Miami	399457 0 0 0 
-NAP		Miami	25.7931995392 -80.2906036377	US	Miami	399457 2 0 0 
-MID	medium_airport	Licenciado Manuel Crescencio Rejon Int Airport	20.9370002747 -89.657699585	MX	Mérida	717175 2 0 0 
+MIA	large_airport	Miami International Airport	25.7931995392 -80.2906036377	US	Miami	399457 0 0 0
+MID	medium_airport	Licenciado Manuel Crescencio Rejon Int Airport	20.9370002747 -89.657699585	MX	Mérida	717175 2 0 0
 MIE	medium_airport	Delaware County Johnson Field	40.2422981262 -85.3958969116	US	Muncie	70085 0 0 0 
 MIG	medium_airport	Mianyang Airport	31.4281005859 104.7409973145	CN	Mianyang	264136 0 0 0 
 MII	medium_airport	Marília Airport	-22.1968994141 -49.926399231	BR	Marília	212218 0 0 0 
@@ -1696,8 +1668,7 @@ MQP	medium_airport	Kruger Mpumalanga International Airport	-25.3831996918 31.105
 MQT	medium_airport	Sawyer International Airport	46.3535995483 -87.395401001	US	Marquette	21355 0 0 0 
 MQU	medium_airport	Jose Celestino Mutis Airport	5.21256 -74.8836	CO	Mariquita	23104 0 0 0 
 MRD	medium_airport	Alberto Carnevalli Airport	8.58207798 -71.1610412598	VE	Mérida	300000 0 0 0 
-MRI	medium_airport	Merrill Field	61.2135009766 -149.8439941406	US	Anchorage	291826 0 0 0 
-MRO	medium_airport	Hood Airport	-40.9733009338 175.6340026855	NZ	Masterton	20698 0 0 0 
+MRO	medium_airport	Hood Airport	-40.9733009338 175.6340026855	NZ	Masterton	20698 0 0 0
 MRQ	medium_airport	Marinduque Airport	13.361000061 121.8259963989	PH	Gasan	2228 0 0 0 
 MRR	medium_airport	Jose Maria Velasco Ibarra Airport	-4.3782300949 -79.9410018921	EC	Macará	13035 0 0 0 
 MRS	large_airport	Marseille Provence Airport	43.439271922 5.2214241028	FR	Marseille	794811 0 0 0 
@@ -1763,8 +1734,7 @@ NAN	medium_airport	Nadi International Airport	-17.755399704 177.4429931641	FJ	Na
 NAS	large_airport	Lynden Pindling International Airport	25.0389995575 -77.4662017822	BS	Nassau	227940 0 0 0 
 NAT	medium_airport	Augusto Severo Airport	-5.9114198685 -35.2476997375	BR	Natal	763043 0 0 0 
 NAV	large_airport	Nevşehir Kapadokya International Airport	38.771900177 34.5345001221	TR	Nevşehir	75527 0 0 0 
-NAY	large_airport	Beijing Nanyuan Airport	39.7827987671 116.3880004883	CN	Beijing	7480601 0 0 0 
-NBC	medium_airport	Begishevo Airport	55.5647010803 52.0924987793	RU	Nizhnekamsk	234297 0 0 0 
+NBC	medium_airport	Begishevo Airport	55.5647010803 52.0924987793	RU	Nizhnekamsk	234297 0 0 0
 NBE	large_airport	Enfidha - Hammamet International Airport	36.075833 10.438611	TN	Hammamet	53733 0 0 0 
 NBO	large_airport	Jomo Kenyatta International Airport	-1.319239974 36.9277992249	KE	Nairobi	2750547 0 0 0 
 NBS	medium_airport	Changbaishan Airport	42.0669444444 127.602222222	CN	Baishan	183880 0 0 0 
@@ -1789,8 +1759,7 @@ NGO	large_airport	Chubu Centrair International Airport	34.8583984375 136.8049926
 NGS	medium_airport	Nagasaki Airport	32.9169006348 129.914001465	JP	Nagasaki	410204 0 0 0 
 NHA	medium_airport	Nha Trang Air Base	12.2274999619 109.192001343	VN	Nha Trang	283441 0 0 0 
 NHD	medium_airport	Al Minhad Air Base	25.0268001556 55.3661994934	AE	Dubai	1137347 0 0 0 
-NHT	medium_airport	RAF Northolt	51.5530014038 -0.418166995	GB	London	7556900 0 0 0 
-NIM	medium_airport	Diori Hamani International Airport	13.4814996719 2.1836099625	NE	Niamey	774235 0 0 0 
+NIM	medium_airport	Diori Hamani International Airport	13.4814996719 2.1836099625	NE	Niamey	774235 0 0 0
 NIT	medium_airport	Niort-Souché Airport	46.3112983704 -0.4015029967	FR	Niort/Souché	54660 3 0 0 
 NJC	medium_airport	Nizhnevartovsk Airport	60.9492988586 76.4835968018	RU	Nizhnevartovsk	244937 0 0 0 
 NKC	medium_airport	Nouakchott International Airport	18.0981998444 -15.9484996796	MR	Nouakchott	661400 0 0 0 
@@ -1830,8 +1799,7 @@ NYA	medium_airport	Nyagan Airport	62.1100006104 65.6149978638	RU	Nyagan	52137 0 
 NYI	medium_airport	Sunyani Airport	7.3618302345 -2.3287599087	GH	Sunyani	70299 0 0 0 
 NYK	medium_airport	Nanyuki Airport	-0.0623988993 37.0410079956	KE	Nanyuki	36142 0 0 0 
 NYM	medium_airport	Nadym Airport	65.4809036255 72.6988983154	RU	Nadym	46339 0 0 0 
-NZY	medium_airport	North Island Naval Air Station-Halsey Field	32.69919968 -117.2149963	US	San Diego	1307402 0 0 0 
-OAG	medium_airport	Orange Airport	-33.3816986084 149.132995605	AU	Orange	39329 0 0 0 
+OAG	medium_airport	Orange Airport	-33.3816986084 149.132995605	AU	Orange	39329 0 0 0
 OAJ	medium_airport	Albert J Ellis Airport	34.8292007446 -77.6120986938	US	Jacksonville	70145 0 0 0 
 OAK	large_airport	Metropolitan Oakland International Airport	37.7212982178 -122.2210006714	US	Oakland	390724 0 0 0 
 OAX	medium_airport	Xoxocotlán International Airport	16.9999008179 -96.726600647	MX	Oaxaca	262566 0 0 0 
@@ -1889,21 +1857,18 @@ OSB	medium_airport	Mosul International Airport	36.3058013916 43.1473999023	IQ	Mo
 OSD	medium_airport	Östersund Airport	63.1944007874 14.5003004074	SE	Östersund	42940 0 0 0 
 OSH	medium_airport	Wittman Regional Airport	43.9844017029 -88.5569992065	US	Oshkosh	66083 0 0 0 
 OSI	medium_airport	Osijek Airport	45.4626998901 18.8101997375	HR	Osijek	88140 0 0 0 
-OSL	large_airport	Oslo Gardermoen Airport	60.193901062 11.100399971	NO	Oslo	580000 0 0 0 
-OSR	medium_airport	Ostrava Leos Janáček Airport	49.6963005066 18.1110992432	CZ	Ostrava	313088 0 0 0 
+OSR	medium_airport	Ostrava Leos Janáček Airport	49.6963005066 18.1110992432	CZ	Ostrava	313088 0 0 0
 OSS	medium_airport	Osh Airport	40.6090011597 72.793296814	KG	Osh	200000 0 0 0 
 OST	medium_airport	Ostend-Bruges International Airport	51.1988983154 2.8622200489	BE	Ostend	69011 0 0 0 
 OSW	medium_airport	Orsk Airport	51.0724983215 58.5956001282	RU	Orsk	246836 0 0 0 
 OTH	medium_airport	Southwest Oregon Regional Airport	43.417098999 -124.2460021973	US	North Bend	9695 0 0 0 
 OTM	medium_airport	Ottumwa Regional Airport	41.10660172 -92.44789886	US	Ottumwa	25023 0 0 0 
-OTP	large_airport	Henri Coandă International Airport	44.5722007751 26.1021995544	RO	Bucharest	1877155 0 0 0 
-OTZ	medium_airport	Ralph Wien Memorial Airport	66.88469696 -162.598999	US	Kotzebue	3201 0 0 0 
+OTZ	medium_airport	Ralph Wien Memorial Airport	66.88469696 -162.598999	US	Kotzebue	3201 0 0 0
 OUA	medium_airport	Ouagadougou Airport	12.3531999588 -1.5124200583	BF	Ouagadougou	1086505 0 0 0 
 OUD	medium_airport	Angads Airport	34.7872009277 -1.9239900112	MA	Oujda	405253 0 0 0 
 OUH	medium_airport	Oudtshoorn Airport	-33.6069984436 22.188999176	ZA	Oudtshoorn	76708 0 0 0 
 OVB	medium_airport	Tolmachevo Airport	55.0125999451 82.6507034302	RU	Novosibirsk	1419007 0 0 0 
-NSKIX	 	Novosibirsk	55.0125999451 82.6507034302	RU	Novosibirsk	1419007 0 0 0 
-OVS	medium_airport	Sovetskiy Airport	61.3266220093 63.6019134521	RU	Sovetskiy	23685 2 0 0 
+OVS	medium_airport	Sovetskiy Airport	61.3266220093 63.6019134521	RU	Sovetskiy	23685 2 0 0
 OWB	medium_airport	Owensboro Daviess County Airport	37.74010086 -87.16680145	US	Owensboro	57265 0 0 0 
 OXB	medium_airport	Osvaldo Vieira International Airport	11.8948001862 -15.6536998749	GW	Bissau	388028 0 0 0 
 OXF	medium_airport	Oxford (Kidlington) Airport	51.8368988037 -1.3200000525	GB	Kidlington	15278 0 0 0 
@@ -1996,8 +1961,7 @@ PLO	medium_airport	Port Lincoln Airport	-34.6053009033 135.880004883	AU	Port Lin
 PLQ	medium_airport	Palanga International Airport	55.9732017517 21.0939006805	LT	Palanga	17796 0 0 0 
 PLU	medium_airport	Pampulha - Carlos Drummond de Andrade Airport	-19.8512001038 -43.9505996704	BR	Belo Horizonte	2373224 0 0 0 
 PLW	medium_airport	Mutiara Airport	-0.9185420275 119.9100036621	ID	Palu-Celebes Island	282431 3 0 0 
-PLX	medium_airport	Semipalatinsk Airport	50.3512992859 80.2343978882	KZ	Semey	292780 0 0 0 
-PLZ	medium_airport	Port Elizabeth Airport	-33.9849014282 25.6173000336	ZA	Port Elizabeth	967677 0 0 0 
+PLZ	medium_airport	Port Elizabeth Airport	-33.9849014282 25.6173000336	ZA	Port Elizabeth	967677 0 0 0
 PMA	medium_airport	Pemba Airport	-5.2572598457 39.8114013672	TZ	Chake	21686 0 0 0 
 PMC	medium_airport	El Tepual Airport	-41.4388999939 -73.09400177	CL	Puerto Montt	160054 0 0 0 
 PMD	medium_airport	Palmdale Regional/USAF Plant 42 Airport	34.62939835 -118.0849991	US	Palmdale	152750 0 0 0 
@@ -2031,8 +1995,7 @@ POU	medium_airport	Dutchess County Airport	41.6265983582 -73.8842010498	US	Pough
 POW	medium_airport	Portoroz Airport	45.473400116 13.6149997711	SI	Portoroz	2947 0 0 0 
 POX	medium_airport	Pontoise - Cormeilles-en-Vexin Airport	49.0965995789 2.0408298969	FR	Pontoise	30290 0 0 0 
 POZ	large_airport	Poznan-Ławica Airport	52.4210014343 16.8262996674	PL	Poznan	570352 0 0 0 
-POZNAN	 	Poznan	52.4005285 16.9016658	PL	Poznan	570352 0 0 0 
-PPB	medium_airport	Presidente Prudente Airport	-22.1751003265 -51.4245986938	BR	Presidente Prudente	209502 0 0 0 
+PPB	medium_airport	Presidente Prudente Airport	-22.1751003265 -51.4245986938	BR	Presidente Prudente	209502 0 0 0
 PPE	medium_airport	Puerto Peñasco International Airport	31.356202302 -113.525676727	MX	Puerto Peñasco	33875 0 0 0 
 PPG	medium_airport	Pago Pago International Airport	-14.3310003281 -170.710006714	AS	Pago Pago	11500 0 0 0 
 PPN	medium_airport	Guillermo León Valencia Airport	2.4544 -76.6093	CO	Popayán	258653 0 0 0 
@@ -2046,8 +2009,7 @@ PRA	medium_airport	General Urquiza Airport	-31.7948 -60.4804	AR	Parana	262295 0 
 PRC	medium_airport	Ernest A. Love Field	34.65449905 -112.4199982	US	Prescott	39843 0 0 0 
 PRG	large_airport	Ruzyně International Airport	50.1007995605 14.2600002289	CZ	Prague	1165581 0 0 0 
 PRN	large_airport	Priština International Airport	42.5727996826 21.0358009338	KS	Prishtina	550000 0 0 0 
-PRT	large_airport	Perth International Airport	-31.9402999878 115.9670028687	AU	Perth	1896548 1 0 0 
-PRV	medium_airport	Přerov Air Base	49.4258003235 17.4046993256	CZ	Přerov	47311 0 0 0 
+PRV	medium_airport	Přerov Air Base	49.4258003235 17.4046993256	CZ	Přerov	47311 0 0 0
 PRY	medium_airport	Wonderboom Airport	-25.6539001465 28.224199295	ZA	Pretoria	1619438 0 0 0 
 PSA	large_airport	Pisa / San Giusto - Galileo Galilei International Airport	43.6838989258 10.3927001953	IT	Pisa	77007 0 0 0 
 PSC	medium_airport	Tri Cities Airport	46.2647018433 -119.1190032959	US	Pasco	59781 0 0 0 
@@ -2111,13 +2073,11 @@ QLP	medium_airport	Sarzana / Luni Airport	44.0880012512 9.987950325	IT	Sarzana	2
 QLT	medium_airport	Latina Airport	41.5424003601 12.9090003967	IT	Latina	76305 0 0 0 
 QMZ	medium_airport	Mainz-Finthen Airport	49.9674987793 8.1472215652	DE	Mainz	184997 0 0 0 
 QNJ	medium_airport	Annemasse Airport	46.1920013428 6.2683901787	FR	Annemasse	28275 0 0 0 
-QNS	medium_airport	Canoas Airport	-29.9458999634 -51.1444015503	BR	Porto Alegre	1372741 0 0 0 
-QNX	medium_airport	Mâcon-Charnay Airport	46.2951011658 4.7957701683	FR	Mâcon/Charnay	1018 3 0 0 
+QNX	medium_airport	Mâcon-Charnay Airport	46.2951011658 4.7957701683	FR	Mâcon/Charnay	1018 3 0 0
 QOW	medium_airport	Sam Mbakwe International Airport	5.4270601273 7.206029892	NG	Owerri	215038 0 0 0 
 QPA	medium_airport	Padova Airport	45.3958015442 11.8479003906	IT	Padova	203725 0 0 0 
 QPD	medium_airport	Pinar Del Rio Airport	22.4214000702 -83.6783981323	CU	Pinar del Rio	186990 0 0 0 
-QPG	medium_airport	Paya Lebar Air Base	1.3604199886 103.9100036621	SG	Singapore	3547809 0 0 0 
-QPS	medium_airport	Campo Fontenelle Airport	-21.9846000671 -47.3348007202	BR	Pirassununga	60413 0 0 0 
+QPS	medium_airport	Campo Fontenelle Airport	-21.9846000671 -47.3348007202	BR	Pirassununga	60413 0 0 0
 QPZ	medium_airport	Piacenza Airport	44.9131011963 9.7233295441	IT	Piacenza	93228 0 0 0 
 QRA	medium_airport	Rand Airport	-26.2425003052 28.1511993408	ZA	Johannesburg	4434827 0 0 0 
 QRC	medium_airport	De La Independencia Airport	-34.1736984253 -70.7757034302	CL	Rancagua	212695 0 0 0 
@@ -2182,8 +2142,7 @@ RJK	medium_airport	Rijeka Airport	45.2168998718 14.5703001022	HR	Rijeka	141172 0
 RKE	medium_airport	Copenhagen Roskilde Airport	55.5856018066 12.1314001083	DK	Copenhagen	1153615 0 0 0 
 RKS	medium_airport	Rock Springs Sweetwater County Airport	41.59420013 -109.0650024	US	Rock Springs	23036 0 0 0 
 RKV	medium_airport	Reykjavik Airport	64.1299972534 -21.9405994415	IS	Reykjavik	118918 0 0 0 
-ISNIC	 	Reykjavik	64.1299972534 -21.9405994415	IS	Reykjavik	118918 0 0 0 
-RLG	medium_airport	Rostock-Laage Airport	53.9182014465 12.2783002853	DE	Rostock	198293 0 0 0 
+RLG	medium_airport	Rostock-Laage Airport	53.9182014465 12.2783002853	DE	Rostock	198293 0 0 0
 RMA	medium_airport	Roma Airport	-26.5450000763 148.774993896	AU	Roma	5496 0 0 0 
 RMF	medium_airport	Marsa Alam International Airport	25.557100296 34.5836982727	EG	Marsa Alam	10000 0 0 0 
 RMI	medium_airport	Rimini / Miramare - Federico Fellini International Airport	44.0203018188 12.611700058	IT	Rimini	118673 0 0 0 
@@ -2197,13 +2156,11 @@ ROA	large_airport	Roanoke Regional Woodrum Field	37.3255004883 -79.975402832	US	
 ROB	medium_airport	Roberts International Airport	6.2337899208 -10.3622999191	LR	Monrovia	939524 0 0 0 
 ROC	large_airport	Greater Rochester International Airport	43.1189002991 -77.6724014282	US	Rochester	210565 0 0 0 
 ROK	medium_airport	Rockhampton Airport	-23.3819007874 150.475006104	AU	Rockhampton	61724 0 0 0 
-ROM	 	 Roma Airport	41.799444 12.597222	IT	Rome	2318895 0 0 0 
-ROS	medium_airport	Islas Malvinas Airport	-32.9036 -60.785	AR	Rosario	1173533 0 0 0 
+ROS	medium_airport	Islas Malvinas Airport	-32.9036 -60.785	AR	Rosario	1173533 0 0 0
 ROT	medium_airport	Rotorua Regional Airport	-38.1091995239 176.3170013428	NZ	Rotorua	65901 0 0 0 
 ROV	medium_airport	Rostov-na-Donu Airport	47.2582015991 39.8180999756	RU	Rostov-on-Don	1074482 0 0 0 
 ROW	medium_airport	Roswell International Air Center Airport	33.3016014099 -104.53099823	US	Roswell	48366 0 0 0 
-ROX	medium_airport	Băneasa International Airport	44.503200531 26.1021003723	RO	Bucharest	1877155 0 0 0 
-ROZ	medium_airport	Rota Naval Station Airport	36.645198822 -6.349460125	ES	Rota	28516 0 0 0 
+ROZ	medium_airport	Rota Naval Station Airport	36.645198822 -6.349460125	ES	Rota	28516 0 0 0
 RPN	medium_airport	Ben Ya'akov Airport	32.9809989929 35.5718994141	IL	Rosh Pina	2492 0 0 0 
 RRG	medium_airport	Sir Charles Gaetan Duval Airport	-19.7576999664 63.361000061	MU	Port Mathurin	6000 0 0 0 
 RRS	medium_airport	Røros Airport	62.5783996582 11.342300415	NO	Røros	3496 0 0 0 
@@ -2265,14 +2222,12 @@ SDR	medium_airport	Santander Airport	43.4271011353 -3.8200099468	ES	Santander	18
 SDU	medium_airport	Santos Dumont Airport	-22.9104995728 -43.1631011963	BR	Rio De Janeiro	6023699 0 0 0 
 SDV	medium_airport	Sde Dov Airport	32.1147003174 34.7821998596	IL	Tel Aviv	250000 0 0 0 
 SDY	medium_airport	Sidney Richland Municipal Airport	47.70690155 -104.1930008	US	Sidney	5191 0 0 0 
-SEA	large_airport	Seattle Tacoma International Airport	47.4490013123 -122.3089981079	US	Seattle	608660 0 0 0 
-SEB	medium_airport	Sabha Airport	26.9869995117 14.4724998474	LY	Sabha	130000 0 0 0 
+SEB	medium_airport	Sabha Airport	26.9869995117 14.4724998474	LY	Sabha	130000 0 0 0
 SEN	medium_airport	Southend Airport	51.5713996887 0.695555985	GB	Southend	163377 0 0 0 
 SFA	medium_airport	Sfax Thyna International Airport	34.7179985046 10.6909999847	TN	Sfax	277278 0 0 0 
 SFB	large_airport	Orlando Sanford International Airport	28.7775993347 -81.2375030518	US	Orlando	238300 0 0 0 
 SFN	medium_airport	Sauce Viejo Airport	-31.7117 -60.8117	AR	Santa Fe	489505 0 0 0 
-SFO	large_airport	San Francisco International Airport	37.6189994812 -122.375	US	San Francisco	805235 0 0 0 
-SFQ	medium_airport	Şanlıurfa Airport	37.0942993164 38.8470993042	TR	Şanlıurfa	449549 0 0 0 
+SFQ	medium_airport	Şanlıurfa Airport	37.0942993164 38.8470993042	TR	Şanlıurfa	449549 0 0 0
 SFS	medium_airport	Subic Bay International Airport	14.7944002151 120.2710037231	PH	Olongapo City	221178 0 0 0 
 SFT	medium_airport	Skellefteå Airport	64.6248016357 21.0769004822	SE	Skellefteå	30839 0 0 0 
 SGC	medium_airport	Surgut Airport	61.3437004089 73.401802063	RU	Surgut	300367 2 0 0 
@@ -2305,8 +2260,7 @@ SJO	medium_airport	Juan Santamaria International Airport	9.9938602448 -84.208801
 SJT	medium_airport	San Angelo Regional Mathis Field	31.3577003479 -100.4960021973	US	San Angelo	93200 0 0 0 
 SJU	large_airport	Luis Munoz Marin International Airport	18.4393997192 -66.0018005371	PR	San Juan	418140 0 0 0 
 SJW	medium_airport	Shijiazhuang Daguocun International Airport	38.2807006836 114.6969985962	CN	Shijiazhuang	1992474 0 0 0 
-SKA	large_airport	Fairchild Air Force Base	47.6151008606 -117.65599823	US	Spokane	208916 0 0 0 
-SKB	medium_airport	Robert L. Bradshaw International Airport	17.3111991882 -62.7187004089	KN	Basseterre	12920 0 0 0 
+SKB	medium_airport	Robert L. Bradshaw International Airport	17.3111991882 -62.7187004089	KN	Basseterre	12920 0 0 0
 SKD	medium_airport	Samarkand Airport	39.7005004883 66.9838027954	UZ	Samarkand	319366 0 0 0 
 SKF	medium_airport	Lackland Air Force Base (Kelly Field Annex) Airport	29.38419914 -98.58110046	US	San Antonio	1327407 0 0 0 
 SKG	large_airport	Thessaloniki Macedonia International Airport	40.5196990967 22.9708995819	GR	Thessaloniki	354290 0 0 0 
@@ -2408,8 +2362,7 @@ SXR	medium_airport	Sheikh ul Alam Airport	33.9870986938 74.7742004395	IN	Srinaga
 SXZ	medium_airport	Siirt Airport	37.9789009094 41.8404006958	TR	Siirt	114034 0 0 0 
 SYD	large_airport	Sydney Kingsford Smith International Airport	-33.9460983276 151.1770019531	AU	Sydney	4627345 0 0 0 
 SYO	medium_airport	Shonai Airport	38.8121986389 139.787002563	JP	Shonai	210667 0 0 0 
-SYQ	medium_airport	Tobias Bolanos International Airport	9.9570503235 -84.1398010254	CR	San Jose	335007 2 0 0 
-SYR	large_airport	Syracuse Hancock International Airport	43.1111984253 -76.106300354	US	Syracuse	145170 0 0 0 
+SYR	large_airport	Syracuse Hancock International Airport	43.1111984253 -76.106300354	US	Syracuse	145170 0 0 0
 SYT	medium_airport	Saint-Yan Airport	46.4124984741 4.0132598877	FR	Saint-Yan	1112 0 0 0 
 SYX	large_airport	Sanya Phoenix International Airport	18.3029003143 109.4120025635	CN	Sanya	144753 0 0 0 
 SYY	medium_airport	Stornoway Airport	58.2155990601 -6.3311100006	GB	Stornoway	5423 0 0 0 
@@ -2439,8 +2392,7 @@ TBJ	medium_airport	Tabarka 7 Novembre Airport	36.9799995422 8.8769397736	TN	Taba
 TBN	medium_airport	Waynesville-St. Robert Regional Forney field	37.74160004 -92.14070129	US	Fort Leonard Wood	15061 0 0 0 
 TBP	medium_airport	Capitan FAP Pedro Canga Rodriguez Airport	-3.5525300503 -80.381401062	PE	Tumbes	109223 0 0 0 
 TBS	large_airport	Tbilisi International Airport	41.6692008972 44.95470047	GE	Tbilisi	1049498 0 0 0 
-TBT	medium_airport	Tabatinga Airport	-4.2556700706 -69.935798645	BR	Tabatinga	28229 2 0 0 
-TBU	medium_airport	Fua'amotu International Airport	-21.2411994934 -175.1499938965	TO	Nuku'alofa	22400 0 0 0 
+TBU	medium_airport	Fua'amotu International Airport	-21.2411994934 -175.1499938965	TO	Nuku'alofa	22400 0 0 0
 TBW	medium_airport	Donskoye Airport	52.806098938 41.48279953	RU	Tambov	290933 0 0 0 
 TBZ	large_airport	Tabriz International Airport	38.1338996887 46.2350006104	IR	Tabriz	1424641 0 0 0 
 TCA	medium_airport	Tennant Creek Airport	-19.6343994141 134.1829986572	AU	Tennant Creek	3889 0 0 0 
@@ -2520,16 +2472,14 @@ TNX	medium_airport	Stung Treng Airport	13.5319004059 106.0149993896	KH	Stung Tre
 TOE	medium_airport	Tozeur Nefta International Airport	33.9397010803 8.1105604172	TN	Tozeur	34943 0 0 0 
 TOF	medium_airport	Bogashevo Airport	56.3802986145 85.2082977295	RU	Tomsk	485519 0 0 0 
 TOJ	medium_airport	Torrejón Airport	40.4967002869 -3.4458699226	ES	Madrid	3255944 0 0 0 
-TOKYO	 	Tokyo	35.673343 139.710388	JP	Tokyo	8336599 0 0 0 
-TOL	large_airport	Toledo Express Airport	41.58679962 -83.80780029	US	Toledo	287208 0 0 0 
+TOL	large_airport	Toledo Express Airport	41.58679962 -83.80780029	US	Toledo	287208 0 0 0
 TOM	medium_airport	Timbuktu Airport	16.7304992676 -3.0075800419	ML	Timbuktu	32460 0 0 0 
 TOQ	medium_airport	Barriles Airport	-22.1410999298 -70.0628967285	CL	Tocopilla	24460 0 0 0 
 TOS	large_airport	Tromsø Airport	69.6832962036 18.9188995361	NO	Tromsø	52436 0 0 0 
 TOU	medium_airport	Touho Airport	-20.7900009155 165.2590026855	NC	Touho	2283 0 0 0 
 TOY	medium_airport	Toyama Airport	36.6483001709 137.18800354	JP	Toyama	325532 0 0 0 
 TPA	large_airport	Tampa International Airport	27.9755001068 -82.533203125	US	Tampa	335709 0 0 0 
-TPE	large_airport	Taiwan Taoyuan International Airport	25.0776996613 121.233001709	TW	Taipei	7871900 0 0 0 
-TPL	medium_airport	Draughon Miller Central Texas Regional Airport	31.1525001526 -97.4077987671	US	Temple	66102 0 0 0 
+TPL	medium_airport	Draughon Miller Central Texas Regional Airport	31.1525001526 -97.4077987671	US	Temple	66102 0 0 0
 TPQ	medium_airport	Amado Nervo National Airport	21.419500351 -104.8430023193	MX	Tepic	280592 0 0 0 
 TPS	medium_airport	Trapani / Birgi Airport	37.9113998413 12.4879999161	IT	Trapani	58681 0 0 0 
 TRC	medium_airport	Francisco Sarabia International Airport	25.5683002472 -103.411003113	MX	Torreón	524066 0 0 0 
@@ -2568,8 +2518,7 @@ TUN	large_airport	Tunis Carthage International Airport	36.8510017395 10.22719955
 TUO	medium_airport	Taupo Airport	-38.7397003174 176.0839996338	NZ	Taupo	22469 0 0 0 
 TUP	medium_airport	Tupelo Regional Airport	34.2681007385 -88.7698974609	US	Tupelo	34546 0 0 0 
 TUR	medium_airport	Tucuruí Airport	-3.7860100269 -49.7202987671	BR	Tucuruí	76337 0 0 0 
-TUS	large_airport	Tucson International Airport	32.1161003113 -110.9410018921	US	Tucson	520116 0 0 0 
-TUV	medium_airport	Tucupita Airport	9.0889940262 -62.0941734314	VE	Tucupita	51534 0 0 0 
+TUV	medium_airport	Tucupita Airport	9.0889940262 -62.0941734314	VE	Tucupita	51534 0 0 0
 TVC	medium_airport	Cherry Capital Airport	44.7414016724 -85.5821990967	US	Traverse City	14674 0 0 0 
 TVL	medium_airport	Lake Tahoe Airport	38.893901825 -119.9950027466	US	South Lake Tahoe	21403 0 0 0 
 TVY	medium_airport	Dawei Airport	14.1038999557 98.2035980225	MM	Dawei	136783 0 0 0 
@@ -2609,8 +2558,7 @@ UIO	large_airport	Nuevo Aeropuerto Internacional Mariscal Sucre	-0.1291666667 -7
 UIP	medium_airport	Quimper-Cornouaille Airport	47.9749984741 -4.1677899361	FR	Quimper/Pluguffan	3370 3 0 0 
 UKB	medium_airport	Kobe Airport	34.6328010559 135.2239990234	JP	Kobe	1528478 0 0 0 
 UKS	medium_airport	Belbek Airport	44.688999176 33.5709991455	UA	Sevastopol	379200 0 0 0 
-UKX	large_airport	Boryspil International Airport	50.3450012207 30.8946990967	UA	Kiev	2797553 0 0 0 
-ULA	medium_airport	Capitan D Daniel Vazquez Airport	-49.3068 -67.8026	AR	San Julian	6143 0 0 0 
+ULA	medium_airport	Capitan D Daniel Vazquez Airport	-49.3068 -67.8026	AR	San Julian	6143 0 0 0
 ULD	medium_airport	Prince Mangosuthu Buthelezi Airport	-28.3206005096 31.4165000916	ZA	Ulundi	20753 0 0 0 
 ULK	medium_airport	Lensk Airport	60.7206001282 114.825996399	RU	Lensk	23694 0 0 0 
 ULN	medium_airport	Chinggis Khaan International Airport	47.8431015015 106.766998291	MN	Ulan Bator	844818 0 0 0 
@@ -2673,8 +2621,7 @@ VGO	medium_airport	Vigo Airport	42.2318000793 -8.6267700195	ES	Vigo	297332 0 0 0
 VHC	medium_airport	Saurimo Airport	-9.6890697479 20.4319000244	AO	Saurimo	40498 0 0 0 
 VHY	medium_airport	Vichy-Charmeil Airport	46.1697006226 3.4037399292	FR	Vichy/Charmeil	27019 3 0 0 
 VIC	medium_airport	Vicenza Airport	45.5733985901 11.5295000076	IT	Vicenza	107129 0 0 0 
-VIE	large_airport	Vienna International Airport	48.1102981567 16.5697002411	AT	Vienna	1691468 0 0 0 
-VIG	medium_airport	Juan Pablo Pérez Alfonso Airport	8.6241388321 -71.672668457	VE	El Vigía	59092 0 0 0 
+VIG	medium_airport	Juan Pablo Pérez Alfonso Airport	8.6241388321 -71.672668457	VE	El Vigía	59092 0 0 0
 VII	medium_airport	Vinh Airport	18.7376003265 105.67099762	VN	Vinh	163759 0 0 0 
 VIL	medium_airport	Dakhla Airport	23.7182998657 -15.9320001602	EH	Dakhla	75000 0 0 0 
 VIR	medium_airport	Virginia Airport	-29.7705993652 31.0583992004	ZA	Durban	3120282 0 0 0 
@@ -2740,15 +2687,13 @@ WJR	medium_airport	Wajir Airport	1.7332400084 40.0915985107	KE	Wajir	45771 0 0 0
 WJU	medium_airport	Wonju Airport	37.4380989075 127.959999084	KR	Wonju	243387 0 0 0 
 WKF	medium_airport	Waterkloof Air Force Base	-25.8299999237 28.2224998474	ZA	Pretoria	1619438 0 0 0 
 WKJ	medium_airport	Wakkanai Airport	45.4042015076 141.800994873	JP	Wakkanai	41556 0 0 0 
-WLG	large_airport	Wellington International Airport	-41.3272018433 174.804992676	NZ	Wellington	381900 0 0 0 
-WMC	medium_airport	Winnemucca Municipal Airport	40.8965988159 -117.805999756	US	Winnemucca	7396 0 0 0 
+WMC	medium_airport	Winnemucca Municipal Airport	40.8965988159 -117.805999756	US	Winnemucca	7396 0 0 0
 WMH	medium_airport	Ozark Regional Airport	36.3689002991 -92.4704971313	US	Mountain Home	12448 0 0 0 
 WMI	large_airport	Modlin Airport	52.4510993958 20.6518001556	PL	Warsaw	1702139 0 0 0 
 WNP	medium_airport	Naga Airport	13.5848999023 123.2699966431	PH	Naga	174931 2 0 0 
 WNZ	large_airport	Wenzhou Yongqiang Airport	27.9122009277 120.8519973755	CN	Wenzhou	865672 0 0 0 
 WPC	medium_airport	Pincher Creek Airport	49.5205993652 -113.997001648	CA	Pincher Creek	3855 0 0 0 
-WRB	large_airport	Robins Air Force Base	32.6400985718 -83.5919036865	US	Warner Robins	66588 0 0 0 
-WRG	medium_airport	Wrangell Airport	56.48429871 -132.3699951	US	Wrangell	2369 0 0 0 
+WRG	medium_airport	Wrangell Airport	56.48429871 -132.3699951	US	Wrangell	2369 0 0 0
 WRI	medium_airport	Mc Guire Air Force Base	40.0155983 -74.59169769	US	Wrightstown	2827 0 0 0 
 WRL	medium_airport	Worland Municipal Airport	43.9656982422 -107.9509963989	US	Worland	5487 0 0 0 
 WRO	large_airport	Copernicus Wrocław Airport	51.1026992798 16.885799408	PL	Wrocław	634893 0 0 0 
@@ -2867,8 +2812,7 @@ YMM	medium_airport	Fort McMurray Airport	56.653301239 -111.222000122	CA	Fort McM
 YMS	medium_airport	Moises Benzaquen Rengifo Airport	-5.8937702179 -76.1182022095	PE	Yurimaguas	41827 0 0 0 
 YMT	medium_airport	Chapais Airport	49.771900177 -74.5280990601	CA	Chibougamau	7563 0 0 0 
 YMX	medium_airport	Montreal International (Mirabel) Airport	45.6795005798 -74.0386962891	CA	Montréal	3268513 0 0 0 
-YND	medium_airport	Ottawa / Gatineau Airport	45.5217018127 -75.5635986328	CA	Gatineau	242124 0 0 0 
-YNG	medium_airport	Youngstown Warren Regional Airport	41.26070023 -80.67910004	US	Youngstown/Warren	41557 3 0 0 
+YNG	medium_airport	Youngstown Warren Regional Airport	41.26070023 -80.67910004	US	Youngstown/Warren	41557 3 0 0
 YNJ	medium_airport	Yanji Chaoyangchuan Airport	42.8828010559 129.451004028	CN	Yanji	326957 0 0 0 
 YNM	medium_airport	Matagami Airport	49.7616996765 -77.8028030396	CA	Matagami	1966 0 0 0 
 YNT	medium_airport	Yantai Laishan Airport	37.4016990662 121.3720016479	CN	Yantai	719332 0 0 0 
@@ -2995,8 +2939,7 @@ ZQL	medium_airport	Donaueschingen-Villingen Airport	47.9733314514 8.5222215653	D
 ZQN	medium_airport	Queenstown International Airport	-45.0210990906 168.738998413	NZ	Queenstown	10442 0 0 0 
 ZRH	large_airport	Zürich Airport	47.4646987915 8.5491695404	CH	Zurich	341730 0 0 0 
 ZUH	medium_airport	Zhuhai Airport	22.0063991547 113.3759994507	CN	Zhuhai	501199 0 0 0 
-ZXT	medium_airport	Zabrat Airport	40.4955422161 49.9768066406	AZ	Baku	1116513 0 0 0 
-ZYI	medium_airport	Zunyi Xinzhou Airport	27.5895 107.0007	CN	Zunyi	466292 0 0 0 
+ZYI	medium_airport	Zunyi Xinzhou Airport	27.5895 107.0007	CN	Zunyi	466292 0 0 0
 ZYL	medium_airport	Osmany International Airport	24.9631996155 91.8667984009	BD	Sylhet	237000 0 0 0 
 ZZU	medium_airport	Mzuzu Airport	-11.4447002411 34.0117988586	MW	Mzuzu	175345 0 0 0 
 ZZV	medium_airport	Zanesville Municipal Airport	39.9444007874 -81.8920974731	US	Zanesville	25487 0 0 0 
@@ -3006,11 +2949,4 @@ CBF	X	Council Bluffs Municipal Airport	41.2592010498 -95.760597229	US	Council Bl
 MRN	X	Morganton Airport	35.7507 -81.6953	US	Morganton	16807 0 0 0 
 DLS	X	The Dalles Airport	45.5995 -121.1905	US	The Dalles	15158 0 0 0
 BTH	X	Hang Nadim	1.121028 104.118753	ID	Batam	944285 0 0 0
-YAN	large_airport	Zvartnots International Airport	40.1473007202 44.3959007263	AM	Yerevan	1093485 0 0 0
-LUL	large_airport	Luleå Airport	65.543800354 22.1219997406	SE	Luleå	45551 0 0 0 
-VUX	medium_airport	Port Vila Bauerfield Airport	-17.699300766 168.3200073242	VU	Port Vila	35901 0 0 0 
-PHI	large_airport	Ninoy Aquino International Airport	14.508600235 121.019996643	PH	Manila	10444527 0 0 0 
-JKT	large_airport	Soekarno-Hatta International Airport	-6.1255698204 106.65599823	ID	Jakarta	8540121 0 0 0 
-FTY	large_airport	Hartsfield Jackson Atlanta International Airport	33.6366996765 -84.4281005859	US	Atlanta	420003 0 0 0 
-RHV	medium_airport	Evelio Javier Airport	10.765999794 121.932998657	PH	San Jose	118807 2 0 0 
-CNJ	large_airport	Newark Liberty International Airport	40.6925010681 -74.1687011719	US	Newark	277140 0 0 0 
+CNJ	large_airport	Newark Liberty International Airport	40.6925010681 -74.1687011719	US	Newark	277140 0 0 0
