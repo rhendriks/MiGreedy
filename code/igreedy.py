@@ -218,7 +218,7 @@ def main(in_df, outfile, alpha):
 
     num_targets = in_df['target'].nunique()
     print(
-        f"Starting parallel processing for {num_targets} targets using available CPU cores...")  # create a partial function with fixed alpha and airports_df
+        f"Starting parallel processing for {num_targets:,} targets using available CPU cores...")  # create a partial function with fixed alpha and airports_df
     worker_func = partial(process_group, alpha=alpha, airports_df=airports_df)
 
     with open(outfile, 'w', newline='') as f:
@@ -270,7 +270,7 @@ if __name__ == "__main__":
         dtype=column_types
     )
 
-    print(f"Input file '{args.input}' loaded. Total records: {len(in_df)}")
+    print(f"Input file '{args.input}' loaded. Total records: {len(in_df):,}")
 
     if in_df.empty:
         print("ERROR: Input file is empty or improperly formatted.")
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     # Apply the RTT threshold filter if a positive threshold is provided.
     if args.threshold > 0:
         in_df = in_df[in_df['rtt'] <= args.threshold]
-        print(f"Applied RTT threshold filter: {args.threshold} ms. Records after filtering: {len(in_df)}")
+        print(f"Applied RTT threshold filter: {args.threshold} ms. Records after filtering: {len(in_df):,}")
 
     print("Adding calculated fields...")
     # Get lat/lon in radians for haversine calculations
@@ -319,6 +319,6 @@ if __name__ == "__main__":
         print(f"Output file '{output_loc}' will be created in '{output_dir}'.")
 
     num_targets = in_df['target'].nunique()
-    print("Processed files (running iGreedy on this many targets): ", num_targets)
+    print(f"Processed files (running iGreedy on this many targets): {num_targets:,}")
 
     main(in_df, args.output, args.alpha)
