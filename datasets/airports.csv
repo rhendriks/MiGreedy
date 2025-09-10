@@ -2757,8 +2757,7 @@ YCH	medium_airport	Miramichi Airport	47.0078010559 -65.4492034912	CA	Miramichi	1
 YCL	medium_airport	Charlo Airport	47.9907989502 -66.3302993774	CA	Charlo	42402 0 0 0 
 YCN	medium_airport	Cochrane Airport	49.1055984497 -81.0136032104	CA	Cochrane	16365 0 0 0 
 YCO	medium_airport	Kugluktuk Airport	67.8167037964 -115.143997192	CA	Kugluktuk	1302 0 0 0 
-YCQ	medium_airport	Chetwynd Airport	55.6871986389 -121.6269989014	CA	Chetwynd	2587 0 0 0 
-YCY	medium_airport	Clyde River Airport	70.4860992432 -68.5167007446	CA	Clyde River	1017 0 0 0 
+YCY	medium_airport	Clyde River Airport	70.4860992432 -68.5167007446	CA	Clyde River	1017 0 0 0
 YDA	medium_airport	Dawson City Airport	64.0430984497 -139.1280059814	CA	Dawson City	1319 0 0 0 
 YDF	medium_airport	Deer Lake Airport	49.2108001709 -57.3913993835	CA	Deer Lake	4163 0 0 0 
 YDG	medium_airport	Digby / Annapolis Regional Airport	44.5458450365 -65.7854247093	CA	Digby	2052 0 0 0 
@@ -2770,17 +2769,14 @@ YEI	medium_airport	Bursa Yenişehir Airport	40.2551994324 29.5625991821	TR	Bursa
 YEL	medium_airport	Elliot Lake Municipal Airport	46.351398468 -82.5614013672	CA	Elliot Lake	12508 0 0 0 
 YEN	medium_airport	Estevan Airport	49.2103004456 -102.966003418	CA	Estevan	9904 0 0 0 
 YEO	medium_airport	RNAS Yeovilton	51.0093994141 -2.6388199329	GB	Yeovil	43733 0 0 0 
-YET	medium_airport	Edson Airport	53.5788993835 -116.464996338	CA	Edson	7975 0 0 0 
-YEV	medium_airport	Inuvik Mike Zubko Airport	68.3041992188 -133.483001709	CA	Inuvik	3022 0 0 0 
+YEV	medium_airport	Inuvik Mike Zubko Airport	68.3041992188 -133.483001709	CA	Inuvik	3022 0 0 0
 YEY	medium_airport	Amos Magny Airport	48.5638999939 -78.2497024536	CA	Amos	17918 0 0 0 
 YFB	medium_airport	Iqaluit Airport	63.756401062 -68.5558013916	CA	Iqaluit	6124 0 0 0 
 YFC	medium_airport	Fredericton Airport	45.8689002991 -66.5372009277	CA	Fredericton	52337 0 0 0 
 YFE	medium_airport	Forestville Airport	48.7461013794 -69.0971984863	CA	Forestville	3543 0 0 0 
-YFO	medium_airport	Flin Flon Airport	54.6781005859 -101.6819992065	CA	Flin Flon	6002 0 0 0 
-YGJ	medium_airport	Miho Yonago Airport	35.4921989441 133.2359924316	JP	Yonago	141368 0 0 0 
+YGJ	medium_airport	Miho Yonago Airport	35.4921989441 133.2359924316	JP	Yonago	141368 0 0 0
 YGK	medium_airport	Kingston Norman Rogers Airport	44.2252998352 -76.5969009399	CA	Kingston	114195 0 0 0 
-YGM	medium_airport	Gimli Industrial Park Airport	50.6281013489 -97.043296814	CA	Gimli	2009 0 0 0 
-YGP	medium_airport	Gaspé (Michel-Pouliot) Airport	48.7752990723 -64.4785995483	CA	Gaspé	14819 0 0 0 
+YGP	medium_airport	Gaspé (Michel-Pouliot) Airport	48.7752990723 -64.4785995483	CA	Gaspé	14819 0 0 0
 YHD	medium_airport	Dryden Regional Airport	49.8316993713 -92.7442016602	CA	Dryden	8195 0 0 0 
 YHE	medium_airport	Hope Airport	49.3683013916 -121.498001099	CA	Hope	4598 0 0 0 
 YHF	medium_airport	Hearst René Fontaine Municipal Airport	49.7141990662 -83.6860961914	CA	Hearst	4746 0 0 0 
@@ -2807,8 +2803,7 @@ YLJ	medium_airport	Meadow Lake Airport	54.1253013611 -108.5230026245	CA	Meadow L
 YLL	medium_airport	Lloydminster Airport	53.3092002869 -110.0729980469	CA	Lloydminster	15910 0 0 0 
 YLW	medium_airport	Kelowna International Airport	49.9561004639 -119.377998352	CA	Kelowna	125109 0 0 0 
 YME	medium_airport	Matane Airport	48.8568992615 -67.4533004761	CA	Matane	14812 0 0 0 
-YMJ	medium_airport	Moose Jaw Air Vice Marshal C. M. McEwen Airport	50.3302993774 -105.5589981079	CA	Moose Jaw	32166 0 0 0 
-YMM	medium_airport	Fort McMurray Airport	56.653301239 -111.222000122	CA	Fort McMurray	76000 0 0 0 
+YMM	medium_airport	Fort McMurray Airport	56.653301239 -111.222000122	CA	Fort McMurray	76000 0 0 0
 YMS	medium_airport	Moises Benzaquen Rengifo Airport	-5.8937702179 -76.1182022095	PE	Yurimaguas	41827 0 0 0 
 YMT	medium_airport	Chapais Airport	49.771900177 -74.5280990601	CA	Chibougamau	7563 0 0 0 
 YMX	medium_airport	Montreal International (Mirabel) Airport	45.6795005798 -74.0386962891	CA	Montréal	3268513 0 0 0 
@@ -2824,8 +2819,7 @@ YOS	medium_airport	Owen Sound / Billy Bishop Regional Airport	44.5903015137 -80.
 YOW	large_airport	Ottawa Macdonald-Cartier International Airport	45.3224983215 -75.6691970825	CA	Ottawa	812129 0 0 0 
 YPA	medium_airport	Prince Albert Glass Field	53.2141990662 -105.672996521	CA	Prince Albert	34609 0 0 0 
 YPE	medium_airport	Peace River Airport	56.2268981934 -117.4469985962	CA	Peace River	5340 0 0 0 
-YPG	medium_airport	Southport Airport	49.9030990601 -98.2739028931	CA	Portage	12957 0 0 0 
-YPQ	medium_airport	Peterborough Airport	44.2299995422 -78.3632965088	CA	Peterborough	75877 0 0 0 
+YPQ	medium_airport	Peterborough Airport	44.2299995422 -78.3632965088	CA	Peterborough	75877 0 0 0
 YPR	medium_airport	Prince Rupert Airport	54.2860984802 -130.445007324	CA	Prince Rupert	14708 0 0 0 
 YPS	medium_airport	Port Hawkesbury Airport	45.6567001343 -61.3680992126	CA	Port Hawkesbury	3564 0 0 0 
 YPW	medium_airport	Powell River Airport	49.8342018127 -124.5	CA	Powell River	12779 0 0 0 
@@ -2843,10 +2837,8 @@ YQU	medium_airport	Grande Prairie Airport	55.1796989441 -118.885002136	CA	Grande
 YQV	medium_airport	Yorkton Municipal Airport	51.2647018433 -102.4619979858	CA	Yorkton	15669 0 0 0 
 YQW	medium_airport	North Battleford Airport	52.7691993713 -108.2440032959	CA	North Battleford	19440 0 0 0 
 YQY	medium_airport	Sydney / J.A. Douglas McCurdy Airport	46.1613998413 -60.0477981567	CA	Sydney	105968 0 0 0 
-YQZ	medium_airport	Quesnel Airport	53.0261001587 -122.5100021362	CA	Quesnel	13788 0 0 0 
-YRI	medium_airport	Rivière-du-Loup Airport	47.7644004822 -69.5847015381	CA	Rivière-du-Loup	18586 0 0 0 
-YRJ	medium_airport	Roberval Airport	48.5200004578 -72.2656021118	CA	Roberval	9287 0 0 0 
-YRL	medium_airport	Red Lake Airport	51.0668983459 -93.7930984497	CA	Red Lake	4366 0 0 0 
+YRI	medium_airport	Rivière-du-Loup Airport	47.7644004822 -69.5847015381	CA	Rivière-du-Loup	18586 0 0 0
+YRL	medium_airport	Red Lake Airport	51.0668983459 -93.7930984497	CA	Red Lake	4366 0 0 0
 YRO	medium_airport	Ottawa / Rockcliffe Airport	45.4603004456 -75.6461029053	CA	Ottawa	812129 0 0 0 
 YRQ	medium_airport	Trois-Rivières Airport	46.3527984619 -72.679397583	CA	Trois-Rivières	119693 0 0 0 
 YRT	medium_airport	Rankin Inlet Airport	62.8114013672 -92.1157989502	CA	Rankin Inlet	2334 0 0 0 
@@ -2858,9 +2850,7 @@ YSJ	medium_airport	Saint John Airport	45.3161010742 -65.890296936	CA	Saint John	
 YSM	medium_airport	Fort Smith Airport	60.0203018188 -111.9619979858	CA	Fort Smith	2364 0 0 0 
 YSN	medium_airport	Salmon Arm Airport	50.682800293 -119.2289962769	CA	Salmon Arm	16205 0 0 0 
 YSP	medium_airport	Marathon Airport	48.7552986145 -86.3443984985	CA	Marathon	4627 0 0 0 
-YSU	medium_airport	Summerside Airport	46.4406013489 -63.8335990906	CA	Summerside	14808 0 0 0 
-YTA	medium_airport	Pembroke Airport	45.8643989563 -77.251701355	CA	Pembroke	15551 0 0 0 
-YTF	medium_airport	Alma Airport	48.5088996887 -71.6418991089	CA	Alma	29526 0 0 0 
+YTF	medium_airport	Alma Airport	48.5088996887 -71.6418991089	CA	Alma	29526 0 0 0
 YTH	medium_airport	Thompson Airport	55.8011016846 -97.8641967773	CA	Thompson	12467 0 0 0 
 YTS	medium_airport	Timmins/Victor M. Power	48.5696983337 -81.376701355	CA	Timmins	42997 0 0 0 
 YTZ	medium_airport	Billy Bishop Toronto City Centre Airport	43.6274986267 -79.3962020874	CA	Toronto	4612191 0 0 0 
@@ -2877,8 +2867,7 @@ YVR	large_airport	Vancouver International Airport	49.193901062 -123.183998108	CA
 YVZ	medium_airport	Deer Lake Airport	52.6557998657 -94.0614013672	CA	Deer Lake	4163 0 0 0 
 YWA	medium_airport	Petawawa Airport	45.9522018433 -77.3191986084	CA	Petawawa	15988 0 0 0 
 YWG	large_airport	Winnipeg / James Armstrong Richardson International Airport	49.9099998474 -97.2398986816	CA	Winnipeg	632063 0 0 0 
-YWL	medium_airport	Williams Lake Airport	52.1831016541 -122.054000854	CA	Williams Lake	14168 0 0 0 
-YXC	medium_airport	Cranbrook Airport	49.6108016968 -115.7819976807	CA	Cranbrook	18610 0 0 0 
+YXC	medium_airport	Cranbrook Airport	49.6108016968 -115.7819976807	CA	Cranbrook	18610 0 0 0
 YXE	medium_airport	Saskatoon John G. Diefenbaker International Airport	52.1707992554 -106.6999969482	CA	Saskatoon	198958 0 0 0 
 YXH	medium_airport	Medicine Hat Airport	50.018901825 -110.7210006714	CA	Medicine Hat	63138 0 0 0 
 YXK	medium_airport	Rimouski Airport	48.478099823 -68.4969024658	CA	Rimouski	42240 0 0 0 
@@ -2890,11 +2879,9 @@ YXX	medium_airport	Abbotsford Airport	49.0252990723 -122.361000061	CA	Abbotsford
 YXY	medium_airport	Whitehorse / Erik Nielsen International Airport	60.7095985413 -135.067001343	CA	Whitehorse	23272 0 0 0 
 YYB	medium_airport	North Bay Airport	46.3636016846 -79.4227981567	CA	North Bay	50170 0 0 0 
 YYC	large_airport	Calgary International Airport	51.113899231 -114.019996643	CA	Calgary	1019942 0 0 0 
-YYD	medium_airport	Smithers Airport	54.8246994019 -127.1829986572	CA	Smithers	5438 0 0 0 
-YYE	medium_airport	Fort Nelson Airport	58.8363990784 -122.597000122	CA	Fort Nelson	4514 0 0 0 
+YYE	medium_airport	Fort Nelson Airport	58.8363990784 -122.597000122	CA	Fort Nelson	4514 0 0 0
 YYF	medium_airport	Penticton Airport	49.4631004333 -119.6019973755	CA	Penticton	37721 0 0 0 
-YYG	medium_airport	Charlottetown Airport	46.2900009155 -63.1211013794	CA	Charlottetown	42402 0 0 0 
-YYJ	large_airport	Victoria International Airport	48.646900177 -123.426002502	CA	Victoria	289625 0 0 0 
+YYJ	large_airport	Victoria International Airport	48.646900177 -123.426002502	CA	Victoria	289625 0 0 0
 YYN	medium_airport	Swift Current Airport	50.2919006348 -107.691001892	CA	Swift Current	14703 0 0 0 
 YYT	large_airport	St. John's International Airport	47.618598938 -52.7518997192	CA	St. John's	99182 0 0 0 
 YYU	medium_airport	Kapuskasing Airport	49.413898468 -82.4674987793	CA	Kapuskasing	9240 0 0 0 
@@ -2925,8 +2912,7 @@ ZEC	medium_airport	Secunda Airport	-26.52409935 29.1700992584	ZA	Secunda	20418 0
 ZGF	medium_airport	Grand Forks Airport	49.0155982971 -118.4309997559	CA	Grand Forks	4208 0 0 0 
 ZHA	medium_airport	Zhanjiang Airport	21.2143993378 110.358001709	CN	Zhanjiang	637790 0 0 0 
 ZIA	medium_airport	Trento / Mattarello Airport	46.0214004517 11.1241998672	IT	Trento	80425 0 0 0 
-ZIC	medium_airport	Victoria Airport	-38.2456016541 -72.3486022949	CL	Victoria	24555 0 0 0 
-ZIG	medium_airport	Ziguinchor Airport	12.5556001663 -16.2817993164	SN	Ziguinchor	159778 0 0 0 
+ZIG	medium_airport	Ziguinchor Airport	12.5556001663 -16.2817993164	SN	Ziguinchor	159778 0 0 0
 ZIH	medium_airport	Ixtapa Zihuatanejo International Airport	17.601600647 -101.460998535	MX	Ixtapa	18717 2 0 0 
 ZJN	medium_airport	Swan River Airport	52.1206016541 -101.236000061	CA	Swan River	4198 0 0 0 
 ZLO	medium_airport	Playa De Oro International Airport	19.1448001862 -104.558998108	MX	Manzanillo	130035 2 0 0 

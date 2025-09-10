@@ -115,4 +115,4 @@ def find_nearby_airports(path="./datasets/airports.csv", threshold=100):
                 print("\n" + "=" * 70 + "\n")
 
 if __name__ == '__main__':
-    find_nearby_airports(threshold=10)
+    find_nearby_airports(threshold=100) # RTT measurements are accurate up to milliseconds, which translates to ~100 km in fiber optics
