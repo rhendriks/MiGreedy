@@ -270,6 +270,9 @@ if __name__ == "__main__":
         dtype=column_types
     )
 
+    # drop NaN values
+    in_df.dropna(inplace=True)
+
     print(f"Input file '{args.input}' loaded. Total records: {len(in_df):,}")
 
     if in_df.empty:
