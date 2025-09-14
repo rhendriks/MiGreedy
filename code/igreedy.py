@@ -57,34 +57,27 @@ def get_airports(path=""):
     if path == "":
         path = os.path.join(os.path.dirname(__file__), '../datasets/airports.csv')
 
-    column_names = [
-        'iata', 'size', 'name', 'lat_lon', 'country_code',
-        'city', 'pop_heuristic_lon_lat'
+    columns = [
+        'iata', 'country_code', 'city', 'lat', 'lon', 'pop',
+        # 'size', 'name', 'heuristic', # unused cols
     ]
+
+    dtypes = {
+        "iata": "string",
+        "country_code": "string",
+        "city": "string",
+        "lat": "float32",
+        "lon": "float32",
+        "pop": "int32"
+    }
+
     airports_df = pd.read_csv(
         path,
-        sep='\t',
-        comment='#',
-        names=column_names
+        sep="\t",
+        comment="#",
+        usecols=columns,
+        dtype=dtypes
     )
-
-    # clean columns
-    airports_df[['lat', 'lon']] = airports_df['lat_lon'].str.split(expand=True)
-    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(
-        expand=True)
-
-    # remove unnecessary columns
-    airports_df.drop(
-        columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'name', 'heuristic', 'google_lon', 'google_lat'],
-        inplace=True)
-
-    # data types
-    convert_dict = {
-        'lat': np.float32,
-        'lon': np.float32,
-        'pop': int
-    }
-    airports_df = airports_df.astype(convert_dict)
 
     # index by IATA code
     airports_df.set_index('iata', inplace=True)

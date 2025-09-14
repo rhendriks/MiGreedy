@@ -22,26 +22,13 @@ def get_airports(path=""):
     if path == "":
         path = os.path.join(os.path.dirname(__file__), '../datasets/airports.csv')
 
-    column_names = [
-        'iata', 'size', 'name', 'lat_lon', 'country_code',
-        'city', 'pop_heuristic_lon_lat'
-    ]
     airports_df = pd.read_csv(
         path,
         sep='\t',
         comment='#',
-        names=column_names
     )
 
-    # clean columns
-    airports_df[['lat', 'lon']] = airports_df['lat_lon'].str.split(expand=True)
-    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(
-        expand=True)
-
-    # drop unused columns
-    airports_df.drop(
-        columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'heuristic', 'google_lon', 'google_lat'],
-        inplace=True)
+    print(airports_df.head())
 
     # data types
     convert_dict = {
