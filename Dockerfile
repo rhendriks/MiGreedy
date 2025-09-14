@@ -1,4 +1,4 @@
-FROM rust:1-slim as builder
+FROM rust:1-slim AS builder
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -11,7 +11,7 @@ COPY rust_impl/src ./src
 RUN cargo build --release
 
 # Final stage
-FROM debian:bullseye-slim as final
+FROM debian:bullseye-slim AS final
 
 # Set the working directory
 WORKDIR /app
