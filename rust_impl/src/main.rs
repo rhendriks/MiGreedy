@@ -443,26 +443,24 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> { /
     };
 
     let input_file = File::open(path)?;
+
     let mut in_df = CsvReader::new(input_file)
         .with_options(read_options)
-        .finish()?;
+        .finish()?.lazy();
 
-    // // Apply RTT threshold if provided TODO
-    // if threshold > 0 {
-    //     in_df = in_df.filter(col("rtt").lt_eq(lit(threshold)));
-    //     println!("Applied RTT threshold filter: {} ms. Records after filtering: {}", threshold, in_df.height());
-    // }
+    // Apply RTT threshold if provided TODO
+    if threshold > 0 {
+        in_df = in_df.filter(col("rtt").lt_eq(lit(threshold as f32)));
+    }
 
     // Add calculated fields TODO
-    // let lat_rad = in_df.column("lat")?.f32()?.apply(|v| v.to_radians()).into_series();
-    // let lon_rad = in_df.column("lon")?.f32()?.apply(|v| v.to_radians()).into_series();
-    // let radius = in_df.column("rtt")?.f32()?.apply(|rtt| {
-    //     (rtt.unwrap_or(0.0) as f32 * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2.0)
-    // }).into_series();
-    //
-    // in_df.with_column(lat_rad.with_name("lat_rad"))?;
-    // in_df.with_column(lon_rad.with_name("lon_rad"))?;
-    // in_df.with_column(radius.with_name("radius"))?;
+    in_df = in_df.with_columns([
+        col("lat").radians().alias("lat_rad"),
+        col("lon").radians().alias("lon_rad"),
+        (col("rtt") * lit(0.001) * lit(SPEED_OF_LIGHT) / lit(FIBER_RI) / lit(2.0)).alias("radius"),
+    ]);
+
+    let in_df = in_df.collect()?;
 
     // Group by target IP
     let groups_df = in_df.group_by(["target"])?.groups()?;
