@@ -497,6 +497,8 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
         .map(|result| result.map_err(anyhow::Error::from))
         .collect::<Result<Vec<_>>>()?;
 
+    println!("Grouped into {} unique target IPs.", groups.len());
+
     Ok(groups)
 }
 
@@ -528,7 +530,7 @@ fn main() -> Result<()> {
         num_targets
     );
 
-    // Setup progress bar TODO test
+    // Setup progress bar
     let pb = ProgressBar::new(num_targets as u64);
     pb.set_style(
         ProgressStyle::default_bar()
