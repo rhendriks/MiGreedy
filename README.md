@@ -68,11 +68,21 @@ mv measurements.csv igreedy_data/
 
 Execute the `docker run` command, which mounts your data directory and passes the necessary arguments to the MiGreedy script.
 
+#### Linux/MacOS
 ```bash
 docker run --rm \
   -v "$(pwd)"/igreedy_data:/app/data \
-  ghcr.io/rhendriks/igreedy:latest \
+  ghcr.io/rhendriks/migreedy:main \
   --input /app/data/measurements.csv \
+  --output /app/data/results.csv
+```
+
+#### Windows (PowerShell)
+```powershell
+docker run --rm `
+  -v "${PWD}\igreedy_data:/app/data" `
+  ghcr.io/rhendriks/migreedy:main `
+  --input /app/data/measurements.csv `
   --output /app/data/results.csv
 ```
 
