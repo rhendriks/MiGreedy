@@ -22,16 +22,11 @@ jobs:
           sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools build-essential
           rustup target add x86_64-unknown-linux-musl
 
-      - name: Add a debug step to list files
-        run: ls -R
-
       - name: Build the static binary
-        # Use working-directory to run commands inside the rust_impl folder
         working-directory: ./rust_impl
         run: cargo build --release --target x86_64-unknown-linux-musl
         
       - name: Package the binary for release
-        # Also use working-directory here for consistency
         working-directory: ./rust_impl
         run: |
           # The path is now guaranteed to be relative to the rust_impl directory
