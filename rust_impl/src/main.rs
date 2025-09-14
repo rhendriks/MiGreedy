@@ -3,8 +3,8 @@ use clap::Parser;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
-use std::path::PathBuf;
 use std::fs::File;
+use std::path::PathBuf;
 
 // Constants
 const FIBER_RI: f32 = 1.52;
@@ -105,7 +105,6 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     EARTH_RADIUS_KM * c
 }
 
-
 /// The main analyzer struct that encapsulates the anycast analysis logic.
 /// Fields:
 /// * alpha: Weighting factor for population vs distance in geolocation (f32)
@@ -185,7 +184,6 @@ impl<'a> AnycastAnalyzer<'a> {
                 // - No modification of the disc's lat, lon, or radius.
                 // - No `break` to re-run enumeration.
                 // - No `processed` flag.
-
             } else {
                 // Geolocation failed for this disc (no airports found within its radius).
                 results.push(OutputRecord {
@@ -209,7 +207,6 @@ impl<'a> AnycastAnalyzer<'a> {
             Some(results)
         }
     }
-
 
     /// Finds the maximum independent set of discs (non-overlapping discs).
     /// Each disc represents an anycast site.
@@ -261,10 +258,14 @@ impl<'a> AnycastAnalyzer<'a> {
 
         // First, filter airports within the bounding box, then calculate exact distances
         // and filter those within the disc radius
-        let airports_inside_disk: Vec<_> = self.airports
+        let airports_inside_disk: Vec<_> = self
+            .airports
             .iter()
             .filter(|a| {
-                a.lat_rad >= min_lat && a.lat_rad <= max_lat && a.lon_rad >= min_lon && a.lon_rad <= max_lon
+                a.lat_rad >= min_lat
+                    && a.lat_rad <= max_lat
+                    && a.lon_rad >= min_lon
+                    && a.lon_rad <= max_lon
             })
             .map(|a| {
                 let dist = haversine_distance(center_lat, center_lon, a.lat_rad, a.lon_rad);
@@ -281,24 +282,42 @@ impl<'a> AnycastAnalyzer<'a> {
         let total_dist: f32 = airports_inside_disk.iter().map(|(_, d)| *d).sum();
 
         // Find airport with the highest score
-        let best_airport = airports_inside_disk.into_iter()
+        let best_airport = airports_inside_disk
+            .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
-                let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
-                let dist_score1 = if total_dist > 0.0 { d1 / total_dist } else { 0.0 };
+                let pop_score1 = if total_pop > 0.0 {
+                    a1.pop as f32 / total_pop
+                } else {
+                    0.0
+                };
+                let dist_score1 = if total_dist > 0.0 {
+                    d1 / total_dist
+                } else {
+                    0.0
+                };
                 let score1 = self.alpha * pop_score1 - (1.0 - self.alpha) * dist_score1;
 
-                let pop_score2 = if total_pop > 0.0 { a2.pop as f32 / total_pop } else { 0.0 };
-                let dist_score2 = if total_dist > 0.0 { d2 / total_dist } else { 0.0 };
+                let pop_score2 = if total_pop > 0.0 {
+                    a2.pop as f32 / total_pop
+                } else {
+                    0.0
+                };
+                let dist_score2 = if total_dist > 0.0 {
+                    d2 / total_dist
+                } else {
+                    0.0
+                };
                 let score2 = self.alpha * pop_score2 - (1.0 - self.alpha) * dist_score2;
 
-                score1.partial_cmp(&score2).unwrap_or(std::cmp::Ordering::Equal)
+                score1
+                    .partial_cmp(&score2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(a, _)| a.clone());
 
         best_airport
     }
 }
-
 
 /// Parse command-line arguments
 /// Fields:
@@ -316,13 +335,27 @@ struct Args {
     #[arg(short, long, help = "Output CSV file")]
     output: PathBuf,
 
-    #[arg(long, default_value = "datasets/airports.csv", help="Path to airports dataset")]
+    #[arg(
+        long,
+        default_value = "datasets/airports.csv",
+        help = "Path to airports dataset"
+    )]
     airports: PathBuf,
 
-    #[arg(short, long, default_value_t = 1.0, help = "Alpha (population vs distance score tuning)")]
+    #[arg(
+        short,
+        long,
+        default_value_t = 1.0,
+        help = "Alpha (population vs distance score tuning)"
+    )]
     alpha: f32,
 
-    #[arg(short, long, default_value_t = 0, help = "Discard disks with RTT > threshold")]
+    #[arg(
+        short,
+        long,
+        default_value_t = 0,
+        help = "Discard disks with RTT > threshold"
+    )]
     threshold: u32,
 }
 
@@ -334,7 +367,8 @@ struct Args {
 /// * path: Path to the airports CSV file (PathBuf)
 /// Returns:
 /// * Result<Vec<Airport>>: List of airports, or error if loading fails
-fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
+fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> {
+    // TODO
     // Define the schema for the airports data
     let airports_schema = Arc::new(Schema::from_iter([
         Field::new(PlSmallStr::from("iata"), DataType::String),
@@ -352,10 +386,7 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
     let airports_read_options = CsvReadOptions {
         has_header: true,
         schema: Some(airports_schema),
-        parse_options: Arc::new(
-            CsvParseOptions::default()
-                .with_separator(b'\t')
-        ),
+        parse_options: Arc::new(CsvParseOptions::default().with_separator(b'\t')),
         ..Default::default()
     };
 
@@ -428,7 +459,8 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
 
     let mut in_df = CsvReader::new(input_file)
         .with_options(read_options)
-        .finish()?.lazy();
+        .finish()?
+        .lazy();
 
     // Apply RTT threshold if provided
     if threshold > 0 {
@@ -444,7 +476,10 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
 
     let in_df = in_df.collect()?;
 
-    println!("Loaded {} latency measurements after applying RTT threshold filter.", in_df.height());
+    println!(
+        "Loaded {} latency measurements after applying RTT threshold filter.",
+        in_df.height()
+    );
 
     // Group by target IP
     let groups_df = in_df.group_by(["addr"])?.groups()?;
@@ -488,13 +523,20 @@ fn main() -> Result<()> {
     let groups = load_input_data(&args.input, args.threshold)?;
 
     let num_targets = groups.len();
-    println!("Starting parallel processing for {} targets...", num_targets);
+    println!(
+        "Starting parallel processing for {} targets...",
+        num_targets
+    );
 
     // Setup progress bar TODO test
     let pb = ProgressBar::new(num_targets as u64);
-    pb.set_style(ProgressStyle::default_bar()
-        .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")?
-        .progress_chars("#>-"));
+    pb.set_style(
+        ProgressStyle::default_bar()
+            .template(
+                "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+            )?
+            .progress_chars("#>-"),
+    );
 
     // Process each group in parallel using Rayon
     // Collect results into a single Vec<OutputRecord>
@@ -533,23 +575,76 @@ fn main() -> Result<()> {
         .flatten() // Flatten the Option<Vec<OutputRecord>> into one big Vec
         .collect();
 
-    println!("Analysis complete. Found {} geolocated sites.", results.len());
+    println!(
+        "Analysis complete. Found {} geolocated sites.",
+        results.len()
+    );
 
     if !results.is_empty() {
         println!("Saving results to {:?}...", args.output);
         let mut output_df = DataFrame::new(vec![
-            Series::new("addr".into(), results.iter().map(|r| r.target.as_str()).collect::<Vec<_>>()).into(),
-            Series::new("vp".into(), results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>()).into(),
-
-            Series::new("vp_lat".into(), results.iter().map(|r| r.vp_lat).collect::<Vec<_>>()).into(),
-            Series::new("vp_lon".into(), results.iter().map(|r| r.vp_lon).collect::<Vec<_>>()).into(),
-            Series::new("radius".into(), results.iter().map(|r| r.radius).collect::<Vec<_>>()).into(),
-
-            Series::new("pop_iata".into(), results.iter().map(|r| r.pop_iata.as_str()).collect::<Vec<_>>()).into(),
-            Series::new("pop_lat".into(), results.iter().map(|r| r.pop_lat).collect::<Vec<_>>()).into(),
-            Series::new("pop_lon".into(), results.iter().map(|r| r.pop_lon).collect::<Vec<_>>()).into(),
-            Series::new("pop_city".into(), results.iter().map(|r| r.pop_city.as_str()).collect::<Vec<_>>()).into(),
-            Series::new("pop_cc".into(), results.iter().map(|r| r.pop_cc.as_str()).collect::<Vec<_>>()).into(),
+            Series::new(
+                "addr".into(),
+                results
+                    .iter()
+                    .map(|r| r.target.as_str())
+                    .collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "vp".into(),
+                results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "vp_lat".into(),
+                results.iter().map(|r| r.vp_lat).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "vp_lon".into(),
+                results.iter().map(|r| r.vp_lon).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "radius".into(),
+                results.iter().map(|r| r.radius).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "pop_iata".into(),
+                results
+                    .iter()
+                    .map(|r| r.pop_iata.as_str())
+                    .collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "pop_lat".into(),
+                results.iter().map(|r| r.pop_lat).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "pop_lon".into(),
+                results.iter().map(|r| r.pop_lon).collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "pop_city".into(),
+                results
+                    .iter()
+                    .map(|r| r.pop_city.as_str())
+                    .collect::<Vec<_>>(),
+            )
+            .into(),
+            Series::new(
+                "pop_cc".into(),
+                results
+                    .iter()
+                    .map(|r| r.pop_cc.as_str())
+                    .collect::<Vec<_>>(),
+            )
+            .into(),
         ])?;
 
         let mut file = File::create(args.output)?;
