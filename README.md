@@ -99,7 +99,35 @@ After the command finishes, the output file (`results.csv`) will appear in your 
 
 ---
 
-## Installation
+## Installation (Rust)
+We include a Rust implementation (10X+ faster than Python version).
+
+1.  Clone this repository:
+    ```bash
+    ```bash
+    git clone [https://github.com/rhendriks/MiGreedy]
+    cd [MiGreedy]
+    ```
+    
+2. Install Rust
+    '''bash
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+    source $HOME/.cargo/env
+    rustup update
+    '''
+
+3. Build the project using Cargo:
+    ```bash
+    cd rust_impl
+    cargo build --release
+    ```
+   
+4. Run the compiled binary with the required arguments:
+    ```bash
+    ./target/release/migreedy --input path/to/measurements.csv --output path/to/results.csv --airports ../datasets/airports.csv
+    ```
+
+## Installation (python)
 
 1.  Clone this repository:
     ```bash
@@ -112,19 +140,11 @@ After the command finishes, the output file (`results.csv`) will appear in your 
     pip install -r requirements.txt
     ```
 
-Of course. The tables were missing the Markdown pipe `|` separators, and the overall structure could be cleaned up for better readability.
+3. Run the script with the required arguments (see below).
 
-Here is the corrected and properly formatted version. I've converted the argument and data format descriptions into clean Markdown tables and organized the roadmap into a checklist.
-
-You can copy and paste this directly into your `README.md` file.
-
-## Usage
-
-The script is run from the command line, with arguments to specify the input and output files, as well as tuning parameters.
-
-```bash
-python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 1.0 -t 100
-```
+    ```bash
+    python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 1.0 -t 100
+    ```
 
 ### Command-Line Arguments
 
@@ -174,10 +194,7 @@ The output CSV file will have a header and contain the following columns:
 *   **GitHub:** [@rhendriks](https://github.com/rhendriks)
 *   **Contact:** `remi.hendriks@utwente.nl`
 
-## TODOs
+---
 
-- [ ] **Update Airports Dataset:** The `airports.csv` file should be updated to a more recent version to improve geolocation accuracy.
-- [ ] **RIPE Atlas:** Update the RIPE Atlas scripts.
-- [ ] **Scamper**: Add support for Scamper measurements.
-- [ ] **Hosts df** Implement a method to load vantage point locations from a separate file to avoid repeating lat/lon data for each measurement.
-- [ ] **Rust Implementation:** Develop a Rust version of the iGreedy algorithm for improved performance.
+## Contributing
+Issues and pull requests are welcome!
