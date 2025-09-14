@@ -41,6 +41,8 @@ outputting a single file with geolocation results.
 
 ---
 
+## Running with musl binary
+
 ## Running with Docker
 
 The code can be ran using Docker.
