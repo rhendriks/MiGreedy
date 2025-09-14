@@ -19,32 +19,32 @@ jobs:
 
       - name: Install Rust toolchain and build dependencies
         run: |
-          # Install the musl C compiler toolchain
           sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools build-essential
-          # Install the Rust target for musl
           rustup target add x86_64-unknown-linux-musl
 
+      - name: Add a debug step to list files
+        run: ls -R
+
       - name: Build the static binary
-        run: cd rust_impl && cargo build --release --target x86_64-unknown-linux-musl
+        # Use working-directory to run commands inside the rust_impl folder
+        working-directory: ./rust_impl
+        run: cargo build --release --target x86_64-unknown-linux-musl
         
       - name: Package the binary for release
+        # Also use working-directory here for consistency
         working-directory: ./rust_impl
         run: |
-          # Navigate to the directory where the binary was built
+          # The path is now guaranteed to be relative to the rust_impl directory
           cd target/x86_64-unknown-linux-musl/release
           
-          # Strip debug symbols to make the binary smaller
           strip migreedy
           
-          # Create a compressed archive with a versioned name
           tar -czvf migreedy-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz migreedy
 
       - name: Create GitHub Release and Upload Asset
-        # create the release and upload the file
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
-          # upload compressed binary
           files: rust_impl/target/x86_64-unknown-linux-musl/release/migreedy-*.tar.gz
