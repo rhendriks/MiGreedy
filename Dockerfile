@@ -1,17 +1,27 @@
-FROM rust:1-slim AS builder
+# Build musl static binary
+FROM --platform=linux/amd64 rust:1-slim AS builder
 
 # Set the working directory
 WORKDIR /usr/src/app
+
+# Install musl-tools for static linking
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        musl-tools
+
+# Install the musl target
+RUN rustup target add x86_64-unknown-linux-musl
 
 # Copy the Cargo files and source code from the rust_impl directory
 COPY rust_impl/Cargo.toml rust_impl/Cargo.lock ./
 COPY rust_impl/src ./src
 
-# Build the release binary
-RUN cargo build --release
+# Build the release binary for the musl target
+RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# Final stage
-FROM debian:bullseye-slim AS final
+# Final stage: minimal image
+FROM scratch AS final
 
 # Set the working directory
 WORKDIR /app
@@ -19,8 +29,8 @@ WORKDIR /app
 # Copy the shared datasets from the build context's root
 COPY datasets/ ./datasets/
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /usr/src/app/target/release/rust_impl .
+# Copy the compiled static binary from the builder stage
+COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/migreedy .
 
 # Set the entrypoint to run the Rust binary
-ENTRYPOINT ["./rust_impl"]
+ENTRYPOINT ["./migreedy"]

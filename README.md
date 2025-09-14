@@ -64,23 +64,17 @@ mkdir igreedy_data
 mv measurements.csv igreedy_data/
 ```
 
-### Step 3: Run the Script
+### Step 3: Run the Container
 
-Execute the `docker run` command, which mounts your data directory into the container's `/app/data` directory. The script then reads from and writes to this folder.
-
-The command below will:
-*   Run the container and automatically remove it once it's finished (`--rm`).
-*   Mount your current working directory's `igreedy_data` subfolder to `/app/data` inside the container (`-v`).
-*   Execute the iGreedy script with the correct paths *inside the container*.
+Execute the `docker run` command, which mounts your data directory and passes the necessary arguments to the MiGreedy script.
 
 ```bash
 # For Linux / macOS
 docker run --rm \
   -v "$(pwd)"/igreedy_data:/app/data \
   ghcr.io/rhendriks/igreedy:latest \
-  -i /app/data/measurements.csv \
-  -o /app/data/results.csv \
-  -a 0.8
+  --input /app/data/measurements.csv \
+  --output /app/data/results.csv
 ```
 
 ```bash
@@ -88,14 +82,11 @@ docker run --rm \
 docker run --rm ^
   -v "%cd%\igreedy_data":/app/data ^
   ghcr.io/rhendriks/igreedy:latest ^
-  -i /app/data/measurements.csv ^
-  -o /app/data/results.csv ^
-  -a 0.8
+  --input /app/data/measurements.csv ^
+  --output /app/data/results.csv
 ```
 
-### Step 4: Results
-
-After the command finishes, the output file (`results.csv`) will appear in your local `igreedy_data` directory.
+After the command finishes, the output file `results.csv` will appear in your local `igreedy_data` directory.
 
 ---
 
