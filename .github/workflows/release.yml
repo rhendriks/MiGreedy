@@ -29,13 +29,16 @@ jobs:
       - name: Package the binary for release
         working-directory: ./rust_impl
         run: |
-          # The path is now guaranteed to be relative to the rust_impl directory
           cd target/x86_64-unknown-linux-musl/release
           
+          # smaller binary
           strip migreedy
           
+          # create versioned
           tar -czvf migreedy-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz migreedy
 
+          # create latest
+          tar -czvf migreedy-latest-x86_64-unknown-linux-musl.tar.gz migreedy
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v2
         with:
