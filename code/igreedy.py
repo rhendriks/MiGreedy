@@ -14,8 +14,8 @@ import csv
 
 from anycast import AnycastDF
 
-FIBER_RI = 1.52
-SPEED_OF_LIGHT = 299792.458  # km/s
+FIBER_RI = np.float32(1.52)
+SPEED_OF_LIGHT = np.float32(299792.458)  # km/s
 
 pd.options.mode.copy_on_write = True
 
@@ -81,10 +81,11 @@ def get_airports(path=""):
 
     # index by IATA code
     airports_df.set_index('iata', inplace=True)
+    airports_df['pop'] = airports_df['pop'].astype(np.float32)
 
     # convert latitude and longitude to radians for geolocation calculations
-    airports_df['lat_rad'] = np.radians(airports_df['lat'])
-    airports_df['lon_rad'] = np.radians(airports_df['lon'])
+    airports_df['lat_rad'] = np.radians(airports_df['lat'], dtype=np.float32)
+    airports_df['lon_rad'] = np.radians(airports_df['lon'], dtype=np.float32)
 
     return airports_df
 
@@ -157,8 +158,8 @@ def analyze_df(in_df, alpha, airports_df):
                     })
 
                     master_df = anycast._all_discs_df
-                    master_df.loc[original_index, 'lat_rad'] = np.radians(lat)
-                    master_df.loc[original_index, 'lon_rad'] = np.radians(lon)
+                    master_df.loc[original_index, 'lat_rad'] = np.radians(lat, dtype=np.float32)
+                    master_df.loc[original_index, 'lon_rad'] = np.radians(lon, dtype=np.float32)
                     master_df.loc[original_index, 'radius'] = radius_geolocated
                     master_df.loc[original_index, 'processed'] = True
 
@@ -186,7 +187,14 @@ def analyze_df(in_df, alpha, airports_df):
     if not results_rows:
         return None
 
-    return pd.DataFrame(results_rows)
+    results_df = pd.DataFrame(results_rows)
+
+    # Define all columns that should be float32
+    float_cols = ['vp_lat', 'vp_lon', 'radius', 'pop_lat', 'pop_lon']
+    for col in float_cols:
+        results_df[col] = results_df[col].astype(np.float32)
+
+    return results_df
 
 
 def process_group(group_tuple, alpha, airports_df):
@@ -282,7 +290,7 @@ if __name__ == "__main__":
     in_df['lat_rad'] = in_df['lat'].apply(radians)
     in_df['lon_rad'] = in_df['lon'].apply(radians)
     # Calculate the radius in km based on the RTT
-    in_df['radius'] = in_df['rtt'] * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2  # Convert RTT to km
+    in_df['radius'] = in_df['rtt'] * np.float32(0.001) * SPEED_OF_LIGHT / FIBER_RI / np.float32(2.0)  # Convert RTT to km
 
     output_loc = Path(args.output)
     output_dir = output_loc.parent

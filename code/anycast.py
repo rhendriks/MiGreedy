@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from numba import jit
 
-EARTH_RADIUS_KM = 6371.0  # earth radius
+EARTH_RADIUS_KM = np.float32(6371.0)  # earth radius
 
 @jit(nopython=True, cache=True)
 def haversine_numba(lat1, lon1, lat2_array, lon2_array):
@@ -21,15 +21,15 @@ def haversine_numba(lat1, lon1, lat2_array, lon2_array):
     """
 
     # Pre-allocate the result array
-    distances = np.empty(lat2_array.shape[0])
+    distances = np.empty(lat2_array.shape[0], dtype=np.float32)
 
     # Numba requires explicit loops
     for i in range(lat2_array.shape[0]):
         dlat = lat2_array[i] - lat1
         dlon = lon2_array[i] - lon1
 
-        a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2_array[i]) * np.sin(dlon / 2.0) ** 2
-        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(1.0 - a))
+        a = np.sin(dlat / np.float32(2.0)) ** 2 + np.cos(lat1) * np.cos(lat2_array[i]) * np.sin(dlon / np.float32(2.0)) ** 2
+        c = 2 * np.arctan2(np.sqrt(a), np.sqrt(np.float32(1.0) - a))
         distances[i] = EARTH_RADIUS_KM * c
 
     return distances
@@ -45,7 +45,7 @@ class AnycastDF(object):
             airports (pd.DataFrame): DateFrame with airport data including ['lat_rad', 'lon_rad', 'pop'].
             alpha (float): The weighting factor for the geolocation score.
         """
-        self.alpha = float(alpha)
+        self.alpha = np.float32(alpha)
 
         self._airports = airports
 
@@ -81,8 +81,8 @@ class AnycastDF(object):
             # check for overlap with existing discs in the MIS
             if mis_series_list: # only check if MIS is not empty
                 # create arrays from the MIS lists
-                lat2_array = np.array(mis_lats)
-                lon2_array = np.array(mis_lons)
+                lat2_array = np.array(mis_lats, dtype=np.float32)
+                lon2_array = np.array(mis_lons, dtype=np.float32)
 
                 # get distance to all existing discs in the MIS
                 distances = haversine_numba(
@@ -93,7 +93,7 @@ class AnycastDF(object):
                 )
 
                 # calculate sum of radii (i.e., overlap threshold)
-                radii_array = np.array(mis_radii)
+                radii_array = np.array(mis_radii, dtype=np.float32)
                 sum_of_radii = candidate_disc['radius'] + radii_array
 
                 if np.any(distances <= sum_of_radii):
@@ -164,13 +164,13 @@ class AnycastDF(object):
             return False  # No airports within the disc radius
 
         # calculate population and distance scores
-        total_pop = airports_inside_disk['pop'].sum()
+        total_pop = np.float32(airports_inside_disk['pop'].sum())
         if total_pop > 0:
             airports_inside_disk['pop_score'] = airports_inside_disk['pop'] / total_pop
         else:
             airports_inside_disk['pop_score'] = 0
 
-        total_distance = airports_inside_disk['dist_from_disc_center'].sum()
+        total_distance = np.float32(airports_inside_disk['dist_from_disc_center'].sum())
 
         if total_distance > 0:
             airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance

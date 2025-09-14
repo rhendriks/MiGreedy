@@ -6,7 +6,7 @@ use rayon::prelude::*;
 use std::path::PathBuf;
 use std::fs::File;
 
-// Constants TODO verify these values
+// Constants
 const FIBER_RI: f32 = 1.52;
 const SPEED_OF_LIGHT: f32 = 299792.458; // km/s
 const EARTH_RADIUS_KM: f32 = 6371.0;
@@ -45,7 +45,6 @@ struct Airport {
 /// * lon_rad: Vantage point longitude in radians (f32)
 /// * radius: Calculated disc radius in kilometers (f32)
 /// * processed: Whether this disc has been processed (bool)
-/// * original_index: Original index in the input data (usize)
 #[derive(Debug, Clone)]
 struct Disc {
     // Original data
@@ -60,8 +59,6 @@ struct Disc {
     radius: f32,
     // State for the algorithm
     processed: bool,
-    // Original index to keep track
-    original_index: usize, // TODO needed?
 }
 
 /// Represents a single output record after geolocation
@@ -144,83 +141,67 @@ impl<'a> AnycastAnalyzer<'a> {
     /// Analyze the discs (belonging to a single target) to find anycast sites.
     /// Returns:
     /// * Option<Vec<OutputRecord>>: List of geolocated sites, or None if no anycast found
-    fn analyze(mut self) -> Option<Vec<OutputRecord>> {
-        let mut results = Vec::new();
-        let mut chosen_airports = std::collections::HashSet::new();
+    fn analyze(self) -> Option<Vec<OutputRecord>> {
         let target_ip = self.all_discs.first()?.target.clone();
 
-        loop {
-            // Find number of anycast sites (maximum independent set of discs)
-            let (num_sites, mis_indices) = self.enumeration();
-            if num_sites <= 1 {
-                break; // Unicast or not enough data
-            }
+        // 1. Run enumeration() ONCE to get the definitive Maximum Independent Set.
+        let (num_sites, mis_indices) = self.enumeration();
 
-            let mut iteration_found_new_site = false;
+        // 2. If there are not at least two independent sites, it is not considered anycast.
+        if num_sites <= 1 {
+            return None;
+        }
 
-            // Geolocate each anycast site (disc in MIS)
-            for disc_index in mis_indices {
-                // Check if this disc has already been processed in a previous iteration
-                if self.all_discs[disc_index].processed {
+        let mut results = Vec::new();
+        let mut chosen_airports = std::collections::HashSet::new();
+
+        // 3. Geolocate each anycast site from the single MIS result.
+        // The discs are processed in ascending order of RTT because `all_discs` was sorted in `new()`.
+        for disc_index in mis_indices {
+            let disc_in_mis = &self.all_discs[disc_index];
+            let geolocation_result = self.geolocation(disc_in_mis);
+
+            if let Some(best_airport) = geolocation_result {
+                // If the best airport for this disc has already been assigned to a
+                // lower-RTT disc (processed earlier in this loop), we skip this disc.
+                if chosen_airports.contains(&best_airport.iata) {
                     continue;
                 }
-                let geolocation_result = self.geolocation(&self.all_discs[disc_index]);
+                chosen_airports.insert(best_airport.iata.clone());
 
-                let disc_in_mis = &self.all_discs[disc_index];
+                results.push(OutputRecord {
+                    target: target_ip.clone(),
+                    vp: disc_in_mis.hostname.clone(),
+                    vp_lat: disc_in_mis.vp_lat,
+                    vp_lon: disc_in_mis.vp_lon,
+                    radius: disc_in_mis.radius,
+                    pop_iata: best_airport.iata.clone(),
+                    pop_lat: best_airport.lat,
+                    pop_lon: best_airport.lon,
+                    pop_city: best_airport.city.clone(),
+                    pop_cc: best_airport.country_code.clone(),
+                });
 
+                // The following logic has been REMOVED as it belongs to the incorrect
+                // iterative strategy:
+                // - No modification of the disc's lat, lon, or radius.
+                // - No `break` to re-run enumeration.
+                // - No `processed` flag.
 
-                if let Some(best_airport) = geolocation_result {
-                    if chosen_airports.contains(&best_airport.iata) {
-                        // Airport already found by a lower-RTT disc, so mark this one as processed and skip
-                        self.all_discs[disc_index].processed = true;
-                        continue;
-                    }
-                    chosen_airports.insert(best_airport.iata.clone());
-
-                    results.push(OutputRecord {
-                        target: target_ip.clone(),
-                        vp: disc_in_mis.hostname.clone(),
-                        vp_lat: disc_in_mis.vp_lat,
-                        vp_lon: disc_in_mis.vp_lon,
-                        radius: disc_in_mis.radius,
-                        pop_iata: best_airport.iata.clone(),
-                        pop_lat: best_airport.lat,
-                        pop_lon: best_airport.lon,
-                        pop_city: best_airport.city.clone(),
-                        pop_cc: best_airport.country_code.clone(),
-                    });
-
-                    // Modify the "master" list of discs for the next enumeration run
-                    let master_disc = &mut self.all_discs[disc_index];
-                    master_disc.lat_rad = best_airport.lat_rad;
-                    master_disc.lon_rad = best_airport.lon_rad;
-                    master_disc.radius = 0.1; // Geolocation radius
-                    master_disc.processed = true;
-
-                    iteration_found_new_site = true;
-                    break; // Re-run enumeration
-                } else {
-                    // Geolocation failed for this disc
-                    let failed_disc = &self.all_discs[disc_index];
-
-                    results.push(OutputRecord {
-                        target: target_ip.clone(),
-                        vp: failed_disc.hostname.clone(),
-                        vp_lat: failed_disc.vp_lat,
-                        vp_lon: failed_disc.vp_lon,
-                        radius: failed_disc.radius,
-                        pop_iata: "NoCity".to_string(),
-                        pop_lat: failed_disc.vp_lat,
-                        pop_lon: failed_disc.vp_lon,
-                        pop_city: "N/A".to_string(),
-                        pop_cc: "N/A".to_string(),
-                    });
-                    self.all_discs[disc_index].processed = true;
-                }
-            }
-
-            if !iteration_found_new_site {
-                break; // No new sites found, exit the loop
+            } else {
+                // Geolocation failed for this disc (no airports found within its radius).
+                results.push(OutputRecord {
+                    target: target_ip.clone(),
+                    vp: disc_in_mis.hostname.clone(),
+                    vp_lat: disc_in_mis.vp_lat,
+                    vp_lon: disc_in_mis.vp_lon,
+                    radius: disc_in_mis.radius,
+                    pop_iata: "NoCity".to_string(),
+                    pop_lat: disc_in_mis.vp_lat, // Fallback to the VP's own location
+                    pop_lon: disc_in_mis.vp_lon,
+                    pop_city: "N/A".to_string(),
+                    pop_cc: "N/A".to_string(),
+                });
             }
         }
 
@@ -239,7 +220,7 @@ impl<'a> AnycastAnalyzer<'a> {
     fn enumeration(&self) -> (usize, Vec<usize>) {
         let mut mis_indices: Vec<usize> = Vec::new();
 
-        for candidate in &self.all_discs {
+        for (i, candidate) in self.all_discs.iter().enumerate() {
             let is_overlapping = mis_indices.iter().any(|&existing_index| {
                 // Get a temporary reference to the disc already in the MIS
                 let existing_disc = &self.all_discs[existing_index];
@@ -255,7 +236,7 @@ impl<'a> AnycastAnalyzer<'a> {
 
             if !is_overlapping {
                 // Store the index of the disc in the MIS
-                mis_indices.push(candidate.original_index);
+                mis_indices.push(i);
             }
         }
         (mis_indices.len(), mis_indices)
@@ -452,12 +433,12 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
         .with_options(read_options)
         .finish()?.lazy();
 
-    // Apply RTT threshold if provided TODO
+    // Apply RTT threshold if provided
     if threshold > 0 {
         in_df = in_df.filter(col("rtt").lt_eq(lit(threshold as f32)));
     }
 
-    // Add calculated fields TODO
+    // Add calculated fields
     in_df = in_df.with_columns([
         col("lat").radians().alias("lat_rad"),
         col("lon").radians().alias("lon_rad"),
@@ -544,7 +525,6 @@ fn main() -> Result<()> {
                     lon_rad: lon_rad.get(i).unwrap_or(0.0),
                     radius: radius.get(i).unwrap_or(0.0),
                     processed: false,
-                    original_index: i,
                 })
                 .collect();
 

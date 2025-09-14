@@ -28,8 +28,6 @@ def get_airports(path=""):
         comment='#',
     )
 
-    print(airports_df.head())
-
     # data types
     convert_dict = {
         'lat': np.float32,
@@ -94,6 +92,15 @@ def find_nearby_airports(path="./datasets/airports.csv", threshold=100):
                 # get a dataframe for the cluster
                 cluster_iata_codes = [iata_codes[k] for k in cluster_indices]
                 cluster_df = airports.loc[cluster_iata_codes].copy()
+
+                # only print clusters with the same country code
+                if len(cluster_df['country_code'].unique()) > 1:
+                    continue
+
+                # only print clusters with the same city
+                if len(cluster_df['city'].unique()) > 1:
+                    continue
+
                 cluster_df.drop(columns=['lat_rad', 'lon_rad'], inplace=True)
                 cluster_df.sort_index(inplace=True)
 
