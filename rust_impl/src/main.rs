@@ -24,13 +24,13 @@ const EARTH_RADIUS_KM: f32 = 6371.0;
 /// * lon_rad: Longitude in radians (f32)
 #[derive(Debug, Clone)]
 struct Airport {
-    iata: String,
-    lat: f32, // TODO store as f32 for memory efficiency
+    iata: String, // always 3 chars
+    lat: f32,
     lon: f32,
     pop: u32,
-    city: String, // TODO not used?
-    country_code: String, // ISO 3166-1 alpha-2 (always 2 chars) TODO consider using [u8; 2]?
-    lat_rad: f32, // TODO store as f32 for memory efficiency
+    city: String,
+    country_code: String, // ISO 3166-1 alpha-2 (always 2 chars)
+    lat_rad: f32,
     lon_rad: f32,
 }
 
@@ -361,19 +361,17 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
         Field::new(PlSmallStr::from("iata"), DataType::String),
         Field::new(PlSmallStr::from("size"), DataType::String),
         Field::new(PlSmallStr::from("name"), DataType::String),
-        Field::new(PlSmallStr::from("lat"), DataType::String),
-        Field::new(PlSmallStr::from("lon"), DataType::String),
         Field::new(PlSmallStr::from("country_code"), DataType::String),
         Field::new(PlSmallStr::from("city"), DataType::String),
-        Field::new(PlSmallStr::from("city"), DataType::String),
+        Field::new(PlSmallStr::from("lat"), DataType::Float32),
+        Field::new(PlSmallStr::from("lon"), DataType::Float32),
         Field::new(PlSmallStr::from("pop"), DataType::UInt32),
-        Field::new(PlSmallStr::from("heuristic"), DataType::String),
-        // TODO clean-up file and add/remove fields as necessary
+        Field::new(PlSmallStr::from("heuristic"), DataType::Int32),
     ]));
 
     // Specify CSV read options
     let airports_read_options = CsvReadOptions {
-        has_header: false,
+        has_header: true,
         schema: Some(airports_schema),
         parse_options: Arc::new(
             CsvParseOptions::default()
@@ -385,11 +383,18 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
     let airports_file = File::open(path)?;
     let airports_df = CsvReader::new(airports_file)
         .with_options(airports_read_options)
-        .finish()?;
+        .finish()?
+        .lazy();
 
-    // TODO compute lat_rad and lon_rad
+    // Compute radians for lat and lon
+    let airports_df = airports_df
+        .with_columns([
+            col("lat").radians().alias("lat_rad"),
+            col("lon").radians().alias("lon_rad"),
+        ])
+        .collect()?;
 
-    // Convert DataFrame to a Vec of structs
+    // Extract columns into typed Series for building the structs.
     let iata = airports_df.column("iata")?.str()?;
     let lat = airports_df.column("lat")?.f32()?;
     let lon = airports_df.column("lon")?.f32()?;
@@ -398,7 +403,7 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
     let country_code = airports_df.column("country_code")?.str()?;
     let lat_rad = airports_df.column("lat_rad")?.f32()?;
     let lon_rad = airports_df.column("lon_rad")?.f32()?;
-    // TODO why not load directly as vector of structs?
+
     let airports: Vec<Airport> = (0..airports_df.height())
         .map(|i| Airport {
             iata: iata.get(i).unwrap_or("").to_string(),
