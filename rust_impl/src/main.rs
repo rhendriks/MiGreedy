@@ -11,7 +11,6 @@ const FIBER_RI: f32 = 1.52;
 const SPEED_OF_LIGHT: f32 = 299792.458; // km/s
 const EARTH_RADIUS_KM: f32 = 6371.0;
 
-// Data Structures
 /// Represents a single airport from the airports.csv dataset
 /// Fields:
 /// * iata: IATA airport code (String)
@@ -152,7 +151,7 @@ impl<'a> AnycastAnalyzer<'a> {
         let mut results = Vec::new();
         let mut chosen_airports = std::collections::HashSet::new();
 
-        // 3. Geolocate each anycast site from the single MIS result (in order of increasing RTT).
+        // Geolocate each anycast site from the single MIS result (in order of increasing RTT).
         for disc_index in mis_indices {
             let disc_in_mis = &self.all_discs[disc_index];
             let geolocation_result = self.geolocation(disc_in_mis);
