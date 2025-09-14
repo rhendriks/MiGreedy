@@ -1,0 +1,49 @@
+name: Create musl Binary Release
+
+on:
+  push:
+    # run on versioned tags
+    tags:
+      - 'v*'
+
+jobs:
+  build-release:
+    name: Build and Release musl Binary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain and build dependencies
+        run: |
+          # Install the musl C compiler toolchain
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools build-essential
+          # Install the Rust target for musl
+          rustup target add x86_64-unknown-linux-musl
+
+      - name: Build the static binary
+        run: cargo build --manifest-path rust_impl/Cargo.toml --release --target x86_64-unknown-linux-musl
+        
+      - name: Package the binary for release
+        run: |
+          # Navigate to the directory where the binary was built
+          cd target/x86_64-unknown-linux-musl/release
+          
+          # Strip debug symbols to make the binary smaller
+          strip migreedy
+          
+          # Create a compressed archive with a versioned name
+          tar -czvf migreedy-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz migreedy
+
+      - name: Create GitHub Release and Upload Asset
+        # create the release and upload the file
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
+          # upload compressed binary
+          files: target/x86_64-unknown-linux-musl/release/migreedy-*.tar.gz
