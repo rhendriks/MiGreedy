@@ -50,7 +50,7 @@ The code can be ran using Docker.
 Pull the latest pre-built image from the GitHub Container Registry:
 
 ```bash
-docker pull ghcr.io/rhendriks/igreedy:latest
+docker pull ghcr.io/rhendriks/migreedy:main
 ```
 
 ### Step 2: Prepare Your Data Directory
@@ -69,20 +69,10 @@ mv measurements.csv igreedy_data/
 Execute the `docker run` command, which mounts your data directory and passes the necessary arguments to the MiGreedy script.
 
 ```bash
-# For Linux / macOS
 docker run --rm \
   -v "$(pwd)"/igreedy_data:/app/data \
   ghcr.io/rhendriks/igreedy:latest \
   --input /app/data/measurements.csv \
-  --output /app/data/results.csv
-```
-
-```bash
-# For Windows (Command Prompt)
-docker run --rm ^
-  -v "%cd%\igreedy_data":/app/data ^
-  ghcr.io/rhendriks/igreedy:latest ^
-  --input /app/data/measurements.csv ^
   --output /app/data/results.csv
 ```
 
