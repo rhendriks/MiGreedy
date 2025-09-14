@@ -43,6 +43,29 @@ outputting a single file with geolocation results.
 
 ## Running with musl binary
 
+We provide pre-compiled static binaries for Linux (x86_64) using musl.
+
+**1. Download binary**
+```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-latest-x86_64-unknown-linux-musl.tar.gz
+```
+
+**2. Decompress the File**
+```bash
+tar -xzvf migreedy-latest-x86_64-unknown-linux-musl.tar.gz
+```
+This will extract a single executable file named `migreedy`.
+
+**3. Make it Executable**
+```bash
+chmod +x migreedy
+```
+
+**4. Run the Program**
+```bash
+./migreedy --input path/to/measurements.csv --output path/to/results.csv
+```
+
 ## Running with Docker
 
 The code can be ran using Docker.
