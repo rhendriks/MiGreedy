@@ -177,7 +177,6 @@ impl<'a> AnycastAnalyzer<'a> {
                     pop_city: best_airport.city.clone(),
                     pop_cc: best_airport.country_code.clone(),
                 });
-
             } else {
                 // Geolocation failed for this disc (no airports found within its radius).
                 results.push(OutputRecord {
@@ -496,26 +495,11 @@ fn main() -> Result<()> {
     println!("Loading input data from: {:?}", args.input);
     let in_df = load_input_data(&args.input, args.threshold)?;
 
-    // Group by target IP
+    // Group input data by target IP (each group represents one target)
     let groups_df = in_df.group_by(["addr"])?.groups()?;
-    // Extract the "groups" column which contains the indices for each group
-    let indices = groups_df.column("groups")?.list()?;
+    let group_indices = groups_df.column("groups")?.list()?;
 
-    // Create a Vec<DataFrame> where each DataFrame corresponds to a group of rows for a specific target IP
-    let groups: Vec<DataFrame> = indices
-        .into_iter()
-        .filter_map(|opt_indices_series| {
-            opt_indices_series.map(|indices_series| {
-                let indices_ca = indices_series.u32()?;
-                in_df.take(indices_ca)
-            })
-        })
-        .map(|result| result.map_err(anyhow::Error::from))
-        .collect::<Result<Vec<_>>>()?;
-
-    println!("Grouped into {} unique target IPs.", groups.len());
-
-    let num_targets = groups.len();
+    let num_targets = group_indices.len();
     println!(
         "Starting parallel processing for {} targets...",
         num_targets
@@ -532,39 +516,46 @@ fn main() -> Result<()> {
     );
 
     // Process each group in parallel using Rayon
-    // Collect results into a single Vec<OutputRecord>
-    let results: Vec<OutputRecord> = groups
-        .into_par_iter() // Parallel iterator from Rayon
+    let results: Vec<OutputRecord> = group_indices
+        .into_iter() // 1. Get a standard, sequential iterator over the groups
+        .par_bridge() // 2. THIS IS THE FIX: Bridge the sequential iterator to a parallel one
         .progress_with(pb)
-        .flat_map(|group_df| {
-            // Extract columns as Series
-            let target = group_df.column("addr").unwrap().str().unwrap();
-            let hostname = group_df.column("hostname").unwrap().str().unwrap();
-            let vp_lat = group_df.column("lat").unwrap().f32().unwrap();
-            let vp_lon = group_df.column("lon").unwrap().f32().unwrap();
-            let rtt = group_df.column("rtt").unwrap().f32().unwrap();
-            let lat_rad = group_df.column("lat_rad").unwrap().f32().unwrap();
-            let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
-            let radius = group_df.column("radius").unwrap().f32().unwrap();
+        .filter_map(|opt_indices_series| {
+            // The rest of your logic remains EXACTLY THE SAME
+            opt_indices_series.map(|indices_series| {
+                let indices_ca = indices_series.u32().unwrap();
+                let group_df = in_df.take(indices_ca).unwrap();
 
-            // Create Vec<Disc> for the current group
-            let discs: Vec<Disc> = (0..group_df.height())
-                .map(|i| Disc {
-                    target: target.get(i).unwrap_or("").to_string(),
-                    hostname: hostname.get(i).unwrap_or("").to_string(),
-                    vp_lat: vp_lat.get(i).unwrap_or(0.0),
-                    vp_lon: vp_lon.get(i).unwrap_or(0.0),
-                    rtt: rtt.get(i).unwrap_or(0.0),
-                    lat_rad: lat_rad.get(i).unwrap_or(0.0),
-                    lon_rad: lon_rad.get(i).unwrap_or(0.0),
-                    radius: radius.get(i).unwrap_or(0.0),
-                })
-                .collect();
+                // Extract columns as Series
+                let target = group_df.column("addr").unwrap().str().unwrap();
+                let hostname = group_df.column("hostname").unwrap().str().unwrap();
+                let vp_lat = group_df.column("lat").unwrap().f32().unwrap();
+                let vp_lon = group_df.column("lon").unwrap().f32().unwrap();
+                let rtt = group_df.column("rtt").unwrap().f32().unwrap();
+                let lat_rad = group_df.column("lat_rad").unwrap().f32().unwrap();
+                let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
+                let radius = group_df.column("radius").unwrap().f32().unwrap();
 
-            // Create analyzer instance and run iGreedy algorithm
-            let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha);
-            analyzer.analyze()
+                // Create Vec<Disc> for the current group
+                let discs: Vec<Disc> = (0..group_df.height())
+                    .map(|i| Disc {
+                        target: target.get(i).unwrap_or("").to_string(),
+                        hostname: hostname.get(i).unwrap_or("").to_string(),
+                        vp_lat: vp_lat.get(i).unwrap_or(0.0),
+                        vp_lon: vp_lon.get(i).unwrap_or(0.0),
+                        rtt: rtt.get(i).unwrap_or(0.0),
+                        lat_rad: lat_rad.get(i).unwrap_or(0.0),
+                        lon_rad: lon_rad.get(i).unwrap_or(0.0),
+                        radius: radius.get(i).unwrap_or(0.0),
+                    })
+                    .collect();
+
+                // Create analyzer instance and run iGreedy algorithm
+                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha);
+                analyzer.analyze()
+            })
         })
+        .flatten()
         .collect();
 
     println!(
