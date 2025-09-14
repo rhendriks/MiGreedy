@@ -432,18 +432,17 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
 fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
     // TODO dataframe needed? or just load directly as Vec<Disc>?
     // Define input schema and read options
-    let input_columns = Arc::from([
-        PlSmallStr::from("addr"),
-        PlSmallStr::from("hostname"),
-        PlSmallStr::from("lat"),
-        PlSmallStr::from("lon"),
-        PlSmallStr::from("rtt"),
-    ]);
+    let input_schema = Arc::new(Schema::from_iter([
+        Field::new(PlSmallStr::from("addr"), DataType::String),
+        Field::new(PlSmallStr::from("hostname"), DataType::String),
+        Field::new(PlSmallStr::from("lat"), DataType::Float32),
+        Field::new(PlSmallStr::from("lon"), DataType::Float32),
+        Field::new(PlSmallStr::from("rtt"), DataType::Float32),
+    ]));
 
     let read_options = CsvReadOptions {
-        has_header: false,
-        skip_rows: 1,
-        columns: Some(input_columns),
+        has_header: true,
+        schema: Some(input_schema),
         ..Default::default()
     };
 
