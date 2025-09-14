@@ -25,9 +25,10 @@ jobs:
           rustup target add x86_64-unknown-linux-musl
 
       - name: Build the static binary
-        run: cargo build --manifest-path rust_impl/Cargo.toml --release --target x86_64-unknown-linux-musl
+        run: cd rust_impl && cargo build --release --target x86_64-unknown-linux-musl
         
       - name: Package the binary for release
+        working-directory: ./rust_impl
         run: |
           # Navigate to the directory where the binary was built
           cd target/x86_64-unknown-linux-musl/release
@@ -46,4 +47,4 @@ jobs:
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
           # upload compressed binary
-          files: target/x86_64-unknown-linux-musl/release/migreedy-*.tar.gz
+          files: rust_impl/target/x86_64-unknown-linux-musl/release/migreedy-*.tar.gz
