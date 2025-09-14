@@ -138,22 +138,21 @@ impl<'a> AnycastAnalyzer<'a> {
     /// Analyze the discs (belonging to a single target) to find anycast sites.
     /// Returns:
     /// * Option<Vec<OutputRecord>>: List of geolocated sites, or None if no anycast found
-    fn analyze(self) -> Option<Vec<OutputRecord>> {
-        let target_ip = self.all_discs.first()?.target.clone();
+    fn analyze(self) -> Vec<OutputRecord> {
+        let target_ip = self.all_discs.first().unwrap().target.clone();
 
-        // 1. Run enumeration() ONCE to get the definitive Maximum Independent Set.
+        // get the maximum independent set of discs (non-overlapping discs)
         let (num_sites, mis_indices) = self.enumeration();
 
-        // 2. If there are not at least two independent sites, it is not considered anycast.
+        // skip unicast targets
         if num_sites <= 1 {
-            return None;
+            return vec![];
         }
 
         let mut results = Vec::new();
         let mut chosen_airports = std::collections::HashSet::new();
 
-        // 3. Geolocate each anycast site from the single MIS result.
-        // The discs are processed in ascending order of RTT because `all_discs` was sorted in `new()`.
+        // 3. Geolocate each anycast site from the single MIS result (in order of increasing RTT).
         for disc_index in mis_indices {
             let disc_in_mis = &self.all_discs[disc_index];
             let geolocation_result = self.geolocation(disc_in_mis);
@@ -179,11 +178,6 @@ impl<'a> AnycastAnalyzer<'a> {
                     pop_cc: best_airport.country_code.clone(),
                 });
 
-                // The following logic has been REMOVED as it belongs to the incorrect
-                // iterative strategy:
-                // - No modification of the disc's lat, lon, or radius.
-                // - No `break` to re-run enumeration.
-                // - No `processed` flag.
             } else {
                 // Geolocation failed for this disc (no airports found within its radius).
                 results.push(OutputRecord {
@@ -201,11 +195,7 @@ impl<'a> AnycastAnalyzer<'a> {
             }
         }
 
-        if results.is_empty() {
-            None
-        } else {
-            Some(results)
-        }
+        results
     }
 
     /// Finds the maximum independent set of discs (non-overlapping discs).
@@ -545,7 +535,7 @@ fn main() -> Result<()> {
     let results: Vec<OutputRecord> = groups
         .into_par_iter() // Parallel iterator from Rayon
         .progress_with(pb)
-        .filter_map(|group_df| {
+        .flat_map(|group_df| {
             // Extract columns as Series
             let target = group_df.column("addr").unwrap().str().unwrap();
             let hostname = group_df.column("hostname").unwrap().str().unwrap();
@@ -574,7 +564,6 @@ fn main() -> Result<()> {
             let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha);
             analyzer.analyze()
         })
-        .flatten() // Flatten the Option<Vec<OutputRecord>> into one big Vec
         .collect();
 
     println!(
