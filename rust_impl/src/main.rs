@@ -428,8 +428,8 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> {
 /// * path: Path to the input CSV file (PathBuf)
 /// * threshold: RTT threshold to filter discs (u32)
 /// Returns:
-/// * Result<Vec<DataFrame>>: List of DataFrames, each corresponding to a group of rows for a specific target IP
-fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
+/// * Result<DataFrame>: DataFrame containing the preprocessed input data, or error if loading fails
+fn load_input_data(path: &PathBuf, threshold: u32) -> Result<DataFrame> {
     // Define input schema and read options
     let input_schema = Arc::new(Schema::from_iter([
         Field::new(PlSmallStr::from("addr"), DataType::String),
@@ -471,25 +471,7 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
         in_df.height()
     );
 
-    // Group by target IP
-    let groups_df = in_df.group_by(["addr"])?.groups()?;
-    // Extract the "groups" column which contains the indices for each group
-    let indices = groups_df.column("groups")?.list()?;
-    // Create a Vec<DataFrame> where each DataFrame corresponds to a group of rows for a specific target IP
-    let groups: Vec<DataFrame> = indices
-        .into_iter()
-        .filter_map(|opt_indices_series| {
-            opt_indices_series.map(|indices_series| {
-                let indices_ca = indices_series.u32()?;
-                in_df.take(indices_ca)
-            })
-        })
-        .map(|result| result.map_err(anyhow::Error::from))
-        .collect::<Result<Vec<_>>>()?;
-
-    println!("Grouped into {} unique target IPs.", groups.len());
-
-    Ok(groups)
+    Ok(in_df)
 }
 
 /// Main function
@@ -512,7 +494,26 @@ fn main() -> Result<()> {
 
     // Load and preprocess input data (latency measurements)
     println!("Loading input data from: {:?}", args.input);
-    let groups = load_input_data(&args.input, args.threshold)?;
+    let in_df = load_input_data(&args.input, args.threshold)?;
+
+    // Group by target IP
+    let groups_df = in_df.group_by(["addr"])?.groups()?;
+    // Extract the "groups" column which contains the indices for each group
+    let indices = groups_df.column("groups")?.list()?;
+
+    // Create a Vec<DataFrame> where each DataFrame corresponds to a group of rows for a specific target IP
+    let groups: Vec<DataFrame> = indices
+        .into_iter()
+        .filter_map(|opt_indices_series| {
+            opt_indices_series.map(|indices_series| {
+                let indices_ca = indices_series.u32()?;
+                in_df.take(indices_ca)
+            })
+        })
+        .map(|result| result.map_err(anyhow::Error::from))
+        .collect::<Result<Vec<_>>>()?;
+
+    println!("Grouped into {} unique target IPs.", groups.len());
 
     let num_targets = groups.len();
     println!(
