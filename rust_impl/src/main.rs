@@ -57,8 +57,6 @@ struct Disc {
     lat_rad: f32,
     lon_rad: f32,
     radius: f32,
-    // State for the algorithm
-    processed: bool,
 }
 
 /// Represents a single output record after geolocation
@@ -411,7 +409,6 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> { // TODO
 /// Returns:
 /// * Result<Vec<DataFrame>>: List of DataFrames, each corresponding to a group of rows for a specific target IP
 fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
-    // TODO dataframe needed? or just load directly as Vec<Disc>?
     // Define input schema and read options
     let input_schema = Arc::new(Schema::from_iter([
         Field::new(PlSmallStr::from("addr"), DataType::String),
@@ -446,6 +443,8 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
     ]);
 
     let in_df = in_df.collect()?;
+
+    println!("Loaded {} latency measurements after applying RTT threshold filter.", in_df.height());
 
     // Group by target IP
     let groups_df = in_df.group_by(["addr"])?.groups()?;
@@ -524,7 +523,6 @@ fn main() -> Result<()> {
                     lat_rad: lat_rad.get(i).unwrap_or(0.0),
                     lon_rad: lon_rad.get(i).unwrap_or(0.0),
                     radius: radius.get(i).unwrap_or(0.0),
-                    processed: false,
                 })
                 .collect();
 
