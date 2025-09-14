@@ -180,3 +180,4 @@ The output CSV file will have a header and contain the following columns:
 - [ ] **RIPE Atlas:** Update the RIPE Atlas scripts.
 - [ ] **Scamper**: Add support for Scamper measurements.
 - [ ] **Hosts df** Implement a method to load vantage point locations from a separate file to avoid repeating lat/lon data for each measurement.
+- [ ] **Rust Implementation:** Develop a Rust version of the iGreedy algorithm for improved performance.

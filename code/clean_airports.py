@@ -22,26 +22,11 @@ def get_airports(path=""):
     if path == "":
         path = os.path.join(os.path.dirname(__file__), '../datasets/airports.csv')
 
-    column_names = [
-        'iata', 'size', 'name', 'lat_lon', 'country_code',
-        'city', 'pop_heuristic_lon_lat'
-    ]
     airports_df = pd.read_csv(
         path,
         sep='\t',
         comment='#',
-        names=column_names
     )
-
-    # clean columns
-    airports_df[['lat', 'lon']] = airports_df['lat_lon'].str.split(expand=True)
-    airports_df[['pop', 'heuristic', 'google_lon', 'google_lat']] = airports_df['pop_heuristic_lon_lat'].str.split(
-        expand=True)
-
-    # drop unused columns
-    airports_df.drop(
-        columns=['lat_lon', 'pop_heuristic_lon_lat', 'size', 'heuristic', 'google_lon', 'google_lat'],
-        inplace=True)
 
     # data types
     convert_dict = {
@@ -107,6 +92,15 @@ def find_nearby_airports(path="./datasets/airports.csv", threshold=100):
                 # get a dataframe for the cluster
                 cluster_iata_codes = [iata_codes[k] for k in cluster_indices]
                 cluster_df = airports.loc[cluster_iata_codes].copy()
+
+                # only print clusters with the same country code
+                if len(cluster_df['country_code'].unique()) > 1:
+                    continue
+
+                # only print clusters with the same city
+                if len(cluster_df['city'].unique()) > 1:
+                    continue
+
                 cluster_df.drop(columns=['lat_rad', 'lon_rad'], inplace=True)
                 cluster_df.sort_index(inplace=True)
 
