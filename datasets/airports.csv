@@ -1362,7 +1362,6 @@ LCG	medium_airport	A Coruña Airport	ES	Culleredo	43.3021011353	-8.3772602081	28
 LCH	medium_airport	Lake Charles Regional Airport	US	Lake Charles	30.1261005402	-93.2232971191	71993	0
 LCJ	medium_airport	Łódź Władysław Reymont Airport	PL	Łódź	51.7219009399	19.3980998993	768755	0
 LCL	medium_airport	La Coloma Airport	CU	Pinar del Rio	22.3360996246	-83.6418991089	186990	0
-LCY	large_airport	London City Airport	GB	London	51.5052986145	0.0552779995	7556900	0
 LDB	medium_airport	Governador José Richa Airport	BR	Londrina	-23.3335990906	-51.1301002502	471832	0
 LDE	medium_airport	Tarbes-Lourdes-Pyrénées Airport	FR	Tarbes/Lourdes/Pyrénées	43.1786994934	-0.0064389999	67892	3
 LDK	medium_airport	Lidköping-Hovby Airport	SE	Lidköping	58.4654998779	13.1744003296	24586	0
@@ -1386,7 +1385,6 @@ LGB	medium_airport	Long Beach /Daugherty Field/ Airport	US	Long Beach	33.8176994
 LGG	large_airport	Liège Airport	BE	Liège	50.6374015808	5.4432201385	182597	0
 LGK	medium_airport	Langkawi International Airport	MY	Langkawi	6.3297300339	99.7286987305	30212	0
 LGP	medium_airport	Legazpi City International Airport	PH	Legazpi City	13.1575	123.735	179481	0
-LGW	large_airport	London Gatwick Airport	GB	London	51.1481018066	-0.1902779937	7556900	0
 LHE	medium_airport	Alama Iqbal International Airport	PK	Lahore	31.5216007233	74.4036026001	6310888	0
 LHK	medium_airport	Guangzhou MR Air Base	CN	Guanghua	32.3894004822	111.6949996948	253112	0
 LHR	large_airport	London Heathrow Airport	GB	London	51.4706001282	-0.4619410038	7556900	0
