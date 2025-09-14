@@ -337,7 +337,7 @@ struct Args {
     #[arg(short, long, help = "Output CSV file")]
     output: PathBuf,
 
-    #[arg(long, default_value = "../datasets/airports.csv", help="Path to airports dataset")]
+    #[arg(long, default_value = "datasets/airports.csv", help="Path to airports dataset")]
     airports: PathBuf,
 
     #[arg(short, long, default_value_t = 1.0, help = "Alpha (population vs distance score tuning)")]
@@ -433,7 +433,7 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
     // TODO dataframe needed? or just load directly as Vec<Disc>?
     // Define input schema and read options
     let input_columns = Arc::from([
-        PlSmallStr::from("target"),
+        PlSmallStr::from("addr"),
         PlSmallStr::from("hostname"),
         PlSmallStr::from("lat"),
         PlSmallStr::from("lon"),
@@ -468,7 +468,7 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<Vec<DataFrame>> {
     let in_df = in_df.collect()?;
 
     // Group by target IP
-    let groups_df = in_df.group_by(["target"])?.groups()?;
+    let groups_df = in_df.group_by(["addr"])?.groups()?;
     // Extract the "groups" column which contains the indices for each group
     let indices = groups_df.column("groups")?.list()?;
     // Create a Vec<DataFrame> where each DataFrame corresponds to a group of rows for a specific target IP
@@ -524,7 +524,7 @@ fn main() -> Result<()> {
         .progress_with(pb)
         .filter_map(|group_df| {
             // Extract columns as Series
-            let target = group_df.column("target").unwrap().str().unwrap();
+            let target = group_df.column("addr").unwrap().str().unwrap();
             let hostname = group_df.column("hostname").unwrap().str().unwrap();
             let vp_lat = group_df.column("lat").unwrap().f32().unwrap();
             let vp_lon = group_df.column("lon").unwrap().f32().unwrap();
@@ -561,7 +561,7 @@ fn main() -> Result<()> {
     if !results.is_empty() {
         println!("Saving results to {:?}...", args.output);
         let mut output_df = DataFrame::new(vec![
-            Series::new("target".into(), results.iter().map(|r| r.target.as_str()).collect::<Vec<_>>()).into(),
+            Series::new("addr".into(), results.iter().map(|r| r.target.as_str()).collect::<Vec<_>>()).into(),
             Series::new("vp".into(), results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>()).into(),
 
             Series::new("vp_lat".into(), results.iter().map(|r| r.vp_lat).collect::<Vec<_>>()).into(),
