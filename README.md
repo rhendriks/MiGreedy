@@ -120,7 +120,6 @@ We include a Rust implementation (10X+ faster than Python version).
 
 1.  Clone this repository:
     ```bash
-    ```bash
     git clone [https://github.com/rhendriks/MiGreedy]
     cd [MiGreedy]
     ```
