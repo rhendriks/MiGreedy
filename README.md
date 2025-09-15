@@ -116,7 +116,7 @@ After the command finishes, the output file `results.csv` will appear in your lo
 ---
 
 ## Installation (Rust)
-We include a Rust implementation (10X+ faster than Python version).
+We include a Rust implementation (significantly faster than the Python version).
 
 1.  Clone this repository:
     ```bash
@@ -125,11 +125,11 @@ We include a Rust implementation (10X+ faster than Python version).
     ```
     
 2. Install Rust
-    '''bash
+    ```bash
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     source $HOME/.cargo/env
     rustup update
-    '''
+    ```
 
 3. Build the project using Cargo:
     ```bash
