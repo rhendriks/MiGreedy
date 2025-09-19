@@ -214,3 +214,18 @@ The output CSV file will have a header and contain the following columns:
 
 ## Contributing
 Issues and pull requests are welcome!
+
+## Citation
+This code was designed for our paper LACeS. Please use the following citation when using this code.
+```
+@misc{hendriks2025lacesopenfastresponsible,
+      title={LACeS: an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System}, 
+      author={Remi Hendriks and Matthew Luckie and Mattijs Jonker and Raffaele Sommese and Roland van Rijswijk-Deij},
+      year={2025},
+      eprint={2503.20554},
+      archivePrefix={arXiv},
+      primaryClass={cs.NI},
+      url={https://arxiv.org/abs/2503.20554}, 
+}
+```
+
