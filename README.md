@@ -35,7 +35,8 @@
 originally developed by [Cicalsese et al.](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
 that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
 
-The goal of this implementation is to reduce processing time for [large-scale anycast censuses](github.com/anycast-census/anycast-census).
+The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
+This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
 It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
 outputting a single file with geolocation results.
 
