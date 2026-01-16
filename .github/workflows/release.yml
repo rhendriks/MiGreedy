@@ -1,48 +1,59 @@
-name: Create musl Binary Release
+name: Release
 
 on:
   push:
-    # run on versioned tags
     tags:
       - 'v*'
 
 jobs:
   build-release:
-    name: Build and Release musl Binary
+    name: Build (${{ matrix.target }})
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-unknown-linux-musl]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Rust toolchain and build dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y --no-install-recommends musl-tools build-essential
-          rustup target add x86_64-unknown-linux-musl
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - name: Build the static binary
-        working-directory: ./rust_impl
-        run: cargo build --release --target x86_64-unknown-linux-musl
-        
-      - name: Package the binary for release
-        working-directory: ./rust_impl
-        run: |
-          cd target/x86_64-unknown-linux-musl/release
-          
-          # smaller binary
-          strip migreedy
-          
-          # create versioned
-          tar -czvf migreedy-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz migreedy
+      - name: Install musl-tools
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
-          # create latest
-          tar -czvf migreedy-latest-x86_64-unknown-linux-musl.tar.gz migreedy
-      - name: Create GitHub Release and Upload Asset
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./rust_impl -> target"
+
+      - name: Build Binary
+        run: cargo build --release --target ${{ matrix.target }}
+        working-directory: ./rust_impl
+
+      - name: Package Artifacts
+        run: |
+          cd rust_impl/target/${{ matrix.target }}/release
+          # Conventional naming: name-version-target.tar.gz
+          PKG_NAME="migreedy-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
+          
+          tar -czvf "$PKG_NAME" migreedy
+          
+          # Generate SHA256 checksum (Standard Security Practice)
+          sha256sum "$PKG_NAME" > "$PKG_NAME.sha256"
+          
+          # Move to a clean directory for upload
+          mkdir -p ../../../artifacts
+          mv "$PKG_NAME" "$PKG_NAME.sha256" ../../../artifacts/
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
+          files: artifacts/*
           generate_release_notes: true
-          files: rust_impl/target/x86_64-unknown-linux-musl/release/migreedy-*.tar.gz
