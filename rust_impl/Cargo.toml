@@ -9,3 +9,8 @@ clap = { version = "4.5.47", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
 indicatif = { version = "0.18.0", features = ["rayon"] } # progress bars
 anyhow = "1.0.99" # error handling
+
+[profile.release]
+strip = true      # strip binary
+opt-level = "z"   # optimize for size
+lto = true        # link time optimization
