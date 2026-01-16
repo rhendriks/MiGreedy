@@ -53,7 +53,7 @@ curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy
 
 **2. Decompress the File**
 ```bash
-tar -xzvf migreedy-latest-x86_64-unknown-linux-musl.tar.gz
+tar -xzvf migreedy-linux-x86_64.tar.gz
 ```
 This will extract a single executable file named `migreedy`.
 
