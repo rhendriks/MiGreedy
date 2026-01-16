@@ -9,7 +9,7 @@ TOK		Tokyo	JP	Tokyo	35.673343	139.710388	8336599	0
 TAI	large_airport	Taiwan Taoyuan International Airport	TW	Taipei	25.0776996613	121.233001709	7871900	0
 WIE	large_airport	Vienna International Airport	AT	Vienna	48.1102981567	16.5697002411	1691468	0
 NIX	large_airport	Oslo Gardermoen Airport	NO	Oslo	60.193901062	11.100399971	580000	0
-RWX	large_airport	Kigali Airport	X	Kigali	-1.943889	30.059444	851024	0
+KGL	large_airport	Kigali International Airport	RW	Kigali	-1.943889	30.059444	851024	0
 DEX		Frankfurt-am-Main	DE	Frankfurt-am-Main	50.121212	8.6365638	650000	0
 AAL	large_airport	Aalborg Airport	DK	Aalborg	57.0927589138	9.8492431641	122219	0
 AAN	medium_airport	Al Ain International Airport	AE	Al Ain	24.2616996765	55.6091995239	408733	0
@@ -1909,7 +1909,7 @@ PQI	medium_airport	Northern Maine Regional Airport at Presque Isle	US	Presque Is
 PQQ	medium_airport	Port Macquarie Airport	AU	Port Macquarie	-31.4358005524	152.863006592	41491	0
 PRC	medium_airport	Ernest A. Love Field	US	Prescott	34.65449905	-112.4199982	39843	0
 PRG	large_airport	Ruzyně International Airport	CZ	Prague	50.1007995605	14.2600002289	1165581	0
-PRN	large_airport	Priština International Airport	KS	Prishtina	42.5727996826	21.0358009338	550000	0
+PRN	large_airport	Priština International Airport	XK	Prishtina	42.5727996826	21.0358009338	550000	0
 PRV	medium_airport	Přerov Air Base	CZ	Přerov	49.4258003235	17.4046993256	47311	0
 PRY	medium_airport	Wonderboom Airport	ZA	Pretoria	-25.6539001465	28.224199295	1619438	0
 PSA	large_airport	Pisa / San Giusto - Galileo Galilei International Airport	IT	Pisa	43.6838989258	10.3927001953	77007	0
