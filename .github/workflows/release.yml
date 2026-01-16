@@ -40,17 +40,24 @@ jobs:
       - name: Package Artifacts
         run: |
           cd rust_impl/target/${{ matrix.target }}/release
-          # Conventional naming: name-version-target.tar.gz
+          
+          # Versioned name: migreedy-v1.0.0-x86_64-unknown-linux-musl.tar.gz
           PKG_NAME="migreedy-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
           
+          # Stable name for README link: migreedy-linux-x86_64.tar.gz
+          STABLE_NAME="migreedy-linux-x86_64.tar.gz"
+
+          # archives
           tar -czvf "$PKG_NAME" migreedy
-          
-          # Generate SHA256 checksum (Standard Security Practice)
+          cp "$PKG_NAME" "$STABLE_NAME"
+
+          # checksums
           sha256sum "$PKG_NAME" > "$PKG_NAME.sha256"
+          sha256sum "$STABLE_NAME" > "$STABLE_NAME.sha256"
           
-          # Move to a clean directory for upload
+          # move artifacts
           mkdir -p ../../../artifacts
-          mv "$PKG_NAME" "$PKG_NAME.sha256" ../../../artifacts/
+          mv "$PKG_NAME" "$PKG_NAME.sha256" "$STABLE_NAME" "$STABLE_NAME.sha256" ../../../artifacts/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
