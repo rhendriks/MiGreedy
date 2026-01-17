@@ -48,12 +48,12 @@ We provide pre-compiled static binaries for Linux (x86_64) using musl.
 
 **1. Download binary**
 ```bash
-curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-latest-x86_64-unknown-linux-musl.tar.gz
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-linux-x86_64.tar.gz
 ```
 
 **2. Decompress the File**
 ```bash
-tar -xzvf migreedy-latest-x86_64-unknown-linux-musl.tar.gz
+tar -xzvf migreedy-linux-x86_64.tar.gz
 ```
 This will extract a single executable file named `migreedy`.
 
