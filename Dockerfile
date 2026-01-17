@@ -14,7 +14,7 @@ RUN apt-get update && \
 RUN rustup target add x86_64-unknown-linux-musl
 
 # Copy the Cargo files and source code from the rust_impl directory
-COPY rust_impl/Cargo.toml rust_impl/Cargo.lock ./
+COPY rust_impl/Cargo.toml ./
 COPY rust_impl/src ./src
 
 # Build the release binary for the musl target
