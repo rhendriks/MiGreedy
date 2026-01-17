@@ -20,9 +20,6 @@ COPY rust_impl/src ./src
 # Build the release binary for the musl target
 RUN cargo build --release --target x86_64-unknown-linux-musl
 
-# Strip the binary to reduce size
-RUN strip target/x86_64-unknown-linux-musl/release/migreedy
-
 # Final stage: minimal image
 FROM scratch AS final
 
