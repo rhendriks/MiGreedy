@@ -1,16 +1,21 @@
 [package]
 name = "migreedy"
-version = "1.2.4"
+version = "1.2.3"
 edition = "2024"
 
 [dependencies]
-polars = { version = "0.50.0", features = ["lazy", "trigonometry"] } # rust pandas
+polars = { version = "0.51.0", features = ["lazy", "trigonometry", "performant"] } # rust pandas
 clap = { version = "4.5.54", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
 indicatif = { version = "0.18.3", features = ["rayon"] } # progress bars
 anyhow = "1.0.100" # error handling
 
+# use high performance allocator when running musl
+[target.'cfg(target_env = "musl")'.dependencies]
+mimalloc = { version = "0.1", default-features = false }
+
 [profile.release]
 strip = true      # strip binary
-opt-level = "z"   # optimize for size
+opt-level = 3     # optimize for speed
 lto = true        # link time optimization
+panic = "abort"   # reduce size

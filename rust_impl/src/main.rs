@@ -6,6 +6,10 @@ use rayon::prelude::*;
 use std::fs::File;
 use std::path::PathBuf;
 
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 // Constants
 const FIBER_RI: f32 = 1.52;
 const SPEED_OF_LIGHT: f32 = 299792.458; // km/s
