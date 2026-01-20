@@ -49,14 +49,12 @@ jobs:
           # create binaries and checksums
           tar -czvf "$PKG_NAME" migreedy
           cp "$PKG_NAME" "$STABLE_NAME"
-          sha256sum "$PKG_NAME" > "$PKG_NAME.sha256"
-          sha256sum "$STABLE_NAME" > "$STABLE_NAME.sha256"
           
           # create artifacts in root
           mkdir -p "${{ github.workspace }}/artifacts"
           
           # move everything there
-          mv "$PKG_NAME" "$PKG_NAME.sha256" "$STABLE_NAME" "$STABLE_NAME.sha256" "${{ github.workspace }}/artifacts/"
+          mv "$PKG_NAME" "$STABLE_NAME" "${{ github.workspace }}/artifacts/"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
