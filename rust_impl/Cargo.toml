@@ -1,10 +1,10 @@
 [package]
 name = "migreedy"
-version = "1.4.2"
+version = "1.4.3"
 edition = "2024"
 
 [dependencies]
-polars = { version = "0.51.0", features = ["lazy", "trigonometry", "performant"] } # rust pandas
+polars = { version = "0.53.0", features = ["lazy", "trigonometry", "performant"] } # rust pandas
 clap = { version = "4.5.60", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
 indicatif = { version = "0.18.4", features = ["rayon"] } # progress bars

@@ -4,11 +4,15 @@ use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
 use std::fs::File;
+use std::io::Cursor;
 use std::path::PathBuf;
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
+/// Airports dataset embedded at compile time so the binary is self-contained.
+static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv");
 
 // Constants
 const FIBER_RI: f32 = 1.52;
@@ -347,10 +351,9 @@ struct Args {
 
     #[arg(
         long,
-        default_value = "datasets/airports.csv",
-        help = "Path to airports dataset"
+        help = "Path to airports dataset (uses embedded dataset if not set)"
     )]
-    airports: PathBuf,
+    airports: Option<PathBuf>,
 
     #[arg(
         short,
@@ -376,16 +379,15 @@ struct Args {
     anycast: bool,
 }
 
-/// Load and preprocess airports data from the given path.
-/// The airports data is expected to be in a tab-separated format without a header.
+/// Load and preprocess airports data from a reader.
+/// The airports data is expected to be in a tab-separated format with a header.
 /// Expected columns: iata, size, name, lat, lon, country_code, city, pop
 /// Additional fields lat_rad and lon_rad are computed in radians.
 /// Parameters:
-/// * path: Path to the airports CSV file (PathBuf)
+/// * reader: Any type implementing Read (file or in-memory cursor)
 /// Returns:
 /// * Result<Vec<Airport>>: List of airports, or error if loading fails
-fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> {
-    // TODO
+fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R) -> Result<Vec<Airport>> {
     // Define the schema for the airports data
     let airports_schema = Arc::new(Schema::from_iter([
         Field::new(PlSmallStr::from("iata"), DataType::String),
@@ -407,8 +409,7 @@ fn load_airports(path: &PathBuf) -> Result<Vec<Airport>> {
         ..Default::default()
     };
 
-    let airports_file = File::open(path)?;
-    let airports_df = CsvReader::new(airports_file)
+    let airports_df = CsvReader::new(reader)
         .with_options(airports_read_options)
         .finish()?
         .lazy();
@@ -515,8 +516,13 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<DataFrame> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
-    println!("Loading airports data from: {:?}", args.airports);
-    let airports = load_airports(&args.airports)?;
+    let airports = if let Some(ref path) = args.airports {
+        println!("Loading airports data from: {:?}", path);
+        load_airports(File::open(path)?)?
+    } else {
+        println!("Using embedded airports dataset.");
+        load_airports(Cursor::new(EMBEDDED_AIRPORTS))?
+    };
     println!("Loaded {} airports.", airports.len());
 
     // Load and preprocess input data (latency measurements)
@@ -593,7 +599,8 @@ fn main() -> Result<()> {
 
     if !results.is_empty() {
         println!("Saving results to {:?}...", args.output);
-        let mut output_df = DataFrame::new(vec![
+        let num_results = results.len();
+        let mut output_df = DataFrame::new(num_results, vec![
             Series::new(
                 "addr".into(),
                 results
