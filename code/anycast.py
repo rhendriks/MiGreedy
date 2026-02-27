@@ -113,75 +113,112 @@ class AnycastDF(object):
             self._mis_df = pd.DataFrame(columns=self._all_discs_df.columns).astype(self._all_discs_df.dtypes)
         return len(self._mis_df), self._mis_df
 
-    def geolocation(self, disc_series):
+    def build_cluster(self, mis_disc_series):
         """
-        For a given disc (as a Pandas Series), find the best matching airport inside its radius.
-        This version is optimized with a geospatial pre-filtering step.
+        Returns all unprocessed discs from _all_discs_df that overlap with the given MIS disc
+        (i.e., distance between centres ≤ sum of their radii).
+
+        These discs all likely measure the same anycast site, so their intersection
+        provides a tighter geolocation constraint than the MIS disc alone.
+
+        Unprocessed-only filter: already-located site proxies (radius shrunk to 0.1 km)
+        are excluded so they do not over-constrain clusters in later iterations.
 
         Args:
-            disc_series (pd.Series): A row from a DataFrame representing a single disc.
-                                     Must include 'lat_rad', 'lon_rad', and 'radius'.
+            mis_disc_series (pd.Series): A row from _mis_df representing the MIS disc.
 
         Returns:
-            list or bool: A list with the best airport's details, or False if no airport is found.
+            pd.DataFrame: The subset of unprocessed discs in _all_discs_df that overlap
+                          with the given disc. Always contains at least the MIS disc itself.
         """
-        radius = disc_series['radius']
-        center_lat_rad = disc_series['lat_rad']
-        center_lon_rad = disc_series['lon_rad']
+        unprocessed = self._all_discs_df[~self._all_discs_df['processed']]
+        distances = haversine_numba(
+            mis_disc_series['lat_rad'],
+            mis_disc_series['lon_rad'],
+            unprocessed['lat_rad'].to_numpy(dtype=np.float32),
+            unprocessed['lon_rad'].to_numpy(dtype=np.float32),
+        )
+        overlap_mask = distances <= (mis_disc_series['radius'] + unprocessed['radius'].to_numpy(dtype=np.float32))
+        return unprocessed[overlap_mask]
 
-        # create bounding box around the disc center
+    def geolocation(self, cluster_df):
+        """
+        For a cluster of discs representing the same anycast site, find the best matching
+        airport within their intersection (i.e., within the radius of every disc in the cluster).
+
+        The smallest disc anchors the bounding-box pre-filter and the distance scoring,
+        as it provides the tightest single constraint.
+
+        Args:
+            cluster_df (pd.DataFrame): Rows from _all_discs_df representing one site's cluster.
+                                       Must include 'lat_rad', 'lon_rad', and 'radius'.
+
+        Returns:
+            list or bool: [iata, lat, lon, city, country_code] or False if no airport is found.
+        """
+        # Smallest disc = tightest single constraint; used for bounding box and distance scoring
+        smallest_idx = cluster_df['radius'].idxmin()
+        smallest_disc = cluster_df.loc[smallest_idx]
+
+        radius = smallest_disc['radius']
+        center_lat_rad = smallest_disc['lat_rad']
+        center_lon_rad = smallest_disc['lon_rad']
+
+        # Bounding box pre-filter based on the smallest disc
         delta_lat_rad = radius / EARTH_RADIUS_KM
         min_lat_rad = center_lat_rad - delta_lat_rad
         max_lat_rad = center_lat_rad + delta_lat_rad
         delta_lon_rad = radius / (EARTH_RADIUS_KM * np.cos(center_lat_rad))
-
         min_lon_rad = center_lon_rad - delta_lon_rad
         max_lon_rad = center_lon_rad + delta_lon_rad
 
-        # filter on airports within the bounding box
         candidate_airports = self._airports[
             (self._airports['lat_rad'] >= min_lat_rad) &
             (self._airports['lat_rad'] <= max_lat_rad) &
             (self._airports['lon_rad'] >= min_lon_rad) &
             (self._airports['lon_rad'] <= max_lon_rad)
-            ].copy()
+        ].copy()
 
         if candidate_airports.empty:
             return False  # No airports even in the rough vicinity.
 
-        # calculate distance from disc center to each candidate airport
+        # Intersect: retain only airports within every disc in the cluster
+        for _, disc in cluster_df.iterrows():
+            dists = haversine_numba(
+                disc['lat_rad'], disc['lon_rad'],
+                candidate_airports['lat_rad'].to_numpy(dtype=np.float32),
+                candidate_airports['lon_rad'].to_numpy(dtype=np.float32),
+            )
+            candidate_airports = candidate_airports[dists <= disc['radius']]
+            if candidate_airports.empty:
+                return False  # Intersection is empty.
+
+        # Score airports; distance is measured from the smallest disc's centre
         candidate_airports['dist_from_disc_center'] = haversine_numba(
-            center_lat_rad,
-            center_lon_rad,
+            center_lat_rad, center_lon_rad,
             candidate_airports['lat_rad'].to_numpy(dtype=np.float32),
             candidate_airports['lon_rad'].to_numpy(dtype=np.float32),
         )
 
-        # get airports within the disc radius
-        airports_inside_disk = candidate_airports[candidate_airports['dist_from_disc_center'] <= radius].copy()
-
-        if airports_inside_disk.empty:
-            return False  # No airports within the disc radius
-
-        # calculate population and distance scores
-        total_pop = np.float32(airports_inside_disk['pop'].sum())
+        total_pop = np.float32(candidate_airports['pop'].sum())
         if total_pop > 0:
-            airports_inside_disk['pop_score'] = airports_inside_disk['pop'] / total_pop
+            candidate_airports['pop_score'] = candidate_airports['pop'] / total_pop
         else:
-            airports_inside_disk['pop_score'] = 0
+            candidate_airports['pop_score'] = np.float32(0)
 
-        total_distance = np.float32(airports_inside_disk['dist_from_disc_center'].sum())
-
+        total_distance = np.float32(candidate_airports['dist_from_disc_center'].sum())
         if total_distance > 0:
-            airports_inside_disk['dist_score'] = airports_inside_disk['dist_from_disc_center'] / total_distance
+            candidate_airports['dist_score'] = candidate_airports['dist_from_disc_center'] / total_distance
         else:
-            airports_inside_disk['dist_score'] = 0
+            candidate_airports['dist_score'] = np.float32(0)
 
-        airports_inside_disk['score'] = self.alpha * airports_inside_disk['pop_score'] - (1 - self.alpha) * \
-                                        airports_inside_disk['dist_score']
+        candidate_airports['score'] = (
+            self.alpha * candidate_airports['pop_score']
+            - (1 - self.alpha) * candidate_airports['dist_score']
+        )
 
         # select the airport with the highest score
-        best_airport_row = airports_inside_disk.loc[airports_inside_disk['score'].idxmax()]
+        best_airport_row = candidate_airports.loc[candidate_airports['score'].idxmax()]
 
         return [
             best_airport_row.name,  # IATA code

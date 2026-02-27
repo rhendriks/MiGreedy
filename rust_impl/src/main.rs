@@ -158,7 +158,8 @@ impl<'a> AnycastAnalyzer<'a> {
         // Geolocate each anycast site from the single MIS result (in order of increasing RTT).
         for disc_index in mis_indices {
             let disc_in_mis = &self.all_discs[disc_index];
-            let geolocation_result = self.geolocation(disc_in_mis);
+            let cluster = self.build_cluster(disc_in_mis);
+            let geolocation_result = self.geolocation(&cluster);
 
             if let Some(best_airport) = geolocation_result {
                 // If the best airport for this disc has already been assigned to a
@@ -229,28 +230,53 @@ impl<'a> AnycastAnalyzer<'a> {
         (mis_indices.len(), mis_indices)
     }
 
-    /// Geolocates a disc by finding the best matching airport within its radius.
-    /// The best airport is determined by a scoring function that balances population and distance.
+    /// Builds the cluster for a given MIS disc: all discs whose centre is within
+    /// the sum of their radii (i.e., they overlap with the MIS disc).
+    /// These discs all likely measure the same anycast site.
     /// Parameters:
-    /// * disc: Reference to the disc to geolocate (&Disc)
+    /// * mis_disc: Reference to the MIS disc (&Disc)
     /// Returns:
-    /// * Option<Airport>: The best matching airport, or None if no airport found within the disc
-    fn geolocation(&self, disc: &Disc) -> Option<Airport> {
-        let center_lat = disc.lat_rad;
-        let center_lon = disc.lon_rad;
+    /// * Vec<&Disc>: References to all overlapping discs (always includes mis_disc itself)
+    fn build_cluster<'s>(&'s self, mis_disc: &Disc) -> Vec<&'s Disc> {
+        self.all_discs
+            .iter()
+            .filter(|d| {
+                let dist = haversine_distance(
+                    mis_disc.lat_rad, mis_disc.lon_rad,
+                    d.lat_rad, d.lon_rad,
+                );
+                dist <= mis_disc.radius + d.radius
+            })
+            .collect()
+    }
 
-        // Bounding box pre-filter for performance
-        let delta_lat = disc.radius / EARTH_RADIUS_KM;
+    /// Geolocates a site by finding the best matching airport within the intersection
+    /// of all discs in the cluster (i.e., within the radius of every disc).
+    /// The smallest disc anchors the bounding-box pre-filter and the distance scoring.
+    /// Parameters:
+    /// * cluster: Slice of disc references forming one site's cluster (&[&Disc])
+    /// Returns:
+    /// * Option<Airport>: The best matching airport, or None if the intersection contains none
+    fn geolocation(&self, cluster: &[&Disc]) -> Option<Airport> {
+        // Smallest disc = tightest single constraint; used for bounding box and distance scoring
+        let smallest = cluster
+            .iter()
+            .min_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap())?;
+
+        let center_lat = smallest.lat_rad;
+        let center_lon = smallest.lon_rad;
+
+        // Bounding box pre-filter based on the smallest disc
+        let delta_lat = smallest.radius / EARTH_RADIUS_KM;
         let min_lat = center_lat - delta_lat;
         let max_lat = center_lat + delta_lat;
 
-        let delta_lon = disc.radius / (EARTH_RADIUS_KM * center_lat.cos());
+        let delta_lon = smallest.radius / (EARTH_RADIUS_KM * center_lat.cos());
         let min_lon = center_lon - delta_lon;
         let max_lon = center_lon + delta_lon;
 
-        // First, filter airports within the bounding box, then calculate exact distances
-        // and filter those within the disc radius
-        let airports_inside_disk: Vec<_> = self
+        // Collect airports in the bounding box, storing distance from the smallest disc's centre
+        let mut airports_in_intersection: Vec<(&Airport, f32)> = self
             .airports
             .iter()
             .filter(|a| {
@@ -263,51 +289,41 @@ impl<'a> AnycastAnalyzer<'a> {
                 let dist = haversine_distance(center_lat, center_lon, a.lat_rad, a.lon_rad);
                 (a, dist)
             })
-            .filter(|(_a, dist)| *dist <= disc.radius)
             .collect();
 
-        if airports_inside_disk.is_empty() {
+        if airports_in_intersection.is_empty() {
             return None;
         }
 
-        let total_pop: f32 = airports_inside_disk.iter().map(|(a, _)| a.pop as f32).sum();
-        let total_dist: f32 = airports_inside_disk.iter().map(|(_, d)| *d).sum();
+        // Intersect: retain only airports within every disc in the cluster
+        for disc in cluster {
+            airports_in_intersection.retain(|(a, _)| {
+                let dist = haversine_distance(disc.lat_rad, disc.lon_rad, a.lat_rad, a.lon_rad);
+                dist <= disc.radius
+            });
+            if airports_in_intersection.is_empty() {
+                return None; // Intersection is empty.
+            }
+        }
 
-        // Find airport with the highest score
-        let best_airport = airports_inside_disk
+        let total_pop: f32 = airports_in_intersection.iter().map(|(a, _)| a.pop as f32).sum();
+        let total_dist: f32 = airports_in_intersection.iter().map(|(_, d)| *d).sum();
+
+        // Find airport with the highest score (distance from smallest disc's centre)
+        airports_in_intersection
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
-                let pop_score1 = if total_pop > 0.0 {
-                    a1.pop as f32 / total_pop
-                } else {
-                    0.0
-                };
-                let dist_score1 = if total_dist > 0.0 {
-                    d1 / total_dist
-                } else {
-                    0.0
-                };
+                let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
+                let dist_score1 = if total_dist > 0.0 { d1 / total_dist } else { 0.0 };
                 let score1 = self.alpha * pop_score1 - (1.0 - self.alpha) * dist_score1;
 
-                let pop_score2 = if total_pop > 0.0 {
-                    a2.pop as f32 / total_pop
-                } else {
-                    0.0
-                };
-                let dist_score2 = if total_dist > 0.0 {
-                    d2 / total_dist
-                } else {
-                    0.0
-                };
+                let pop_score2 = if total_pop > 0.0 { a2.pop as f32 / total_pop } else { 0.0 };
+                let dist_score2 = if total_dist > 0.0 { d2 / total_dist } else { 0.0 };
                 let score2 = self.alpha * pop_score2 - (1.0 - self.alpha) * dist_score2;
 
-                score1
-                    .partial_cmp(&score2)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                score1.partial_cmp(&score2).unwrap_or(std::cmp::Ordering::Equal)
             })
-            .map(|(a, _)| a.clone());
-
-        best_airport
+            .map(|(a, _)| a.clone())
     }
 }
 

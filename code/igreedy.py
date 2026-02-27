@@ -129,7 +129,8 @@ def analyze_df(in_df, alpha, airports_df):
             original_index = disc_row.name
             if not anycast._all_discs_df.loc[original_index, 'processed']:
 
-                geolocation_result = anycast.geolocation(disc_row)
+                cluster_df = anycast.build_cluster(disc_row)
+                geolocation_result = anycast.geolocation(cluster_df)
 
                 if geolocation_result:
                     iata = geolocation_result[0]
