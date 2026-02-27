@@ -1,5 +1,4 @@
-# A fast, parallel implementations of the iGreedy algorithm for large-scale anycast census
-
+# A fast, parallel improved version of the iGreedy algorithm for large-scale anycast-aware geolocation
 ```text
 180 150W  120W  90W   60W   30W  000   30E   60E   90E   120E  150E 180
 |    |     |     |     |     |    |     |     |     |     |     |     |
@@ -31,9 +30,13 @@
      Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/
 ```
 
-[This repository](https://github.com/rhendriks/MiGreedy) contains a multiprocessing implementation of the iGreedy anycast geolocation algorithm,
-originally developed by [Cicalsese et al.](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
+[This repository](https://github.com/rhendriks/MiGreedy)
+contains a geolocation algorithm based on [iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
 that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+
+The delta of this work is a performance aware implementation through multi-threading, implemented in Python and Rust (the latter for performance).
+In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of MIS sets (see iGreedy paper for details) rather than the lowest circle in each set.
+This implementation outputs a large nearby airport in each MIS set, unicast targets have a single MIS set whereas anycast targets have multiple MIS sets (thus producing multiple airports).
 
 The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
 This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
