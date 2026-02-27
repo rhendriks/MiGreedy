@@ -117,6 +117,7 @@ struct AnycastAnalyzer<'a> {
     alpha: f32,
     airports: &'a [Airport],
     all_discs: Vec<Disc>,
+    anycast_only: bool,
 }
 
 impl<'a> AnycastAnalyzer<'a> {
@@ -128,13 +129,14 @@ impl<'a> AnycastAnalyzer<'a> {
     /// Returns:
     /// * Instance of AnycastAnalyzer
     /// Note: Discs are sorted by RTT in ascending order.
-    fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32) -> Self {
+    fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32, anycast_only: bool) -> Self {
         // Sort by RTT, such that lower RTT discs are processed first
         discs.sort_unstable_by(|a, b| a.rtt.partial_cmp(&b.rtt).unwrap());
         Self {
             alpha,
             airports,
             all_discs: discs,
+            anycast_only,
         }
     }
 
@@ -147,8 +149,8 @@ impl<'a> AnycastAnalyzer<'a> {
         // get the maximum independent set of discs (non-overlapping discs)
         let (num_sites, mis_indices) = self.enumeration();
 
-        // skip targets with no discs
-        if num_sites == 0 {
+        // skip targets with no discs, or unicast when --anycast is set
+        if num_sites == 0 || (self.anycast_only && num_sites <= 1) {
             return vec![];
         }
 
@@ -365,6 +367,13 @@ struct Args {
         help = "Discard disks with RTT > threshold"
     )]
     threshold: u32,
+
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Only output anycast geolocations (skip unicast)"
+    )]
+    anycast: bool,
 }
 
 /// Load and preprocess airports data from the given path.
@@ -570,7 +579,7 @@ fn main() -> Result<()> {
                     .collect();
 
                 // Create analyzer instance and run iGreedy algorithm
-                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha);
+                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha, args.anycast);
                 analyzer.analyze()
             })
         })
