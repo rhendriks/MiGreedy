@@ -1,14 +1,14 @@
 [package]
 name = "migreedy"
-version = "1.4.0"
+version = "1.4.1"
 edition = "2024"
 
 [dependencies]
 polars = { version = "0.51.0", features = ["lazy", "trigonometry", "performant"] } # rust pandas
-clap = { version = "4.5.54", features = ["derive"] } # command line parser
+clap = { version = "4.5.60", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
-indicatif = { version = "0.18.3", features = ["rayon"] } # progress bars
-anyhow = "1.0.100" # error handling
+indicatif = { version = "0.18.4", features = ["rayon"] } # progress bars
+anyhow = "1.0.102" # error handling
 
 # use high performance allocator when running musl
 [target.'cfg(target_env = "musl")'.dependencies]
