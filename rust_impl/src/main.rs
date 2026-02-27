@@ -677,3 +677,234 @@ fn main() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── helpers ──────────────────────────────────────────────────────────
+
+    /// Load the embedded airports dataset (same one the binary uses).
+    fn test_airports() -> Vec<Airport> {
+        load_airports(Cursor::new(EMBEDDED_AIRPORTS)).expect("embedded airports must parse")
+    }
+
+    /// Build a `Disc` from a vantage-point location (degrees) and an RTT (ms).
+    /// The radius is derived with the same formula the production code uses.
+    fn make_disc(target: &str, hostname: &str, lat: f32, lon: f32, rtt: f32) -> Disc {
+        let lat_rad = lat.to_radians();
+        let lon_rad = lon.to_radians();
+        let radius = rtt * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2.0;
+        Disc {
+            target: target.to_string(),
+            hostname: hostname.to_string(),
+            vp_lat: lat,
+            vp_lon: lon,
+            rtt,
+            lat_rad,
+            lon_rad,
+            radius,
+        }
+    }
+
+    /// Collect the set of geolocated IATA codes from the output records.
+    fn iata_set(results: &[OutputRecord]) -> std::collections::HashSet<String> {
+        results.iter().map(|r| r.pop_iata.clone()).collect()
+    }
+
+    /// The Johannesburg area has three airports (JNB, QRA, HLA) that all
+    /// share the same population value, making the scoring tiebreaker
+    /// non-deterministic among them. Any of the three is a correct result.
+    const JOHANNESBURG_IATAS: &[&str] = &["JNB", "QRA", "HLA"];
+
+    fn has_johannesburg(results: &[OutputRecord]) -> bool {
+        results.iter().any(|r| JOHANNESBURG_IATAS.contains(&r.pop_iata.as_str()))
+    }
+
+    // ── Airport coordinates (degrees) from the embedded dataset ─────────
+    //
+    // AMX  Amsterdam     52.3086,   4.7639
+    // BFI  Seattle       47.5300, -122.3020
+    // JNB  Johannesburg -26.1392,  28.2460  (also QRA, HLA — same city/pop)
+    //
+    // Nearby VPs used in case 3:
+    //   LHR  London        51.4706,  -0.4619   (~355 km from AMX)
+    //   BRU  Brussels      50.9014,   4.4844   (~186 km from AMX)
+    //   PDX  Portland      45.5887, -122.5980  (~215 km from BFI)
+    //   YVR  Vancouver     49.1939, -123.1840  (~196 km from BFI)
+    //   DUR  Durban       -29.6144,  31.1197   (~398 km from JNB)
+    //   CPT  Cape Town    -33.9648,  18.6017   (~1263 km from JNB)
+
+    // ── Case 1: unicast ─────────────────────────────────────────────────
+    // Single 1ms measurement centred on Amsterdam.
+    // Enumeration = 1 (unicast) → should geolocate to AMX.
+
+    #[test]
+    fn case1_unicast_enumeration() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let (num_sites, _) = analyzer.enumeration();
+        assert_eq!(num_sites, 1, "single disc ⇒ MIS size must be 1");
+    }
+
+    #[test]
+    fn case1_unicast_geolocation() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let results = analyzer.analyze();
+
+        assert_eq!(results.len(), 1, "unicast must produce exactly 1 result");
+        assert_eq!(results[0].pop_iata, "AMX", "must geolocate to Amsterdam (AMX)");
+    }
+
+    #[test]
+    fn case1_unicast_skipped_with_anycast_flag() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, true);
+        let results = analyzer.analyze();
+
+        assert!(results.is_empty(), "--anycast flag must skip unicast targets");
+    }
+
+    // ── Case 2: three-site anycast (one VP per site, 1ms each) ──────────
+    // Three 1ms discs centred right on AMX, BFI, JNB.
+    // ~98 km radius each, thousands of km apart → MIS = 3.
+
+    #[test]
+    fn case2_three_sites_enumeration() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("9.9.9.9", "vp-ams", 52.3086, 4.7639, 1.0),
+            make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
+            make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let (num_sites, _) = analyzer.enumeration();
+        assert_eq!(num_sites, 3, "three far-apart 1ms discs ⇒ MIS size must be 3");
+    }
+
+    #[test]
+    fn case2_three_sites_geolocation() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("9.9.9.9", "vp-ams", 52.3086, 4.7639, 1.0),
+            make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
+            make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let results = analyzer.analyze();
+
+        let iatas = iata_set(&results);
+        assert_eq!(results.len(), 3, "must produce exactly 3 results");
+        assert!(iatas.contains("AMX"), "must contain Amsterdam (AMX)");
+        assert!(iatas.contains("BFI"), "must contain Seattle (BFI)");
+        assert!(has_johannesburg(&results), "must contain a Johannesburg airport");
+    }
+
+    // ── Case 3: three-site anycast with multiple overlapping VPs ────────
+    // Each site has 3 VPs whose discs overlap locally but NOT across sites.
+    //
+    // Amsterdam cluster:
+    //   VP at AMX   (1 ms, r ≈  99 km)
+    //   VP at BRU   (3 ms, r ≈ 296 km) — 186 km from AMX, overlaps
+    //   VP at LHR   (5 ms, r ≈ 493 km) — 355 km from AMX, overlaps
+    //
+    // Seattle cluster:
+    //   VP at BFI   (1 ms, r ≈  99 km)
+    //   VP at PDX   (4 ms, r ≈ 394 km) — 215 km from BFI, overlaps
+    //   VP at YVR   (4 ms, r ≈ 394 km) — 196 km from BFI, overlaps
+    //
+    // Johannesburg cluster:
+    //   VP at JNB   (1 ms, r ≈  99 km)
+    //   VP at DUR   (6 ms, r ≈ 592 km) — 398 km from JNB, overlaps
+    //   VP at CPT  (15 ms, r ≈1479 km) — 1263 km from JNB, overlaps
+
+    #[test]
+    fn case3_multi_vp_enumeration() {
+        let airports = test_airports();
+        let discs = vec![
+            // Amsterdam cluster
+            make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
+            make_disc("8.8.8.8", "vp-bru", 50.9014, 4.4844, 3.0),
+            make_disc("8.8.8.8", "vp-lhr", 51.4706, -0.4619, 5.0),
+            // Seattle cluster
+            make_disc("8.8.8.8", "vp-sea", 47.5300, -122.3020, 1.0),
+            make_disc("8.8.8.8", "vp-pdx", 45.5887, -122.5980, 4.0),
+            make_disc("8.8.8.8", "vp-yvr", 49.1939, -123.1840, 4.0),
+            // Johannesburg cluster
+            make_disc("8.8.8.8", "vp-jnb", -26.1392, 28.2460, 1.0),
+            make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
+            make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let (num_sites, _) = analyzer.enumeration();
+        assert_eq!(num_sites, 3, "three clusters of overlapping discs ⇒ MIS size must be 3");
+    }
+
+    #[test]
+    fn case3_multi_vp_geolocation() {
+        let airports = test_airports();
+        let discs = vec![
+            // Amsterdam cluster
+            make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
+            make_disc("8.8.8.8", "vp-bru", 50.9014, 4.4844, 3.0),
+            make_disc("8.8.8.8", "vp-lhr", 51.4706, -0.4619, 5.0),
+            // Seattle cluster
+            make_disc("8.8.8.8", "vp-sea", 47.5300, -122.3020, 1.0),
+            make_disc("8.8.8.8", "vp-pdx", 45.5887, -122.5980, 4.0),
+            make_disc("8.8.8.8", "vp-yvr", 49.1939, -123.1840, 4.0),
+            // Johannesburg cluster
+            make_disc("8.8.8.8", "vp-jnb", -26.1392, 28.2460, 1.0),
+            make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
+            make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let results = analyzer.analyze();
+
+        let iatas = iata_set(&results);
+        assert_eq!(results.len(), 3, "must produce exactly 3 results");
+        assert!(iatas.contains("AMX"), "must contain Amsterdam (AMX)");
+        assert!(iatas.contains("BFI"), "must contain Seattle (BFI)");
+        assert!(has_johannesburg(&results), "must contain a Johannesburg airport");
+    }
+
+    // ── Case 3 addendum: intersection tightens geolocation ──────────────
+    // Verify that cluster intersection doesn't accidentally widen results
+    // (same 3 sites, same 3 IATAs — no extra phantom sites).
+
+    #[test]
+    fn case3_no_phantom_sites() {
+        let airports = test_airports();
+        let discs = vec![
+            make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
+            make_disc("8.8.8.8", "vp-bru", 50.9014, 4.4844, 3.0),
+            make_disc("8.8.8.8", "vp-lhr", 51.4706, -0.4619, 5.0),
+            make_disc("8.8.8.8", "vp-sea", 47.5300, -122.3020, 1.0),
+            make_disc("8.8.8.8", "vp-pdx", 45.5887, -122.5980, 4.0),
+            make_disc("8.8.8.8", "vp-yvr", 49.1939, -123.1840, 4.0),
+            make_disc("8.8.8.8", "vp-jnb", -26.1392, 28.2460, 1.0),
+            make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
+            make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
+        ];
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let results = analyzer.analyze();
+
+        // Every result must be one of the expected airports
+        let valid: &[&str] = &["AMX", "BFI", "JNB", "QRA", "HLA"];
+        for r in &results {
+            assert!(
+                valid.contains(&r.pop_iata.as_str()),
+                "unexpected airport {} in results", r.pop_iata
+            );
+        }
+    }
+}

@@ -140,7 +140,7 @@ We include a Rust implementation (significantly faster than the Python version).
    
 4. Run the compiled binary with the required arguments:
     ```bash
-    ./target/release/migreedy --input path/to/measurements.csv --output path/to/results.csv --airports ../datasets/airports.csv
+    ./target/release/migreedy --input path/to/measurements.csv --output path/to/results.csv
     ```
 
 ## Installation (python)
@@ -164,12 +164,14 @@ We include a Rust implementation (significantly faster than the Python version).
 
 ### Command-Line Arguments
 
-| Argument | Default | Description |
-| :--- | :--- | :--- |
-| `-i`, `--input` | **(Required)** | Path to the input CSV file containing RTT measurements. |
-| `-o`, `--output` | **(Required)** | Path for the output CSV file where results will be saved. |
-| `-a`, `--alpha` | `1.0` | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
-| `-t`, `--threshold`| `None` | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error. |
+| Argument            | Default        | Description                                                                                                                             |
+|:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
+| `-i`, `--input`     | **(Required)** | Path to the input CSV file containing RTT measurements.                                                                                 |
+| `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved.                                                                               |
+| `--airports`        | `None`          | Optional path to an airport file.                                                                                                       |
+| `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
+| `-t`, `--threshold` | `None`         | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
+| `--anycast`         | `False`        | If set, outputs only geolocation for anycast targets.                                                                                   |
 
 ## Data Format
 
@@ -218,14 +220,16 @@ Issues and pull requests are welcome!
 ## Citation
 This code was designed for our paper LACeS. Please use the following citation when using this code.
 ```
-@misc{hendriks2025lacesopenfastresponsible,
-      title={LACeS: an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System}, 
-      author={Remi Hendriks and Matthew Luckie and Mattijs Jonker and Raffaele Sommese and Roland van Rijswijk-Deij},
+@ARTICLE{11268317,
+      author={Hendriks, Remi and Jonker, Mattijs and van Rijswijk-Deij, Roland and Sommese, Raffaele},
+      journal={IEEE Transactions on Network and Service Management}, 
+      title={Load-Balancing Versus Anycast: A First Look at Operational Challenges}, 
       year={2025},
-      eprint={2503.20554},
-      archivePrefix={arXiv},
-      primaryClass={cs.NI},
-      url={https://arxiv.org/abs/2503.20554}, 
+      volume={},
+      number={},
+      pages={1-1},
+      keywords={Routing;Internet;Routing protocols;Probes;IP networks;Costs;Tunneling;Time measurement;Source address validation;Servers;Anycast;Load Balancing;Routing Stability},
+      doi={10.1109/TNSM.2025.3636785}
 }
 ```
 

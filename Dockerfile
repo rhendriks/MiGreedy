@@ -16,6 +16,8 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Copy the Cargo files and source code from the rust_impl directory
 COPY rust_impl/Cargo.toml ./
 COPY rust_impl/src ./src
+# Copy the airports file
+COPY datasets/airports.csv ../datasets/airports.csv
 
 # Build the release binary for the musl target
 RUN cargo build --release --target x86_64-unknown-linux-musl
@@ -25,9 +27,6 @@ FROM scratch AS final
 
 # Set the working directory
 WORKDIR /app
-
-# Copy the shared datasets from the build context's root
-COPY datasets/ ./datasets/
 
 # Copy the compiled static binary from the builder stage
 COPY --from=builder /usr/src/app/target/x86_64-unknown-linux-musl/release/migreedy .

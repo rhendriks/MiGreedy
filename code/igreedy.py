@@ -50,6 +50,11 @@ def parse_args():
         help='Discard disks with RTT > threshold (to bound error) [default: ∞]'
     )
 
+    parser.add_argument(
+        '--anycast', action='store_true', default=False,
+        help='Only output anycast geolocations (skip unicast)'
+    )
+
     return parser.parse_args()
 
 
@@ -90,7 +95,7 @@ def get_airports(path=""):
     return airports_df
 
 
-def analyze_df(in_df, alpha, airports_df):
+def analyze_df(in_df, alpha, airports_df, anycast_only=False):
     """
     Routine to iteratively enumerate and geolocate anycast instances using a
     DataFrame-based approach. This version corrects for multiple VPs mapping to the same airport.
@@ -99,6 +104,7 @@ def analyze_df(in_df, alpha, airports_df):
         in_df (pd.DataFrame): The input measurements.
         alpha (float): The weighting factor for geolocation scoring.
         airports_df (pd.DataFrame): DataFrame of airport data.
+        anycast_only (bool): If True, skip unicast targets (MIS size ≤ 1).
 
     Returns:
         pd.DataFrame: A DataFrame containing the geolocated results, or None if
@@ -119,7 +125,7 @@ def analyze_df(in_df, alpha, airports_df):
 
         num_sites, mis_df = anycast.enumeration()
 
-        if num_sites == 0:
+        if num_sites == 0 or (anycast_only and num_sites <= 1):
             return None
 
         # Iterate through the discs in the current MIS, using original index to access master df
@@ -198,16 +204,16 @@ def analyze_df(in_df, alpha, airports_df):
     return results_df
 
 
-def process_group(group_tuple, alpha, airports_df):
+def process_group(group_tuple, alpha, airports_df, anycast_only=False):
     """
     Wrapper to be used with pool.imap_unordered.
     It unpacks the (name, group_df) tuple yielded by df.groupby().
     """
     target_name, group_df = group_tuple
-    return analyze_df(group_df, alpha, airports_df)
+    return analyze_df(group_df, alpha, airports_df, anycast_only=anycast_only)
 
 
-def main(in_df, outfile, alpha):
+def main(in_df, outfile, alpha, anycast_only=False):
     """
     Main function to process all targets in parallel and write results to a file (live).
 
@@ -215,13 +221,14 @@ def main(in_df, outfile, alpha):
         in_df (pd.DataFrame): The complete input DataFrame containing all targets.
         outfile (str): Path to the output CSV file.
         alpha (float): The alpha parameter for the analysis.
+        anycast_only (bool): If True, skip unicast targets.
     """
     airports_df = get_airports()  # Load airports data
 
     num_targets = in_df['target'].nunique()
     print(
         f"Starting parallel processing for {num_targets:,} targets using available CPU cores...")  # create a partial function with fixed alpha and airports_df
-    worker_func = partial(process_group, alpha=alpha, airports_df=airports_df)
+    worker_func = partial(process_group, alpha=alpha, airports_df=airports_df, anycast_only=anycast_only)
 
     with open(outfile, 'w', newline='') as f:
         # Define the header based on your analyze_df output
@@ -326,4 +333,4 @@ if __name__ == "__main__":
     num_targets = in_df['target'].nunique()
     print(f"Processed files (running iGreedy on this many targets): {num_targets:,}")
 
-    main(in_df, args.output, args.alpha)
+    main(in_df, args.output, args.alpha, anycast_only=args.anycast)
