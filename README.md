@@ -36,7 +36,7 @@ that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, 
 
 The delta of this work is a performance aware implementation through multi-threading, implemented in Python and Rust (the latter for performance).
 In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of MIS sets (see iGreedy paper for details) rather than the lowest circle in each set.
-This implementation outputs a large nearby airport in each MIS set, unicast targets have a single MIS set whereas anycast targets have multiple MIS sets (thus producing multiple airports).
+This implementation outputs a nearby airport in each MIS set, unicast targets have a single MIS set whereas anycast targets have multiple MIS sets (thus producing multiple airports).
 
 The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
 This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
