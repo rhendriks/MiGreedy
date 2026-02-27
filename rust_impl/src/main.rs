@@ -147,8 +147,8 @@ impl<'a> AnycastAnalyzer<'a> {
         // get the maximum independent set of discs (non-overlapping discs)
         let (num_sites, mis_indices) = self.enumeration();
 
-        // skip unicast targets
-        if num_sites <= 1 {
+        // skip targets with no discs
+        if num_sites == 0 {
             return vec![];
         }
 
@@ -562,7 +562,7 @@ fn main() -> Result<()> {
         .collect();
 
     println!(
-        "Analysis complete. Found {} geolocated sites.",
+        "Analysis complete. Found {} geolocated sites (unicast + anycast).",
         results.len()
     );
 
@@ -640,7 +640,7 @@ fn main() -> Result<()> {
 
         println!("Results successfully saved.");
     } else {
-        println!("No anycast instances found, no output file written.");
+        println!("No geolocated sites found, no output file written.");
     }
 
     Ok(())
