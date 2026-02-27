@@ -102,7 +102,7 @@ def analyze_df(in_df, alpha, airports_df):
 
     Returns:
         pd.DataFrame: A DataFrame containing the geolocated results, or None if
-                      the input is considered unicast.
+                      the input has no measurable discs.
     """
     anycast = AnycastDF(in_df, airports_df, alpha)
     anycast._all_discs_df['processed'] = False
@@ -119,7 +119,7 @@ def analyze_df(in_df, alpha, airports_df):
 
         num_sites, mis_df = anycast.enumeration()
 
-        if num_sites <= 1:
+        if num_sites == 0:
             return None
 
         # Iterate through the discs in the current MIS, using original index to access master df
@@ -250,7 +250,7 @@ def main(in_df, outfile, alpha):
                     for record in result_df.to_dict('records'):
                         writer.writerow(record)
 
-    print(f"Results successfully saved to '{outfile}'.")
+    print(f"Results (unicast + anycast) successfully saved to '{outfile}'.")
 
 if __name__ == "__main__":
     args = parse_args()
