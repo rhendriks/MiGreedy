@@ -223,16 +223,22 @@ Issues and pull requests are welcome!
 ## Citation
 This code was designed for our paper LACeS. Please use the following citation when using this code.
 ```
-@ARTICLE{11268317,
-      author={Hendriks, Remi and Jonker, Mattijs and van Rijswijk-Deij, Roland and Sommese, Raffaele},
-      journal={IEEE Transactions on Network and Service Management}, 
-      title={Load-Balancing Versus Anycast: A First Look at Operational Challenges}, 
-      year={2025},
-      volume={},
-      number={},
-      pages={1-1},
-      keywords={Routing;Internet;Routing protocols;Probes;IP networks;Costs;Tunneling;Time measurement;Source address validation;Servers;Anycast;Load Balancing;Routing Stability},
-      doi={10.1109/TNSM.2025.3636785}
+@inproceedings{10.1145/3730567.3764484,
+      author = {Hendriks, Remi and Luckie, Matthew and Jonker, Mattijs and Sommese, Raffaele and van Rijswijk-Deij, Roland},
+      title = {LACeS: An Open, Fast, Responsible and Efficient Longitudinal Anycast Census System},
+      year = {2025},
+      isbn = {9798400718601},
+      publisher = {Association for Computing Machinery},
+      address = {New York, NY, USA},
+      url = {https://doi.org/10.1145/3730567.3764484},
+      doi = {10.1145/3730567.3764484},
+      abstract = {IP anycast replicates an address at multiple locations to reduce latency and enhance resilience. Due to anycast's crucial role in the modern Internet, earlier research introduced tools to perform anycast censuses. The first, iGreedy, uses latency measurements from geographically dispersed locations to map anycast deployments. The second, MAnycast2, uses anycast to perform a census of other anycast networks. MAnycast2's advantage is speed and coverage but suffers from problems with accuracy, while iGreedy is highly accurate but slower using author-defined probing rates and costlier. In this paper we address the shortcomings of both systems and present LACeS (Longitudinal Anycast Census System). Taking MAnycast2 as a basis, we completely redesign its measurement pipeline, and add support for distributed probing, additional protocols (DNS over UDP, TCP SYN/ACK, and IPv6) and latency measurements similar to iGreedy. We validate LACeS on an anycast testbed with 32 globally distributed nodes, compare against an external anycast production deployment, extensive latency measurements with RIPE Atlas and cross-check over 60\% of detected anycast using operator ground truth that shows LACeS achieves high accuracy. Finally, we provide a longitudinal analysis of anycast, covering 17+months, showing LACeS achieves high precision. We make continual daily LACeS censuses available to the community and release the source code of the tool under a permissive open source license.},
+      booktitle = {Proceedings of the 2025 ACM Internet Measurement Conference},
+      pages = {445–461},
+      numpages = {17},
+      keywords = {internet measurement, anycast, internet topology, routing, ip},
+      location = {USA},
+      series = {IMC '25}
 }
 ```
 
