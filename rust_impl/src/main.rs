@@ -13,8 +13,12 @@ use std::path::PathBuf;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-/// Airports dataset embedded at compile time so the binary is self-contained.
+/// Embedded datasets at compile time so the binary is self-contained.
 static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv");
+static EMBEDDED_CITIES500: &[u8] = include_bytes!("../../datasets/cities500.csv");
+static EMBEDDED_CITIES1000: &[u8] = include_bytes!("../../datasets/cities1000.csv");
+static EMBEDDED_CITIES5000: &[u8] = include_bytes!("../../datasets/cities5000.csv");
+static EMBEDDED_CITIES15000: &[u8] = include_bytes!("../../datasets/cities15000.csv");
 
 // Constants
 const FIBER_RI: f32 = 1.52;
@@ -261,10 +265,17 @@ impl<'a> AnycastAnalyzer<'a> {
     /// Geolocates a site by finding the best matching airport within the intersection
     /// of all discs in the cluster (i.e., within the radius of every disc).
     /// The smallest disc anchors the bounding-box pre-filter and the distance scoring.
+    ///
+    /// If the full intersection contains no cities, progressively relaxes constraints:
+    /// discs are sorted by radius (ascending) and intersected one by one. When adding
+    /// the next disc would empty the candidate set, the previous (tightest non-empty)
+    /// intersection is used instead. This preserves as many constraints as possible
+    /// while guaranteeing a result when at least the smallest disc contains a city.
+    ///
     /// Parameters:
     /// * cluster: Slice of disc references forming one site's cluster (&[&Disc])
     /// Returns:
-    /// * Option<Airport>: The best matching airport, or None if the intersection contains none
+    /// * Option<Airport>: The best matching airport, or None if no candidate is found
     fn geolocation(&self, cluster: &[&Disc]) -> Option<Airport> {
         // Smallest disc = tightest single constraint; used for bounding box and distance scoring
         let smallest = cluster
@@ -284,7 +295,7 @@ impl<'a> AnycastAnalyzer<'a> {
         let max_lon = center_lon + delta_lon;
 
         // Collect airports in the bounding box, storing distance from the smallest disc's centre
-        let mut airports_in_intersection: Vec<(&Airport, f32)> = self
+        let airports_in_bbox: Vec<(&Airport, f32)> = self
             .airports
             .iter()
             .filter(|a| {
@@ -299,26 +310,41 @@ impl<'a> AnycastAnalyzer<'a> {
             })
             .collect();
 
-        if airports_in_intersection.is_empty() {
+        if airports_in_bbox.is_empty() {
             return None;
         }
 
-        // Intersect: retain only airports within every disc in the cluster
-        for disc in cluster {
-            airports_in_intersection.retain(|(a, _)| {
+        // Sort cluster discs by radius (ascending) so we apply the tightest constraints first
+        let mut sorted_cluster: Vec<&&Disc> = cluster.iter().collect();
+        sorted_cluster.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
+
+        // Progressively intersect: add one disc at a time (smallest first).
+        // Keep the last non-empty candidate set as fallback.
+        let mut candidates = airports_in_bbox;
+        let mut last_valid = candidates.clone();
+
+        for disc in &sorted_cluster {
+            candidates.retain(|(a, _)| {
                 let dist = haversine_distance(disc.lat_rad, disc.lon_rad, a.lat_rad, a.lon_rad);
                 dist <= disc.radius
             });
-            if airports_in_intersection.is_empty() {
-                return None; // Intersection is empty.
+
+            if candidates.is_empty() {
+                // Adding this disc emptied the set — use the previous valid set
+                break;
             }
+            last_valid = candidates.clone();
         }
 
-        let total_pop: f32 = airports_in_intersection.iter().map(|(a, _)| a.pop as f32).sum();
-        let total_dist: f32 = airports_in_intersection.iter().map(|(_, d)| *d).sum();
+        if last_valid.is_empty() {
+            return None;
+        }
 
-        // Find airport with the highest score (distance from smallest disc's centre)
-        airports_in_intersection
+        let total_pop: f32 = last_valid.iter().map(|(a, _)| a.pop as f32).sum();
+        let total_dist: f32 = last_valid.iter().map(|(_, d)| *d).sum();
+
+        // Find airport with the highest score
+        last_valid
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
                 let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
@@ -359,10 +385,12 @@ struct Args {
     atlas: Option<String>,
 
     #[arg(
+        short,
         long,
-        help = "Path to airports dataset (uses embedded dataset if not set)"
+        default_value = "cities500",
+        help = "Dataset to use: cities500, cities1000, cities5000, cities15000, airports, or path to custom CSV"
     )]
-    airports: Option<PathBuf>,
+    dataset: String,
 
     #[arg(
         short,
@@ -777,14 +805,33 @@ fn main() -> Result<()> {
         },
     };
 
-    let airports = if let Some(ref path) = args.airports {
-        println!("Loading airports data from: {:?}", path);
-        load_airports(File::open(path)?)?
-    } else {
-        println!("Using embedded airports dataset.");
-        load_airports(Cursor::new(EMBEDDED_AIRPORTS))?
+    let airports = match args.dataset.as_str() {
+        "airports" => {
+            println!("Using embedded airports dataset.");
+            load_airports(Cursor::new(EMBEDDED_AIRPORTS))?
+        }
+        "cities500" => {
+            println!("Using embedded cities500 dataset (cities with population >= 500).");
+            load_airports(Cursor::new(EMBEDDED_CITIES500))?
+        }
+        "cities1000" => {
+            println!("Using embedded cities1000 dataset (cities with population >= 1,000).");
+            load_airports(Cursor::new(EMBEDDED_CITIES1000))?
+        }
+        "cities5000" => {
+            println!("Using embedded cities5000 dataset (cities with population >= 5,000).");
+            load_airports(Cursor::new(EMBEDDED_CITIES5000))?
+        }
+        "cities15000" => {
+            println!("Using embedded cities15000 dataset (cities with population >= 15,000).");
+            load_airports(Cursor::new(EMBEDDED_CITIES15000))?
+        }
+        custom_path => {
+            println!("Loading custom dataset from: {}", custom_path);
+            load_airports(File::open(custom_path)?)?
+        }
     };
-    println!("Loaded {} airports.", airports.len());
+    println!("Loaded {} locations.", airports.len());
 
     // Load input data from either CSV file or RIPE Atlas API
     let in_df = if let Some(ref input_path) = args.input {
