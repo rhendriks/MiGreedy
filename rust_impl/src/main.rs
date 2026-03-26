@@ -1,8 +1,10 @@
-use anyhow::Result;
+use anyhow::{bail, Result};
 use clap::Parser;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -337,17 +339,24 @@ impl<'a> AnycastAnalyzer<'a> {
 /// Fields:
 /// * input: Input CSV file path (PathBuf)
 /// * output: Output CSV file path (PathBuf)
+/// * atlas: RIPE Atlas measurement ID or URL
 /// * airports: Path to airports dataset (PathBuf)
 /// * alpha: Optional weighting factor for population vs distance in geolocation (f32)
 /// * threshold: Optional RTT threshold to filter discs (f32)
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    #[arg(short, long, help = "Input CSV file")]
-    input: PathBuf,
+    #[arg(short, long, help = "Input CSV file (mutually exclusive with --atlas)")]
+    input: Option<PathBuf>,
 
-    #[arg(short, long, help = "Output CSV file")]
-    output: PathBuf,
+    #[arg(short, long, help = "Output CSV file (defaults to atlas_<ID>.csv when using --atlas)")]
+    output: Option<PathBuf>,
+
+    #[arg(
+        long,
+        help = "RIPE Atlas measurement ID or URL (mutually exclusive with --input)"
+    )]
+    atlas: Option<String>,
 
     #[arg(
         long,
@@ -377,6 +386,235 @@ struct Args {
         help = "Only output anycast geolocations (skip unicast)"
     )]
     anycast: bool,
+}
+
+// ── RIPE Atlas API types ─────────────────────────────────────────────
+
+#[derive(Deserialize)]
+struct AtlasResult {
+    dst_addr: Option<String>,
+    #[serde(default)]
+    min: Option<f64>,
+    prb_id: u32,
+    #[serde(rename = "type")]
+    measurement_type: Option<String>,
+    // For traceroute: extract min RTT from last hop
+    result: Option<serde_json::Value>,
+}
+
+#[derive(Deserialize)]
+struct ProbeGeometry {
+    coordinates: Option<Vec<f64>>, // [lon, lat]
+}
+
+#[derive(Deserialize)]
+struct ProbeInfo {
+    id: u32,
+    geometry: Option<ProbeGeometry>,
+}
+
+#[derive(Deserialize)]
+struct ProbeResponse {
+    results: Vec<ProbeInfo>,
+    next: Option<String>,
+}
+
+/// Extract the measurement ID from either a plain numeric string or a RIPE Atlas URL.
+/// Supported URL formats:
+/// - https://atlas.ripe.net/measurements/12345/
+/// - https://atlas.ripe.net/api/v2/measurements/12345/
+/// - https://atlas.ripe.net/api/v2/measurements/12345/results/
+fn parse_atlas_id(input: &str) -> Result<u64> {
+    // Try plain number first
+    if let Ok(id) = input.trim().parse::<u64>() {
+        return Ok(id);
+    }
+
+    // Try to extract from URL
+    let parts: Vec<&str> = input.trim_end_matches('/').split('/').collect();
+    for (i, part) in parts.iter().enumerate() {
+        if *part == "measurements" {
+            if let Some(id_str) = parts.get(i + 1) {
+                if let Ok(id) = id_str.parse::<u64>() {
+                    return Ok(id);
+                }
+            }
+        }
+    }
+
+    bail!("Could not parse RIPE Atlas measurement ID from: {}", input)
+}
+
+/// Extract minimum RTT from a traceroute result by finding the last hop with valid RTT.
+fn extract_traceroute_min_rtt(result_value: &serde_json::Value) -> Option<f64> {
+    let hops = result_value.as_array()?;
+    // Iterate hops in reverse to find the last one with a valid RTT
+    for hop in hops.iter().rev() {
+        if let Some(results) = hop.get("result").and_then(|r| r.as_array()) {
+            let rtts: Vec<f64> = results
+                .iter()
+                .filter_map(|r| r.get("rtt").and_then(|v| v.as_f64()))
+                .collect();
+            if !rtts.is_empty() {
+                return rtts.into_iter().min_by(|a, b| a.partial_cmp(b).unwrap());
+            }
+        }
+    }
+    None
+}
+
+/// Fetch measurement results from the RIPE Atlas API and convert to a DataFrame
+/// matching the expected input format (addr, hostname, lat, lon, rtt).
+fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<DataFrame> {
+    let client = reqwest::blocking::Client::new();
+
+    // Fetch latest measurement results
+    let results_url = format!(
+        "https://atlas.ripe.net/api/v2/measurements/{}/latest/?format=json",
+        measurement_id
+    );
+    println!("Fetching latest results for RIPE Atlas measurement {}...", measurement_id);
+
+    let response = client.get(&results_url).send()?;
+    if !response.status().is_success() {
+        bail!(
+            "Failed to fetch measurement results: HTTP {}",
+            response.status()
+        );
+    }
+    let atlas_results: Vec<AtlasResult> = response.json()?;
+
+    if atlas_results.is_empty() {
+        bail!("No results found for measurement {}", measurement_id);
+    }
+
+    println!("Fetched {} measurement results.", atlas_results.len());
+
+    // Collect unique probe IDs
+    let probe_ids: Vec<u32> = atlas_results
+        .iter()
+        .map(|r| r.prb_id)
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    println!("Fetching location data for {} probes...", probe_ids.len());
+
+    // Fetch probe locations in batches (API supports id__in)
+    let mut probe_locations: HashMap<u32, (f64, f64)> = HashMap::new();
+    for chunk in probe_ids.chunks(500) {
+        let ids_str: Vec<String> = chunk.iter().map(|id| id.to_string()).collect();
+        let mut url = format!(
+            "https://atlas.ripe.net/api/v2/probes/?id__in={}&format=json&page_size=500",
+            ids_str.join(",")
+        );
+
+        loop {
+            let resp = client.get(&url).send()?;
+            if !resp.status().is_success() {
+                bail!("Failed to fetch probe data: HTTP {}", resp.status());
+            }
+            let probe_resp: ProbeResponse = resp.json()?;
+
+            for probe in &probe_resp.results {
+                if let Some(ref geom) = probe.geometry {
+                    if let Some(ref coords) = geom.coordinates {
+                        if coords.len() == 2 {
+                            probe_locations.insert(probe.id, (coords[1], coords[0])); // lat, lon
+                        }
+                    }
+                }
+            }
+
+            match probe_resp.next {
+                Some(next_url) if !next_url.is_empty() => url = next_url,
+                _ => break,
+            }
+        }
+    }
+
+    println!(
+        "Got locations for {}/{} probes.",
+        probe_locations.len(),
+        probe_ids.len()
+    );
+
+    // Build columns: addr, hostname, lat, lon, rtt
+    let mut addrs: Vec<String> = Vec::new();
+    let mut hostnames: Vec<String> = Vec::new();
+    let mut lats: Vec<f32> = Vec::new();
+    let mut lons: Vec<f32> = Vec::new();
+    let mut rtts: Vec<f32> = Vec::new();
+
+    for result in &atlas_results {
+        let dst = match &result.dst_addr {
+            Some(d) => d.clone(),
+            None => continue,
+        };
+
+        // Get RTT: for ping use min, for traceroute extract from hops
+        let rtt = match &result.measurement_type {
+            Some(t) if t == "traceroute" => {
+                result
+                    .result
+                    .as_ref()
+                    .and_then(|r| extract_traceroute_min_rtt(r))
+            }
+            _ => result.min,
+        };
+
+        let rtt = match rtt {
+            Some(r) if r > 0.0 => r,
+            _ => continue, // skip failed measurements
+        };
+
+        // Apply RTT threshold
+        if threshold > 0 && rtt > threshold as f64 {
+            continue;
+        }
+
+        let (lat, lon) = match probe_locations.get(&result.prb_id) {
+            Some(loc) => *loc,
+            None => continue, // skip probes without location
+        };
+
+        addrs.push(dst);
+        hostnames.push(format!("probe-{}", result.prb_id));
+        lats.push(lat as f32);
+        lons.push(lon as f32);
+        rtts.push(rtt as f32);
+    }
+
+    if addrs.is_empty() {
+        bail!("No valid measurement results after filtering.");
+    }
+
+    // Build DataFrame matching the expected schema
+    let df = DataFrame::new(addrs.len(), vec![
+        Series::new("addr".into(), addrs).into(),
+        Series::new("hostname".into(), hostnames).into(),
+        Series::new("lat".into(), lats).into(),
+        Series::new("lon".into(), lons).into(),
+        Series::new("rtt".into(), rtts).into(),
+    ])?;
+
+    // Add calculated fields (same as load_input_data)
+    let df = df
+        .lazy()
+        .with_columns([
+            col("lat").radians().alias("lat_rad"),
+            col("lon").radians().alias("lon_rad"),
+            (col("rtt") * lit(0.001) * lit(SPEED_OF_LIGHT) / lit(FIBER_RI) / lit(2.0))
+                .alias("radius"),
+        ])
+        .collect()?;
+
+    println!(
+        "Loaded {} latency measurements after applying RTT threshold filter.",
+        df.height()
+    );
+
+    Ok(df)
 }
 
 /// Load and preprocess airports data from a reader.
@@ -516,6 +754,29 @@ fn load_input_data(path: &PathBuf, threshold: u32) -> Result<DataFrame> {
 fn main() -> Result<()> {
     let args = Args::parse();
 
+    // Validate mutually exclusive input modes
+    if args.input.is_some() && args.atlas.is_some() {
+        bail!("--input and --atlas are mutually exclusive. Use one or the other.");
+    }
+    if args.input.is_none() && args.atlas.is_none() {
+        bail!("Either --input or --atlas must be provided.");
+    }
+
+    // Parse atlas measurement ID if provided (do this early for default output path)
+    let atlas_id = match &args.atlas {
+        Some(atlas_input) => Some(parse_atlas_id(atlas_input)?),
+        None => None,
+    };
+
+    // Determine output path
+    let output_path = match args.output {
+        Some(p) => p,
+        None => match atlas_id {
+            Some(id) => PathBuf::from(format!("atlas_{}.csv", id)),
+            None => bail!("--output is required when using --input."),
+        },
+    };
+
     let airports = if let Some(ref path) = args.airports {
         println!("Loading airports data from: {:?}", path);
         load_airports(File::open(path)?)?
@@ -525,9 +786,13 @@ fn main() -> Result<()> {
     };
     println!("Loaded {} airports.", airports.len());
 
-    // Load and preprocess input data (latency measurements)
-    println!("Loading input data from: {:?}", args.input);
-    let in_df = load_input_data(&args.input, args.threshold)?;
+    // Load input data from either CSV file or RIPE Atlas API
+    let in_df = if let Some(ref input_path) = args.input {
+        println!("Loading input data from: {:?}", input_path);
+        load_input_data(input_path, args.threshold)?
+    } else {
+        fetch_atlas_measurement(atlas_id.unwrap(), args.threshold)?
+    };
 
     // Group input data by target IP (each group represents one target)
     let groups_df = in_df.group_by(["addr"])?.groups()?;
@@ -598,7 +863,7 @@ fn main() -> Result<()> {
     );
 
     if !results.is_empty() {
-        println!("Saving results to {:?}...", args.output);
+        println!("Saving results to {:?}...", output_path);
         let num_results = results.len();
         let mut output_df = DataFrame::new(num_results, vec![
             Series::new(
@@ -665,7 +930,7 @@ fn main() -> Result<()> {
             .into(),
         ])?;
 
-        let mut file = File::create(args.output)?;
+        let mut file = File::create(output_path)?;
         CsvWriter::new(&mut file)
             .with_separator(b'\t')
             .finish(&mut output_df)?;

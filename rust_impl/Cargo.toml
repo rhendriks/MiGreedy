@@ -9,6 +9,9 @@ clap = { version = "4.5.60", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
 indicatif = { version = "0.18.4", features = ["rayon"] } # progress bars
 anyhow = "1.0.102" # error handling
+reqwest = { version = "0.12", features = ["blocking", "json"] } # HTTP client for RIPE Atlas API
+serde = { version = "1", features = ["derive"] } # JSON deserialization
+serde_json = "1" # JSON parsing
 
 # use high performance allocator when running musl
 [target.'cfg(target_env = "musl")'.dependencies]
