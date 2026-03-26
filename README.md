@@ -193,6 +193,8 @@ You can also pass a full URL instead of a numeric ID:
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
 ```
 
+**NOTE**: RIPE Atlas probes may have wrong user-reported locations which result in wrong geolocation results.
+
 ### Datasets
 
 MiGreedy ships with several embedded location datasets. The default (`cities500`) provides the highest geographic coverage, while smaller datasets are faster to process.
