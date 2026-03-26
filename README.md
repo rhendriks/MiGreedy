@@ -35,13 +35,29 @@ contains a geolocation algorithm based on [iGreedy](https://github.com/fp7mplane
 that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
 
 The delta of this work is a performance aware implementation through multi-threading, implemented in Python and Rust (the latter for performance).
-In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of MIS sets (see iGreedy paper for details) rather than the lowest circle in each set.
-This implementation outputs a nearby airport in each MIS set, unicast targets have a single MIS set whereas anycast targets have multiple MIS sets (thus producing multiple airports).
+In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of discs within each MIS cluster (see iGreedy paper for details) rather than the lowest circle in each set.
+This implementation outputs the most likely city (or airport) for each MIS cluster. Unicast targets produce a single location, whereas anycast targets produce multiple locations corresponding to different anycast sites.
 
 The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
 This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
 It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
 outputting a single file with geolocation results.
+
+### How our geolocation implementation works
+
+Given a set of RTT (round-trip time) measurements from geographically distributed vantage points (VPs) to a target IP, the algorithm determines the target's location(s):
+
+1. **RTT to distance** — Each VP's RTT is converted to a maximum geographic radius (a *disc*) using the speed of light in fiber, centered on the VP's known location. The target must lie somewhere within this disc.
+
+2. **Enumeration (MIS)** — Discs are sorted by radius (ascending). A greedy Maximum Independent Set (MIS) is built: each disc that does not overlap with any already-selected disc is added. Each MIS disc represents a distinct network site. A single MIS disc means unicast; multiple means anycast.
+
+3. **Clustering** — For each MIS disc, all other discs that overlap with it are collected into a *cluster*. These discs all likely measure the same site, so their intersection constrains the target's location.
+
+4. **Intersection & geolocation** — Within the cluster, discs are intersected from smallest to largest. At each step, candidate cities inside the intersection are tracked. If adding the next disc would remove all candidates, the intersection stops and uses the last non-empty set. The best city is selected using: `score = alpha * (population / total_population) - (1 - alpha) * (distance / total_distance)`, where distance is measured from the smallest disc's center.
+
+5. **Deduplication** — If two MIS clusters resolve to the same city, only the one with the lower RTT (processed first) is kept.
+
+The result is one output row per detected site, each with the geolocated city, its coordinates, and the defining VP.
 
 ---
 
