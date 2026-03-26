@@ -16,8 +16,8 @@ RUN rustup target add x86_64-unknown-linux-musl
 # Copy the Cargo files and source code from the rust_impl directory
 COPY rust_impl/Cargo.toml ./
 COPY rust_impl/src ./src
-# Copy the airports file
-COPY datasets/airports.csv ../datasets/airports.csv
+# Copy the airport/cities files
+COPY datasets/*.csv.gz ../datasets/
 
 # Build the release binary for the musl target
 RUN cargo build --release --target x86_64-unknown-linux-musl
