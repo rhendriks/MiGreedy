@@ -45,28 +45,28 @@ outputting a single file with geolocation results.
 
 ---
 
-## Running with musl binary
+## Pre-compiled binaries
 
-We provide pre-compiled static binaries for Linux (x86_64) using musl.
+We provide pre-compiled binaries for Linux and macOS.
 
-**1. Download binary**
+### Linux (x86_64, static musl)
 ```bash
 curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-linux-x86_64.tar.gz
-```
-
-**2. Decompress the File**
-```bash
 tar -xzvf migreedy-linux-x86_64.tar.gz
-```
-This will extract a single executable file named `migreedy`.
-
-**3. Make it Executable**
-```bash
-chmod +x migreedy
+./migreedy --input path/to/measurements.csv --output path/to/results.csv
 ```
 
-**4. Run the Program**
+### macOS (Apple Silicon)
 ```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-aarch64.tar.gz
+tar -xzvf migreedy-macos-aarch64.tar.gz
+./migreedy --input path/to/measurements.csv --output path/to/results.csv
+```
+
+### macOS (Intel)
+```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-x86_64.tar.gz
+tar -xzvf migreedy-macos-x86_64.tar.gz
 ./migreedy --input path/to/measurements.csv --output path/to/results.csv
 ```
 
@@ -169,12 +169,50 @@ We include a Rust implementation (significantly faster than the Python version).
 
 | Argument            | Default        | Description                                                                                                                             |
 |:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
-| `-i`, `--input`     | **(Required)** | Path to the input CSV file containing RTT measurements.                                                                                 |
-| `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved.                                                                               |
-| `--airports`        | `None`          | Optional path to an airport file.                                                                                                       |
+| `-i`, `--input`     | **(Required)** | Path to the input CSV file containing RTT measurements. Mutually exclusive with `--atlas`.                                              |
+| `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`). Mutually exclusive with `--input`.     |
+| `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
+| `-d`, `--dataset`   | `cities500`    | Location dataset to use: `cities500`, `cities1000`, `cities5000`, `cities15000`, `airports`, or a path to a custom CSV file.            |
 | `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
-| `-t`, `--threshold` | `None`         | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
-| `--anycast`         | `False`        | If set, outputs only geolocation for anycast targets.                                                                                   |
+| `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
+| `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
+
+### RIPE Atlas example
+
+You can geolocate targets directly from a RIPE Atlas measurement without any local data files.
+For example, measurement [2001](https://atlas.ripe.net/measurements/2001/) is a traceroute towards K-root:
+
+```bash
+./migreedy --atlas 2001
+```
+
+This fetches the latest results from the RIPE Atlas API, runs the geolocation algorithm, and writes the output to `atlas_2001.csv`.
+You can also pass a full URL instead of a numeric ID:
+
+```bash
+./migreedy --atlas https://atlas.ripe.net/measurements/2001/
+```
+
+### Datasets
+
+MiGreedy ships with several embedded location datasets. The default (`cities500`) provides the highest geographic coverage, while smaller datasets are faster to process.
+
+| Dataset      | Locations | Min. Population | Description                         |
+|:-------------|----------:|----------------:|:------------------------------------|
+| `cities500`  |   230,873 |             500 | Maximum coverage (default)          |
+| `cities1000` |   167,274 |           1,000 | Good coverage, faster processing    |
+| `cities5000` |    68,162 |           5,000 | Balanced coverage and performance   |
+| `cities15000`|    33,440 |          15,000 | Fast, suitable for large-scale runs |
+| `airports`   |     2,716 |               — | Original airport-only dataset       |
+
+Select a dataset with the `-d` flag:
+
+```bash
+./migreedy --atlas 11501 -d cities15000
+./migreedy --input measurements.csv --output results.csv -d airports
+```
+
+City datasets are sourced from [GeoNames](https://www.geonames.org/) and licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ## Data Format
 
@@ -182,30 +220,30 @@ We include a Rust implementation (significantly faster than the Python version).
 
 The input CSV file **must not have a header** and should contain the following columns in this specific order:
 
-| Column | Data Type | Description |
-| :--- | :--- | :--- |
-| `target` | string | The anycast IP address being measured. |
-| `hostname` | string | The hostname or ID of the prober (VP). |
-| `lat` | float | The latitude of the prober. |
-| `lon` | float | The longitude of the prober. |
-| `rtt` | float | The round-trip time (in ms) to the target. |
+| Column     | Data Type | Description                                |
+|:-----------|:----------|:-------------------------------------------|
+| `target`   | string    | The IP address being measured.             |
+| `hostname` | string    | The hostname or ID of the prober (VP).     |
+| `lat`      | float     | The latitude of the prober.                |
+| `lon`      | float     | The longitude of the prober.               |
+| `rtt`      | float     | The round-trip time (in ms) to the target. |
 
 ### Output File Format
 
 The output CSV file will have a header and contain the following columns:
 
-| Column | Description |
-| :--- | :--- |
-| `target` | The anycast IP address. |
-| `vp` | The hostname of the vantage point that defined the disc. |
-| `vp_lat` | The latitude of the vantage point. |
-| `vp_lon` | The longitude of the vantage point. |
-| `radius` | The radius of the disc in kilometers. |
-| `pop_iata` | The IATA code of the geolocated airport. "NoCity" if none found. |
-| `pop_lat` | The latitude of the geolocated airport. |
-| `pop_lon` | The longitude of the geolocated airport. |
-| `pop_city` | The city of the geolocated airport. |
-| `pop_cc` | The country code of the geolocated airport. |
+| Column     | Description                                                                                                         |
+|:-----------|:--------------------------------------------------------------------------------------------------------------------|
+| `target`   | The IP address.                                                                                                     |
+| `vp`       | The hostname of the vantage point that defined the disc.                                                            |
+| `vp_lat`   | The latitude of the vantage point.                                                                                  |
+| `vp_lon`   | The longitude of the vantage point.                                                                                 |
+| `radius`   | The radius of the disc in kilometers.                                                                               |
+| `pop_iata` | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). "NoCity" if none found. |
+| `pop_lat`  | The latitude of the geolocated location.                                                                            |
+| `pop_lon`  | The longitude of the geolocated location.                                                                           |
+| `pop_city` | The city name of the geolocated location.                                                                           |
+| `pop_cc`   | The country code of the geolocated location.                                                                        |
 
 ---
 
@@ -221,7 +259,7 @@ The output CSV file will have a header and contain the following columns:
 Issues and pull requests are welcome!
 
 ## Citation
-This code was designed for our paper LACeS. Please use the following citation when using this code.
+This code was designed for our paper [LACeS](manycast.net/laces.pdf). Please use the following citation when using this code.
 ```
 @inproceedings{10.1145/3730567.3764484,
       author = {Hendriks, Remi and Luckie, Matthew and Jonker, Mattijs and Sommese, Raffaele and van Rijswijk-Deij, Roland},
