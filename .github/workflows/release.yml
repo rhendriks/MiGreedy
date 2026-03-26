@@ -8,13 +8,22 @@ on:
 jobs:
   build-release:
     name: Build (${{ matrix.target }})
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     permissions:
       contents: write
     strategy:
       fail-fast: false
       matrix:
-        target: [x86_64-unknown-linux-musl]
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            artifact: migreedy-linux-x86_64.tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: migreedy-macos-aarch64.tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: migreedy-macos-x86_64.tar.gz
 
     steps:
       - name: Checkout repository
@@ -26,6 +35,7 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install musl-tools
+        if: contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Rust Cache
@@ -41,18 +51,18 @@ jobs:
         run: |
           # build dir
           cd rust_impl/target/${{ matrix.target }}/release
-          
+
           # filenames
           PKG_NAME="migreedy-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
-          STABLE_NAME="migreedy-linux-x86_64.tar.gz"
+          STABLE_NAME="${{ matrix.artifact }}"
 
           # create binaries and checksums
           tar -czvf "$PKG_NAME" migreedy
           cp "$PKG_NAME" "$STABLE_NAME"
-          
+
           # create artifacts in root
           mkdir -p "${{ github.workspace }}/artifacts"
-          
+
           # move everything there
           mv "$PKG_NAME" "$STABLE_NAME" "${{ github.workspace }}/artifacts/"
 
