@@ -1,24 +1,33 @@
 use anyhow::{bail, Result};
 use clap::Parser;
+use flate2::read::GzDecoder;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Cursor;
+use std::io::{Cursor, Read};
 use std::path::PathBuf;
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-/// Embedded datasets at compile time so the binary is self-contained.
-static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv");
-static EMBEDDED_CITIES500: &[u8] = include_bytes!("../../datasets/cities500.csv");
-static EMBEDDED_CITIES1000: &[u8] = include_bytes!("../../datasets/cities1000.csv");
-static EMBEDDED_CITIES5000: &[u8] = include_bytes!("../../datasets/cities5000.csv");
-static EMBEDDED_CITIES15000: &[u8] = include_bytes!("../../datasets/cities15000.csv");
+/// Embedded datasets (gzip-compressed) at compile time so the binary is self-contained.
+static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv.gz");
+static EMBEDDED_CITIES500: &[u8] = include_bytes!("../../datasets/cities500.csv.gz");
+static EMBEDDED_CITIES1000: &[u8] = include_bytes!("../../datasets/cities1000.csv.gz");
+static EMBEDDED_CITIES5000: &[u8] = include_bytes!("../../datasets/cities5000.csv.gz");
+static EMBEDDED_CITIES15000: &[u8] = include_bytes!("../../datasets/cities15000.csv.gz");
+
+/// Decompress a gzip-compressed byte slice into a Vec<u8>.
+fn decompress_gz(data: &[u8]) -> Result<Vec<u8>> {
+    let mut decoder = GzDecoder::new(data);
+    let mut decompressed = Vec::new();
+    decoder.read_to_end(&mut decompressed)?;
+    Ok(decompressed)
+}
 
 // Constants
 const FIBER_RI: f32 = 1.52;
@@ -808,23 +817,23 @@ fn main() -> Result<()> {
     let airports = match args.dataset.as_str() {
         "airports" => {
             println!("Using embedded airports dataset.");
-            load_airports(Cursor::new(EMBEDDED_AIRPORTS))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?))?
         }
         "cities500" => {
             println!("Using embedded cities500 dataset (cities with population >= 500).");
-            load_airports(Cursor::new(EMBEDDED_CITIES500))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES500)?))?
         }
         "cities1000" => {
             println!("Using embedded cities1000 dataset (cities with population >= 1,000).");
-            load_airports(Cursor::new(EMBEDDED_CITIES1000))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES1000)?))?
         }
         "cities5000" => {
             println!("Using embedded cities5000 dataset (cities with population >= 5,000).");
-            load_airports(Cursor::new(EMBEDDED_CITIES5000))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES5000)?))?
         }
         "cities15000" => {
             println!("Using embedded cities15000 dataset (cities with population >= 15,000).");
-            load_airports(Cursor::new(EMBEDDED_CITIES15000))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES15000)?))?
         }
         custom_path => {
             println!("Loading custom dataset from: {}", custom_path);
@@ -998,7 +1007,7 @@ mod tests {
 
     /// Load the embedded airports dataset (same one the binary uses).
     fn test_airports() -> Vec<Airport> {
-        load_airports(Cursor::new(EMBEDDED_AIRPORTS)).expect("embedded airports must parse")
+        load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS).expect("decompress airports"))).expect("embedded airports must parse")
     }
 
     /// Build a `Disc` from a vantage-point location (degrees) and an RTT (ms).
