@@ -111,13 +111,7 @@ struct OutputRecord {
 /// Haversine formula to calculate the great-circle distance between two points
 /// given their latitude and longitude in radians.
 /// Returns distance in kilometers.
-/// Parameters:
-/// * lat1: Latitude of point 1 in radians (f32)
-/// * lon1: Longitude of point 1 in radians (f32)
-/// * lat2: Latitude of point 2 in radians (f32)
-/// * lon2: Longitude of point 2 in radians (f32)
-/// Returns:
-/// * Distance in kilometers (f32)
+#[inline(always)]
 fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let dlat = lat2 - lat1;
     let dlon = lon2 - lon1;
@@ -126,6 +120,32 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
 
     EARTH_RADIUS_KM * c
+}
+
+/// Batch haversine: compute distances from one point to many points.
+/// Uses SoA (struct-of-arrays) layout so LLVM can auto-vectorize with -O3 + LTO.
+/// Writes results into the provided `out` slice (must be same length as input slices).
+#[inline(never)] // prevent inlining so LLVM vectorizes the tight loop
+fn haversine_batch(
+    lat1: f32,
+    lon1: f32,
+    lats2: &[f32],
+    lons2: &[f32],
+    out: &mut [f32],
+) {
+    debug_assert_eq!(lats2.len(), lons2.len());
+    debug_assert_eq!(lats2.len(), out.len());
+
+    let cos_lat1 = lat1.cos();
+    for i in 0..lats2.len() {
+        let dlat = lats2[i] - lat1;
+        let dlon = lons2[i] - lon1;
+        let sin_dlat = (dlat * 0.5).sin();
+        let sin_dlon = (dlon * 0.5).sin();
+        let a = sin_dlat * sin_dlat + cos_lat1 * lats2[i].cos() * sin_dlon * sin_dlon;
+        let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
+        out[i] = EARTH_RADIUS_KM * c;
+    }
 }
 
 /// The main analyzer struct that encapsulates the anycast analysis logic.
@@ -237,43 +257,53 @@ impl<'a> AnycastAnalyzer<'a> {
     /// * (usize, Vec<usize>): Number of discs (anycast sites) and the list of indices of discs in the MIS
     fn enumeration(&self) -> (usize, Vec<usize>) {
         let mut mis_indices: Vec<usize> = Vec::new();
+        // SoA arrays for MIS discs, grown incrementally
+        let mut mis_lats: Vec<f32> = Vec::new();
+        let mut mis_lons: Vec<f32> = Vec::new();
+        let mut mis_radii: Vec<f32> = Vec::new();
+        let mut batch_dists: Vec<f32> = Vec::new();
 
         for (i, candidate) in self.all_discs.iter().enumerate() {
-            let is_overlapping = mis_indices.iter().any(|&existing_index| {
-                // Get a temporary reference to the disc already in the MIS
-                let existing_disc = &self.all_discs[existing_index];
-
-                let distance = haversine_distance(
+            let m = mis_indices.len();
+            if m > 0 {
+                batch_dists.resize(m, 0.0);
+                haversine_batch(
                     candidate.lat,
                     candidate.lon,
-                    existing_disc.lat,
-                    existing_disc.lon,
+                    &mis_lats[..m],
+                    &mis_lons[..m],
+                    &mut batch_dists[..m],
                 );
-                distance <= candidate.radius + existing_disc.radius
-            });
-
-            if !is_overlapping {
-                // Store the index of the disc in the MIS
-                mis_indices.push(i);
+                let is_overlapping = (0..m)
+                    .any(|j| batch_dists[j] <= candidate.radius + mis_radii[j]);
+                if is_overlapping {
+                    continue;
+                }
             }
+
+            mis_indices.push(i);
+            mis_lats.push(candidate.lat);
+            mis_lons.push(candidate.lon);
+            mis_radii.push(candidate.radius);
         }
         (mis_indices.len(), mis_indices)
     }
 
     /// Precompute a distance matrix: distances[i][j] = haversine distance from
     /// all_discs[i] to all_discs[mis_indices[j]].
-    /// This avoids redundant haversine calls in build_cluster / count_mis_overlaps.
+    /// Uses batch haversine for SIMD-friendly vectorization.
     fn precompute_mis_distances(&self, mis_indices: &[usize]) -> Vec<Vec<f32>> {
+        // Extract MIS disc coordinates into contiguous arrays (SoA layout)
+        let mis_lats: Vec<f32> = mis_indices.iter().map(|&i| self.all_discs[i].lat).collect();
+        let mis_lons: Vec<f32> = mis_indices.iter().map(|&i| self.all_discs[i].lon).collect();
+        let m = mis_indices.len();
+
         self.all_discs
             .iter()
             .map(|d| {
-                mis_indices
-                    .iter()
-                    .map(|&mis_idx| {
-                        let mis_disc = &self.all_discs[mis_idx];
-                        haversine_distance(d.lat, d.lon, mis_disc.lat, mis_disc.lon)
-                    })
-                    .collect()
+                let mut dists = vec![0.0f32; m];
+                haversine_batch(d.lat, d.lon, &mis_lats, &mis_lons, &mut dists);
+                dists
             })
             .collect()
     }
@@ -362,26 +392,31 @@ impl<'a> AnycastAnalyzer<'a> {
         let mut sorted_cluster: Vec<&&Disc> = cluster.iter().collect();
         sorted_cluster.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
 
+        // Extract airport coordinates into contiguous arrays for batch haversine
+        let apt_lats: Vec<f32> = airports_in_bbox.iter().map(|(a, _)| a.lat_rad).collect();
+        let apt_lons: Vec<f32> = airports_in_bbox.iter().map(|(a, _)| a.lon_rad).collect();
+        let n_apts = airports_in_bbox.len();
+
         // Progressively intersect: add one disc at a time (smallest first).
         // Use a bitmask to track alive candidates — snapshot the mask before each
         // disc so we can restore cheaply if a disc empties the set.
-        let mut alive: Vec<bool> = vec![true; airports_in_bbox.len()];
-        let mut prev_alive = alive.clone(); // bool vec is tiny compared to airport refs
+        let mut alive: Vec<bool> = vec![true; n_apts];
+        let mut prev_alive = alive.clone();
+        let mut batch_dists = vec![0.0f32; n_apts];
 
         for disc in &sorted_cluster {
             prev_alive.copy_from_slice(&alive);
 
-            for (i, (a, _)) in airports_in_bbox.iter().enumerate() {
-                if alive[i] {
-                    let dist = haversine_distance(disc.lat, disc.lon, a.lat_rad, a.lon_rad);
-                    if dist > disc.radius {
-                        alive[i] = false;
-                    }
+            // Batch compute distances from this disc to all airports
+            haversine_batch(disc.lat, disc.lon, &apt_lats, &apt_lons, &mut batch_dists);
+
+            for i in 0..n_apts {
+                if alive[i] && batch_dists[i] > disc.radius {
+                    alive[i] = false;
                 }
             }
 
             if !alive.iter().any(|&a| a) {
-                // This disc emptied the set — restore previous snapshot
                 alive.copy_from_slice(&prev_alive);
                 break;
             }
