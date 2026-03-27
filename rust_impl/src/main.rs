@@ -97,7 +97,7 @@ struct OutputRecord {
     pop_lat: f32,
     pop_lon: f32,
     pop_city: String,
-    pop_cc: String, // TODO consider using [u8; 2]?
+    pop_cc: String,
 }
 
 /// Haversine formula to calculate the great-circle distance between two points
@@ -170,9 +170,9 @@ impl<'a> AnycastAnalyzer<'a> {
         let mut chosen_airports = std::collections::HashSet::new();
 
         // Geolocate each anycast site from the single MIS result (in order of increasing RTT).
-        for disc_index in mis_indices {
-            let disc_in_mis = &self.all_discs[disc_index];
-            let cluster = self.build_cluster(disc_in_mis);
+        for disc_index in &mis_indices {
+            let disc_in_mis = &self.all_discs[*disc_index];
+            let cluster = self.build_cluster(disc_in_mis, &mis_indices);
             let geolocation_result = self.geolocation(&cluster);
 
             if let Some(best_airport) = geolocation_result {
@@ -244,16 +244,26 @@ impl<'a> AnycastAnalyzer<'a> {
         (mis_indices.len(), mis_indices)
     }
 
-    // TODO we should discard discs that overlap multiple MIS discs (we cannot know which MIS they reached)
+    /// Counts how many MIS discs a given disc overlaps with.
+    fn count_mis_overlaps(&self, disc: &Disc, mis_indices: &[usize]) -> usize {
+        mis_indices
+            .iter()
+            .filter(|&&mis_idx| {
+                let mis_disc = &self.all_discs[mis_idx];
+                let dist = haversine_distance(disc.lat, disc.lon, mis_disc.lat, mis_disc.lon);
+                dist <= disc.radius + mis_disc.radius
+            })
+            .count()
+    }
 
-    /// Builds the cluster for a given MIS disc: all discs whose centre is within
-    /// the sum of their radii (i.e., they overlap with the MIS disc).
-    /// These discs all likely measure the same anycast site.
+    /// Builds the cluster for a given MIS disc: all discs that overlap with it
+    /// AND do not overlap with any other MIS disc (to avoid ambiguous measurements).
     /// Parameters:
     /// * mis_disc: Reference to the MIS disc (&Disc)
+    /// * mis_indices: Indices of all MIS discs
     /// Returns:
-    /// * Vec<&Disc>: References to all overlapping discs (always includes mis_disc itself)
-    fn build_cluster<'s>(&'s self, mis_disc: &Disc) -> Vec<&'s Disc> {
+    /// * Vec<&Disc>: References to unambiguous overlapping discs (always includes mis_disc itself)
+    fn build_cluster<'s>(&'s self, mis_disc: &Disc, mis_indices: &[usize]) -> Vec<&'s Disc> {
         self.all_discs
             .iter()
             .filter(|d| {
@@ -261,7 +271,9 @@ impl<'a> AnycastAnalyzer<'a> {
                     mis_disc.lat, mis_disc.lon,
                     d.lat, d.lon,
                 );
-                dist <= mis_disc.radius + d.radius
+                let overlaps_this_mis = dist <= mis_disc.radius + d.radius;
+                // Only include if it overlaps exactly one MIS disc (this one)
+                overlaps_this_mis && self.count_mis_overlaps(d, mis_indices) == 1
             })
             .collect()
     }
