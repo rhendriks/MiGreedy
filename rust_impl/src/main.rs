@@ -362,43 +362,58 @@ impl<'a> AnycastAnalyzer<'a> {
         sorted_cluster.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
 
         // Progressively intersect: add one disc at a time (smallest first).
-        // Keep the last non-empty candidate set as fallback.
-        let mut candidates = airports_in_bbox;
-        let mut last_valid = candidates.clone();
+        // Use a bitmask to track alive candidates — snapshot the mask before each
+        // disc so we can restore cheaply if a disc empties the set.
+        let mut alive: Vec<bool> = vec![true; airports_in_bbox.len()];
+        let mut prev_alive = alive.clone(); // bool vec is tiny compared to airport refs
 
         for disc in &sorted_cluster {
-            candidates.retain(|(a, _)| {
-                let dist = haversine_distance(disc.lat, disc.lon, a.lat_rad, a.lon_rad);
-                dist <= disc.radius
-            });
+            prev_alive.copy_from_slice(&alive);
 
-            if candidates.is_empty() {
-                // Adding this disc emptied the set — use the previous valid set
+            for (i, (a, _)) in airports_in_bbox.iter().enumerate() {
+                if alive[i] {
+                    let dist = haversine_distance(disc.lat, disc.lon, a.lat_rad, a.lon_rad);
+                    if dist > disc.radius {
+                        alive[i] = false;
+                    }
+                }
+            }
+
+            if !alive.iter().any(|&a| a) {
+                // This disc emptied the set — restore previous snapshot
+                alive.copy_from_slice(&prev_alive);
                 break;
             }
-            last_valid = candidates.clone();
         }
 
-        if last_valid.is_empty() {
+        // Collect surviving candidates
+        let mut candidates: Vec<(&Airport, f32)> = airports_in_bbox
+            .into_iter()
+            .zip(alive.iter())
+            .filter(|(_, a)| **a)
+            .map(|(c, _)| c)
+            .collect();
+
+        if candidates.is_empty() {
             return None;
         }
 
         // Apply relative population filter: keep cities with pop >= max_pop * pop_ratio
         if self.pop_ratio > 0.0 {
-            let max_pop = last_valid.iter().map(|(a, _)| a.pop).max().unwrap_or(0);
+            let max_pop = candidates.iter().map(|(a, _)| a.pop).max().unwrap_or(0);
             let min_pop_threshold = (max_pop as f32 * self.pop_ratio) as u32;
-            last_valid.retain(|(a, _)| a.pop >= min_pop_threshold);
+            candidates.retain(|(a, _)| a.pop >= min_pop_threshold);
         }
 
-        if last_valid.is_empty() {
+        if candidates.is_empty() {
             return None;
         }
 
-        let total_pop: f32 = last_valid.iter().map(|(a, _)| a.pop as f32).sum();
-        let total_dist: f32 = last_valid.iter().map(|(_, d)| *d).sum();
+        let total_pop: f32 = candidates.iter().map(|(a, _)| a.pop as f32).sum();
+        let total_dist: f32 = candidates.iter().map(|(_, d)| *d).sum();
 
         // Find airport with the highest score
-        last_valid
+        candidates
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
                 let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
