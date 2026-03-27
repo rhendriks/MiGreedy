@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::PathBuf;
+use std::sync::Arc;
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
@@ -67,14 +68,14 @@ impl RTreeObject for Airport {
 
 /// Represents a single vantage point's disc
 /// Fields:
-/// * target: Target IP address (String)
+/// * target: Target IP address (Arc<str>, interned per group to avoid repeated allocations)
 /// * hostname: Vantage point hostname (String)
 /// * lat: Vantage point latitude in radians (f32)
 /// * lon: Vantage point longitude in radians (f32)
 /// * radius: Calculated disc radius in kilometers (f32)
 #[derive(Debug, Clone)]
 struct Disc {
-    target: String,
+    target: Arc<str>,
     hostname: String,
     lat: f32,
     lon: f32,
@@ -83,7 +84,7 @@ struct Disc {
 
 /// Represents a single output record after geolocation
 /// Fields:
-/// * target: Target IP address (String)
+/// * target: Target IP address (Arc<str>)
 /// * vp: Vantage point hostname (String)
 /// * vp_lat: Vantage point latitude in degrees (f32)
 /// * vp_lon: Vantage point longitude in degrees (f32)
@@ -93,9 +94,9 @@ struct Disc {
 /// * pop_lon: Geolocated airport longitude in degrees (f32)
 /// * pop_city: Geolocated airport city name (String)
 /// * pop_cc: Geolocated airport country code (String)
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct OutputRecord {
-    target: String,
+    target: Arc<str>,
     vp: String,
     vp_lat: f32,
     vp_lon: f32,
@@ -972,10 +973,13 @@ fn main() -> Result<()> {
                 let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
                 let radius = group_df.column("radius").unwrap().f32().unwrap();
 
+                // Intern the target IP: all discs in this group share the same target
+                let target_arc: Arc<str> = Arc::from(target.get(0).unwrap_or(""));
+
                 // Create Vec<Disc> for the current group
                 let discs: Vec<Disc> = (0..group_df.height())
                     .map(|i| Disc {
-                        target: target.get(i).unwrap_or("").to_string(),
+                        target: Arc::clone(&target_arc),
                         hostname: hostname.get(i).unwrap_or("").to_string(),
                         lat: lat_rad.get(i).unwrap_or(0.0),
                         lon: lon_rad.get(i).unwrap_or(0.0),
@@ -1004,7 +1008,7 @@ fn main() -> Result<()> {
                 "addr".into(),
                 results
                     .iter()
-                    .map(|r| r.target.as_str())
+                    .map(|r| &*r.target)
                     .collect::<Vec<_>>(),
             )
             .into(),
@@ -1094,7 +1098,7 @@ mod tests {
     fn make_disc(target: &str, hostname: &str, lat: f32, lon: f32, rtt: f32) -> Disc {
         let radius = rtt * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2.0;
         Disc {
-            target: target.to_string(),
+            target: Arc::from(target),
             hostname: hostname.to_string(),
             lat: lat.to_radians(),
             lon: lon.to_radians(),
