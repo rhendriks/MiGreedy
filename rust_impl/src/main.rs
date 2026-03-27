@@ -119,10 +119,12 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
 /// The main analyzer struct that encapsulates the anycast analysis logic.
 /// Fields:
 /// * alpha: Weighting factor for population vs distance in geolocation (f32)
+/// * pop_ratio: Relative population threshold - keep cities with pop >= max_pop * ratio (f32)
 /// * airports: Reference to the list of airports (slice of Airport)
 /// * all_discs: List of all discs (i.e., latency measurements) for the current target (Vec of Disc)
 struct AnycastAnalyzer<'a> {
     alpha: f32,
+    pop_ratio: f32,
     airports: &'a [Airport],
     all_discs: Vec<Disc>,
     anycast_only: bool,
@@ -134,14 +136,17 @@ impl<'a> AnycastAnalyzer<'a> {
     /// * discs: List of discs for the current target (Vec of Disc)
     /// * airports: Reference to the list of airports (slice of Airport)
     /// * alpha: Weighting factor for population vs distance in geolocation (f32)
+    /// * pop_ratio: Relative population threshold (0.0-1.0)
+    /// * anycast_only: Skip unicast targets if true
     /// Returns:
     /// * Instance of AnycastAnalyzer
     /// Note: Discs are sorted by radius in ascending order (smaller radius = lower RTT).
-    fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32, anycast_only: bool) -> Self {
+    fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32, pop_ratio: f32, anycast_only: bool) -> Self {
         // Sort by radius (ascending), such that smaller discs are processed first
         discs.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
         Self {
             alpha,
+            pop_ratio,
             airports,
             all_discs: discs,
             anycast_only,
@@ -352,6 +357,17 @@ impl<'a> AnycastAnalyzer<'a> {
             return None;
         }
 
+        // Apply relative population filter: keep cities with pop >= max_pop * pop_ratio
+        if self.pop_ratio > 0.0 {
+            let max_pop = last_valid.iter().map(|(a, _)| a.pop).max().unwrap_or(0);
+            let min_pop_threshold = (max_pop as f32 * self.pop_ratio) as u32;
+            last_valid.retain(|(a, _)| a.pop >= min_pop_threshold);
+        }
+
+        if last_valid.is_empty() {
+            return None;
+        }
+
         let total_pop: f32 = last_valid.iter().map(|(a, _)| a.pop as f32).sum();
         let total_dist: f32 = last_valid.iter().map(|(_, d)| *d).sum();
 
@@ -407,10 +423,18 @@ struct Args {
     #[arg(
         short,
         long,
-        default_value_t = 500,
-        help = "Minimum population threshold for cities (only applies to embedded cities dataset)"
+        default_value_t = 0,
+        help = "Absolute minimum population threshold (filter cities at load time)"
     )]
     min_pop: u32,
+
+    #[arg(
+        short = 'p',
+        long,
+        default_value_t = 0.0,
+        help = "Relative population threshold (0.0-1.0): keep cities with pop >= max_pop * ratio within each geolocation"
+    )]
+    pop_ratio: f32,
 
     #[arg(
         short,
@@ -671,7 +695,7 @@ fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<DataFr
 /// Additional fields lat_rad and lon_rad are computed in radians.
 /// Parameters:
 /// * reader: Any type implementing Read (file or in-memory cursor)
-/// * min_pop: Minimum population threshold (0 means no filtering)
+/// * min_pop: Absolute minimum population threshold (0 means no filtering)
 /// Returns:
 /// * Result<Vec<Airport>>: List of airports, or error if loading fails
 fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R, min_pop: u32) -> Result<Vec<Airport>> {
@@ -696,23 +720,23 @@ fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R, min_pop: u32) 
         ..Default::default()
     };
 
-    let airports_df = CsvReader::new(reader)
+    let mut airports_df = CsvReader::new(reader)
         .with_options(airports_read_options)
         .finish()?
         .lazy();
 
-    // Apply population filter and compute radians for lat and lon
-    let mut airports_df = airports_df
-        .with_columns([
-            col("lat").radians().alias("lat_rad"),
-            col("lon").radians().alias("lon_rad"),
-        ]);
-
+    // Apply absolute population filter if specified
     if min_pop > 0 {
         airports_df = airports_df.filter(col("pop").gt_eq(lit(min_pop)));
     }
 
-    let airports_df = airports_df.collect()?;
+    // Compute radians for lat and lon
+    let airports_df = airports_df
+        .with_columns([
+            col("lat").radians().alias("lat_rad"),
+            col("lon").radians().alias("lon_rad"),
+        ])
+        .collect()?;
 
     // Extract columns into typed Series for building the structs.
     let iata = airports_df.column("iata")?.str()?;
@@ -837,17 +861,20 @@ fn main() -> Result<()> {
             load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?), 0)?
         }
         "cities" => {
-            println!(
-                "Using embedded cities dataset (filtering to population >= {}).",
-                args.min_pop
-            );
+            let filters: Vec<String> = [
+                (args.min_pop > 0).then(|| format!("min pop: {}", args.min_pop)),
+                (args.pop_ratio > 0.0).then(|| format!("relative: {}×max", args.pop_ratio)),
+            ].into_iter().flatten().collect();
+
+            if filters.is_empty() {
+                println!("Using embedded cities dataset.");
+            } else {
+                println!("Using embedded cities dataset ({}).", filters.join(", "));
+            }
             load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES)?), args.min_pop)?
         }
         custom_path => {
-            println!(
-                "Loading custom dataset from: {} (filtering to population >= {}).",
-                custom_path, args.min_pop
-            );
+            println!("Loading custom dataset from: {}", custom_path);
             load_airports(File::open(custom_path)?, args.min_pop)?
         }
     };
@@ -911,7 +938,7 @@ fn main() -> Result<()> {
                     .collect();
 
                 // Create analyzer instance and run iGreedy algorithm
-                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha, args.anycast);
+                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha, args.pop_ratio, args.anycast);
                 analyzer.analyze()
             })
         })
@@ -1066,7 +1093,7 @@ mod tests {
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 1, "single disc ⇒ MIS size must be 1");
     }
@@ -1077,7 +1104,7 @@ mod tests {
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         assert_eq!(results.len(), 1, "unicast must produce exactly 1 result");
@@ -1090,7 +1117,7 @@ mod tests {
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, true);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, true);
         let results = analyzer.analyze();
 
         assert!(results.is_empty(), "--anycast flag must skip unicast targets");
@@ -1108,7 +1135,7 @@ mod tests {
             make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
             make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 3, "three far-apart 1ms discs ⇒ MIS size must be 3");
     }
@@ -1121,7 +1148,7 @@ mod tests {
             make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
             make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         let iatas = iata_set(&results);
@@ -1166,7 +1193,7 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 3, "three clusters of overlapping discs ⇒ MIS size must be 3");
     }
@@ -1188,7 +1215,7 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         let iatas = iata_set(&results);
@@ -1216,7 +1243,7 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         // Every result must be one of the expected airports
