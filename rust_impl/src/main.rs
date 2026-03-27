@@ -4,6 +4,7 @@ use flate2::read::GzDecoder;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use rayon::prelude::*;
+use rstar::{RTree, RTreeObject, AABB};
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;
@@ -52,6 +53,16 @@ struct Airport {
     country_code: String, // ISO 3166-1 alpha-2 (always 2 chars)
     lat_rad: f32,
     lon_rad: f32,
+}
+
+/// Implement RTreeObject for Airport to enable spatial indexing.
+/// Uses lat_rad/lon_rad as coordinates for consistent distance calculations.
+impl RTreeObject for Airport {
+    type Envelope = AABB<[f32; 2]>;
+
+    fn envelope(&self) -> Self::Envelope {
+        AABB::from_point([self.lat_rad, self.lon_rad])
+    }
 }
 
 /// Represents a single vantage point's disc
@@ -120,12 +131,12 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
 /// Fields:
 /// * alpha: Weighting factor for population vs distance in geolocation (f32)
 /// * pop_ratio: Relative population threshold - keep cities with pop >= max_pop * ratio (f32)
-/// * airports: Reference to the list of airports (slice of Airport)
+/// * airport_tree: R-tree spatial index for efficient geographic queries
 /// * all_discs: List of all discs (i.e., latency measurements) for the current target (Vec of Disc)
 struct AnycastAnalyzer<'a> {
     alpha: f32,
     pop_ratio: f32,
-    airports: &'a [Airport],
+    airport_tree: &'a RTree<Airport>,
     all_discs: Vec<Disc>,
     anycast_only: bool,
 }
@@ -134,20 +145,20 @@ impl<'a> AnycastAnalyzer<'a> {
     /// Constructor for the analyzer.
     /// Parameters:
     /// * discs: List of discs for the current target (Vec of Disc)
-    /// * airports: Reference to the list of airports (slice of Airport)
+    /// * airport_tree: R-tree spatial index for airports
     /// * alpha: Weighting factor for population vs distance in geolocation (f32)
     /// * pop_ratio: Relative population threshold (0.0-1.0)
     /// * anycast_only: Skip unicast targets if true
     /// Returns:
     /// * Instance of AnycastAnalyzer
     /// Note: Discs are sorted by radius in ascending order (smaller radius = lower RTT).
-    fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32, pop_ratio: f32, anycast_only: bool) -> Self {
+    fn new(mut discs: Vec<Disc>, airport_tree: &'a RTree<Airport>, alpha: f32, pop_ratio: f32, anycast_only: bool) -> Self {
         // Sort by radius (ascending), such that smaller discs are processed first
         discs.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
         Self {
             alpha,
             pop_ratio,
-            airports,
+            airport_tree,
             all_discs: discs,
             anycast_only,
         }
@@ -302,7 +313,7 @@ impl<'a> AnycastAnalyzer<'a> {
         let center_lat = smallest.lat;
         let center_lon = smallest.lon;
 
-        // Bounding box pre-filter based on the smallest disc
+        // Bounding box pre-filter based on the smallest disc (in radians)
         let delta_lat = smallest.radius / EARTH_RADIUS_KM;
         let min_lat = center_lat - delta_lat;
         let max_lat = center_lat + delta_lat;
@@ -311,16 +322,11 @@ impl<'a> AnycastAnalyzer<'a> {
         let min_lon = center_lon - delta_lon;
         let max_lon = center_lon + delta_lon;
 
-        // Collect airports in the bounding box, storing distance from the smallest disc's centre
+        // Use R-tree to efficiently query airports in the bounding box (O(log n) vs O(n))
+        let bbox = AABB::from_corners([min_lat, min_lon], [max_lat, max_lon]);
         let airports_in_bbox: Vec<(&Airport, f32)> = self
-            .airports
-            .iter()
-            .filter(|a| {
-                a.lat_rad >= min_lat
-                    && a.lat_rad <= max_lat
-                    && a.lon_rad >= min_lon
-                    && a.lon_rad <= max_lon
-            })
+            .airport_tree
+            .locate_in_envelope(&bbox)
             .map(|a| {
                 let dist = haversine_distance(center_lat, center_lon, a.lat_rad, a.lon_rad);
                 (a, dist)
@@ -880,6 +886,11 @@ fn main() -> Result<()> {
     };
     println!("Loaded {} locations.", airports.len());
 
+    // Build R-tree spatial index for efficient geographic queries
+    println!("Building spatial index...");
+    let airport_tree: RTree<Airport> = RTree::bulk_load(airports);
+    println!("Spatial index ready ({} locations indexed).", airport_tree.size());
+
     // Load input data from either CSV file or RIPE Atlas API
     let in_df = if let Some(ref input_path) = args.input {
         println!("Loading input data from: {:?}", input_path);
@@ -938,7 +949,7 @@ fn main() -> Result<()> {
                     .collect();
 
                 // Create analyzer instance and run iGreedy algorithm
-                let analyzer = AnycastAnalyzer::new(discs, &airports, args.alpha, args.pop_ratio, args.anycast);
+                let analyzer = AnycastAnalyzer::new(discs, &airport_tree, args.alpha, args.pop_ratio, args.anycast);
                 analyzer.analyze()
             })
         })
@@ -1037,9 +1048,10 @@ mod tests {
 
     // ── helpers ──────────────────────────────────────────────────────────
 
-    /// Load the embedded airports dataset (same one the binary uses).
-    fn test_airports() -> Vec<Airport> {
-        load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS).expect("decompress airports")), 0).expect("embedded airports must parse")
+    /// Load the embedded airports dataset and build an R-tree (same as the binary uses).
+    fn test_airport_tree() -> RTree<Airport> {
+        let airports = load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS).expect("decompress airports")), 0).expect("embedded airports must parse");
+        RTree::bulk_load(airports)
     }
 
     /// Build a `Disc` from a vantage-point location (degrees) and an RTT (ms).
@@ -1089,22 +1101,22 @@ mod tests {
 
     #[test]
     fn case1_unicast_enumeration() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 1, "single disc ⇒ MIS size must be 1");
     }
 
     #[test]
     fn case1_unicast_geolocation() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         assert_eq!(results.len(), 1, "unicast must produce exactly 1 result");
@@ -1113,11 +1125,11 @@ mod tests {
 
     #[test]
     fn case1_unicast_skipped_with_anycast_flag() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("1.2.3.4", "vp-ams", 52.3086, 4.7639, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, true);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, true);
         let results = analyzer.analyze();
 
         assert!(results.is_empty(), "--anycast flag must skip unicast targets");
@@ -1129,26 +1141,26 @@ mod tests {
 
     #[test]
     fn case2_three_sites_enumeration() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("9.9.9.9", "vp-ams", 52.3086, 4.7639, 1.0),
             make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
             make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 3, "three far-apart 1ms discs ⇒ MIS size must be 3");
     }
 
     #[test]
     fn case2_three_sites_geolocation() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("9.9.9.9", "vp-ams", 52.3086, 4.7639, 1.0),
             make_disc("9.9.9.9", "vp-sea", 47.5300, -122.3020, 1.0),
             make_disc("9.9.9.9", "vp-jnb", -26.1392, 28.2460, 1.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         let iatas = iata_set(&results);
@@ -1178,7 +1190,7 @@ mod tests {
 
     #[test]
     fn case3_multi_vp_enumeration() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             // Amsterdam cluster
             make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
@@ -1193,14 +1205,14 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let (num_sites, _) = analyzer.enumeration();
         assert_eq!(num_sites, 3, "three clusters of overlapping discs ⇒ MIS size must be 3");
     }
 
     #[test]
     fn case3_multi_vp_geolocation() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             // Amsterdam cluster
             make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
@@ -1215,7 +1227,7 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         let iatas = iata_set(&results);
@@ -1231,7 +1243,7 @@ mod tests {
 
     #[test]
     fn case3_no_phantom_sites() {
-        let airports = test_airports();
+        let airport_tree = test_airport_tree();
         let discs = vec![
             make_disc("8.8.8.8", "vp-ams", 52.3086, 4.7639, 1.0),
             make_disc("8.8.8.8", "vp-bru", 50.9014, 4.4844, 3.0),
@@ -1243,7 +1255,7 @@ mod tests {
             make_disc("8.8.8.8", "vp-dur", -29.6144, 31.1197, 6.0),
             make_disc("8.8.8.8", "vp-cpt", -33.9648, 18.6017, 15.0),
         ];
-        let analyzer = AnycastAnalyzer::new(discs, &airports, 1.0, 0.0, false);
+        let analyzer = AnycastAnalyzer::new(discs, &airport_tree, 1.0, 0.0, false);
         let results = analyzer.analyze();
 
         // Every result must be one of the expected airports
