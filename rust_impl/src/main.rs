@@ -178,13 +178,16 @@ impl<'a> AnycastAnalyzer<'a> {
             return vec![];
         }
 
+        // Precompute distance matrix: all_discs × mis_discs
+        let distances = self.precompute_mis_distances(&mis_indices);
+
         let mut results = Vec::new();
         let mut chosen_airports = std::collections::HashSet::new();
 
         // Geolocate each anycast site from the single MIS result (in order of increasing RTT).
-        for disc_index in &mis_indices {
+        for (mis_j, disc_index) in mis_indices.iter().enumerate() {
             let disc_in_mis = &self.all_discs[*disc_index];
-            let cluster = self.build_cluster(disc_in_mis, &mis_indices);
+            let cluster = self.build_cluster_fast(mis_j, &mis_indices, &distances);
             let geolocation_result = self.geolocation(&cluster);
 
             if let Some(best_airport) = geolocation_result {
@@ -256,37 +259,54 @@ impl<'a> AnycastAnalyzer<'a> {
         (mis_indices.len(), mis_indices)
     }
 
-    /// Counts how many MIS discs a given disc overlaps with.
-    fn count_mis_overlaps(&self, disc: &Disc, mis_indices: &[usize]) -> usize {
-        mis_indices
-            .iter()
-            .filter(|&&mis_idx| {
-                let mis_disc = &self.all_discs[mis_idx];
-                let dist = haversine_distance(disc.lat, disc.lon, mis_disc.lat, mis_disc.lon);
-                dist <= disc.radius + mis_disc.radius
-            })
-            .count()
-    }
-
-    /// Builds the cluster for a given MIS disc: all discs that overlap with it
-    /// AND do not overlap with any other MIS disc (to avoid ambiguous measurements).
-    /// Parameters:
-    /// * mis_disc: Reference to the MIS disc (&Disc)
-    /// * mis_indices: Indices of all MIS discs
-    /// Returns:
-    /// * Vec<&Disc>: References to unambiguous overlapping discs (always includes mis_disc itself)
-    fn build_cluster<'s>(&'s self, mis_disc: &Disc, mis_indices: &[usize]) -> Vec<&'s Disc> {
+    /// Precompute a distance matrix: distances[i][j] = haversine distance from
+    /// all_discs[i] to all_discs[mis_indices[j]].
+    /// This avoids redundant haversine calls in build_cluster / count_mis_overlaps.
+    fn precompute_mis_distances(&self, mis_indices: &[usize]) -> Vec<Vec<f32>> {
         self.all_discs
             .iter()
-            .filter(|d| {
-                let dist = haversine_distance(
-                    mis_disc.lat, mis_disc.lon,
-                    d.lat, d.lon,
-                );
-                let overlaps_this_mis = dist <= mis_disc.radius + d.radius;
-                // Only include if it overlaps exactly one MIS disc (this one)
-                overlaps_this_mis && self.count_mis_overlaps(d, mis_indices) == 1
+            .map(|d| {
+                mis_indices
+                    .iter()
+                    .map(|&mis_idx| {
+                        let mis_disc = &self.all_discs[mis_idx];
+                        haversine_distance(d.lat, d.lon, mis_disc.lat, mis_disc.lon)
+                    })
+                    .collect()
             })
+            .collect()
+    }
+
+    /// Builds the cluster for a given MIS disc using the precomputed distance matrix.
+    /// A disc is included if it overlaps the target MIS disc AND does not overlap
+    /// any other MIS disc (to avoid ambiguous measurements).
+    fn build_cluster_fast<'s>(
+        &'s self,
+        mis_j: usize, // index into mis_indices (column in distance matrix)
+        mis_indices: &[usize],
+        distances: &[Vec<f32>],
+    ) -> Vec<&'s Disc> {
+        self.all_discs
+            .iter()
+            .enumerate()
+            .filter(|(i, d)| {
+                let mis_disc = &self.all_discs[mis_indices[mis_j]];
+                let overlaps_target = distances[*i][mis_j] <= mis_disc.radius + d.radius;
+                if !overlaps_target {
+                    return false;
+                }
+                // Count how many MIS discs this disc overlaps — must be exactly 1
+                let overlap_count = mis_indices
+                    .iter()
+                    .enumerate()
+                    .filter(|(j, mis_idx)| {
+                        let md = &self.all_discs[**mis_idx];
+                        distances[*i][*j] <= md.radius + d.radius
+                    })
+                    .count();
+                overlap_count == 1
+            })
+            .map(|(_, d)| d)
             .collect()
     }
 
