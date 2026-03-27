@@ -17,9 +17,11 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 /// Embedded datasets (gzip-compressed) at compile time so the binary is self-contained.
 static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv.gz");
 static EMBEDDED_CITIES500: &[u8] = include_bytes!("../../datasets/cities500.csv.gz");
-static EMBEDDED_CITIES1000: &[u8] = include_bytes!("../../datasets/cities1000.csv.gz");
-static EMBEDDED_CITIES5000: &[u8] = include_bytes!("../../datasets/cities5000.csv.gz");
-static EMBEDDED_CITIES15000: &[u8] = include_bytes!("../../datasets/cities15000.csv.gz");
+static EMBEDDED_CITIES1_000: &[u8] = include_bytes!("../../datasets/cities1_000.csv.gz");
+static EMBEDDED_CITIES5_000: &[u8] = include_bytes!("../../datasets/cities5_000.csv.gz");
+static EMBEDDED_CITIES15_000: &[u8] = include_bytes!("../../datasets/cities15_000.csv.gz");
+static EMBEDDED_CITIES100_000: &[u8] = include_bytes!("../../datasets/cities100_000.csv.gz");
+
 
 /// Decompress a gzip-compressed byte slice into a Vec<u8>.
 fn decompress_gz(data: &[u8]) -> Result<Vec<u8>> {
@@ -250,6 +252,8 @@ impl<'a> AnycastAnalyzer<'a> {
         }
         (mis_indices.len(), mis_indices)
     }
+
+    // TODO we should discard discs that overlap multiple MIS discs (we cannot know which MIS they reached)
 
     /// Builds the cluster for a given MIS disc: all discs whose centre is within
     /// the sum of their radii (i.e., they overlap with the MIS disc).
@@ -819,21 +823,27 @@ fn main() -> Result<()> {
             println!("Using embedded airports dataset.");
             load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?))?
         }
+        // TODO embed only the cities500 file, allow for any population threshold
+        // TODO threshold should support relative numbers (e.g., Guam has no high-population city and would often result in NoCity with an absolute threshold)
         "cities500" => {
             println!("Using embedded cities500 dataset (cities with population >= 500).");
             load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES500)?))?
         }
         "cities1000" => {
             println!("Using embedded cities1000 dataset (cities with population >= 1,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES1000)?))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES1_000)?))?
         }
         "cities5000" => {
             println!("Using embedded cities5000 dataset (cities with population >= 5,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES5000)?))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES5_000)?))?
         }
         "cities15000" => {
             println!("Using embedded cities15000 dataset (cities with population >= 15,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES15000)?))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES15_000)?))?
+        }
+        "cities100000" => {
+            println!("Using embedded cities15000 dataset (cities with population >= 100,000).");
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES100_000)?))?
         }
         custom_path => {
             println!("Loading custom dataset from: {}", custom_path);
