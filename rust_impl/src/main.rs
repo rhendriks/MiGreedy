@@ -62,24 +62,15 @@ struct Airport {
 /// Fields:
 /// * target: Target IP address (String)
 /// * hostname: Vantage point hostname (String)
-/// * vp_lat: Vantage point latitude in degrees (f32)
-/// * vp_lon: Vantage point longitude in degrees (f32)
-/// * rtt: Measured RTT in milliseconds (f32)
-/// * lat_rad: Vantage point latitude in radians (f32)
-/// * lon_rad: Vantage point longitude in radians (f32)
+/// * lat: Vantage point latitude in radians (f32)
+/// * lon: Vantage point longitude in radians (f32)
 /// * radius: Calculated disc radius in kilometers (f32)
-/// * processed: Whether this disc has been processed (bool)
 #[derive(Debug, Clone)]
 struct Disc {
-    // Original data
-    target: String, // TODO consider using IpAddr type? or either u32/u128 for IPv4/IPv6?
+    target: String,
     hostname: String,
-    vp_lat: f32, // TODO store immediately as rad?
-    vp_lon: f32,
-    rtt: f32, // TODO only store radius?
-    // Calculated fields
-    lat_rad: f32,
-    lon_rad: f32,
+    lat: f32,
+    lon: f32,
     radius: f32,
 }
 
@@ -97,7 +88,7 @@ struct Disc {
 /// * pop_cc: Geolocated airport country code (String)
 #[derive(Debug, Default)]
 struct OutputRecord {
-    target: String, // TODO consider using IpAddr type? or either u32/u128 for IPv4/IPv6?
+    target: String,
     vp: String,
     vp_lat: f32,
     vp_lon: f32,
@@ -149,10 +140,10 @@ impl<'a> AnycastAnalyzer<'a> {
     /// * alpha: Weighting factor for population vs distance in geolocation (f32)
     /// Returns:
     /// * Instance of AnycastAnalyzer
-    /// Note: Discs are sorted by RTT in ascending order.
+    /// Note: Discs are sorted by radius in ascending order (smaller radius = lower RTT).
     fn new(mut discs: Vec<Disc>, airports: &'a [Airport], alpha: f32, anycast_only: bool) -> Self {
-        // Sort by RTT, such that lower RTT discs are processed first
-        discs.sort_unstable_by(|a, b| a.rtt.partial_cmp(&b.rtt).unwrap());
+        // Sort by radius (ascending), such that smaller discs are processed first
+        discs.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
         Self {
             alpha,
             airports,
@@ -195,8 +186,8 @@ impl<'a> AnycastAnalyzer<'a> {
                 results.push(OutputRecord {
                     target: target_ip.clone(),
                     vp: disc_in_mis.hostname.clone(),
-                    vp_lat: disc_in_mis.vp_lat,
-                    vp_lon: disc_in_mis.vp_lon,
+                    vp_lat: disc_in_mis.lat.to_degrees(),
+                    vp_lon: disc_in_mis.lon.to_degrees(),
                     radius: disc_in_mis.radius,
                     pop_iata: best_airport.iata.clone(),
                     pop_lat: best_airport.lat,
@@ -209,12 +200,12 @@ impl<'a> AnycastAnalyzer<'a> {
                 results.push(OutputRecord {
                     target: target_ip.clone(),
                     vp: disc_in_mis.hostname.clone(),
-                    vp_lat: disc_in_mis.vp_lat,
-                    vp_lon: disc_in_mis.vp_lon,
+                    vp_lat: disc_in_mis.lat.to_degrees(),
+                    vp_lon: disc_in_mis.lon.to_degrees(),
                     radius: disc_in_mis.radius,
                     pop_iata: "NoCity".to_string(),
-                    pop_lat: disc_in_mis.vp_lat, // Fallback to the VP's own location
-                    pop_lon: disc_in_mis.vp_lon,
+                    pop_lat: disc_in_mis.lat.to_degrees(), // Fallback to the VP's own location
+                    pop_lon: disc_in_mis.lon.to_degrees(),
                     pop_city: "N/A".to_string(),
                     pop_cc: "N/A".to_string(),
                 });
@@ -237,10 +228,10 @@ impl<'a> AnycastAnalyzer<'a> {
                 let existing_disc = &self.all_discs[existing_index];
 
                 let distance = haversine_distance(
-                    candidate.lat_rad,
-                    candidate.lon_rad,
-                    existing_disc.lat_rad,
-                    existing_disc.lon_rad,
+                    candidate.lat,
+                    candidate.lon,
+                    existing_disc.lat,
+                    existing_disc.lon,
                 );
                 distance <= candidate.radius + existing_disc.radius
             });
@@ -267,8 +258,8 @@ impl<'a> AnycastAnalyzer<'a> {
             .iter()
             .filter(|d| {
                 let dist = haversine_distance(
-                    mis_disc.lat_rad, mis_disc.lon_rad,
-                    d.lat_rad, d.lon_rad,
+                    mis_disc.lat, mis_disc.lon,
+                    d.lat, d.lon,
                 );
                 dist <= mis_disc.radius + d.radius
             })
@@ -295,8 +286,8 @@ impl<'a> AnycastAnalyzer<'a> {
             .iter()
             .min_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap())?;
 
-        let center_lat = smallest.lat_rad;
-        let center_lon = smallest.lon_rad;
+        let center_lat = smallest.lat;
+        let center_lon = smallest.lon;
 
         // Bounding box pre-filter based on the smallest disc
         let delta_lat = smallest.radius / EARTH_RADIUS_KM;
@@ -338,7 +329,7 @@ impl<'a> AnycastAnalyzer<'a> {
 
         for disc in &sorted_cluster {
             candidates.retain(|(a, _)| {
-                let dist = haversine_distance(disc.lat_rad, disc.lon_rad, a.lat_rad, a.lon_rad);
+                let dist = haversine_distance(disc.lat, disc.lon, a.lat_rad, a.lon_rad);
                 dist <= disc.radius
             });
 
@@ -894,9 +885,6 @@ fn main() -> Result<()> {
                 // Extract columns as Series
                 let target = group_df.column("addr").unwrap().str().unwrap();
                 let hostname = group_df.column("hostname").unwrap().str().unwrap();
-                let vp_lat = group_df.column("lat").unwrap().f32().unwrap();
-                let vp_lon = group_df.column("lon").unwrap().f32().unwrap();
-                let rtt = group_df.column("rtt").unwrap().f32().unwrap();
                 let lat_rad = group_df.column("lat_rad").unwrap().f32().unwrap();
                 let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
                 let radius = group_df.column("radius").unwrap().f32().unwrap();
@@ -906,11 +894,8 @@ fn main() -> Result<()> {
                     .map(|i| Disc {
                         target: target.get(i).unwrap_or("").to_string(),
                         hostname: hostname.get(i).unwrap_or("").to_string(),
-                        vp_lat: vp_lat.get(i).unwrap_or(0.0),
-                        vp_lon: vp_lon.get(i).unwrap_or(0.0),
-                        rtt: rtt.get(i).unwrap_or(0.0),
-                        lat_rad: lat_rad.get(i).unwrap_or(0.0),
-                        lon_rad: lon_rad.get(i).unwrap_or(0.0),
+                        lat: lat_rad.get(i).unwrap_or(0.0),
+                        lon: lon_rad.get(i).unwrap_or(0.0),
                         radius: radius.get(i).unwrap_or(0.0),
                     })
                     .collect();
@@ -1023,17 +1008,12 @@ mod tests {
     /// Build a `Disc` from a vantage-point location (degrees) and an RTT (ms).
     /// The radius is derived with the same formula the production code uses.
     fn make_disc(target: &str, hostname: &str, lat: f32, lon: f32, rtt: f32) -> Disc {
-        let lat_rad = lat.to_radians();
-        let lon_rad = lon.to_radians();
         let radius = rtt * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2.0;
         Disc {
             target: target.to_string(),
             hostname: hostname.to_string(),
-            vp_lat: lat,
-            vp_lon: lon,
-            rtt,
-            lat_rad,
-            lon_rad,
+            lat: lat.to_radians(),
+            lon: lon.to_radians(),
             radius,
         }
     }
