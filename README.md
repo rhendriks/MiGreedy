@@ -51,11 +51,16 @@ Given a set of RTT (round-trip time) measurements from geographically distribute
 
 2. **Enumeration (MIS)** — Discs are sorted by radius (ascending). A greedy Maximum Independent Set (MIS) is built: each disc that does not overlap with any already-selected disc is added. Each MIS disc represents a distinct network site. A single MIS disc means unicast; multiple means anycast.
 
-3. **Clustering** — For each MIS disc, all other discs that overlap with it are collected into a *cluster*. These discs all likely measure the same site, so their intersection constrains the target's location.
+3. **Clustering** — For each MIS disc, all other discs that overlap with it (and *only* it—discs overlapping multiple MIS discs are excluded as ambiguous) are collected into a *cluster*. These discs all likely measured the same site.
 
-4. **Intersection & geolocation** — Within the cluster, discs are intersected from smallest to largest. At each step, candidate cities inside the intersection are tracked. If adding the next disc would remove all candidates, the intersection stops and uses the last non-empty set. The best city is selected using: `score = alpha * (population / total_population) - (1 - alpha) * (distance / total_distance)`, where distance is measured from the smallest disc's center.
+4. **Intersection & geolocation** — Within the cluster:
+   - Find the **smallest disc** in the cluster (tightest constraint).
+   - Collect all candidate cities within this smallest disc's bounding box.
+   - Progressively intersect with each cluster disc (smallest to largest). If adding the next disc would remove all candidates, stop and use the last non-empty set.
+   - Apply the **relative population filter** (`--pop-ratio`): keep only cities with `pop >= max_pop × ratio`, where `max_pop` is the largest population among remaining candidates.
+   - Select the best city using: `score = α × (pop / Σpop) − (1 − α) × (dist / Σdist)`, where distance is measured from the smallest disc's center.
 
-5. **Deduplication** — If two MIS clusters resolve to the same city, only the one with the lower RTT (processed first) is kept.
+5. **Deduplication** — If two MIS clusters resolve to the same city, only the one with the smaller radius (processed first) is kept.
 
 The result is one output row per detected site, each with the geolocated city, its coordinates, and the defining VP.
 
@@ -188,7 +193,9 @@ We include a Rust implementation (significantly faster than the Python version).
 | `-i`, `--input`     | **(Required)** | Path to the input CSV file containing RTT measurements. Mutually exclusive with `--atlas`.                                              |
 | `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`). Mutually exclusive with `--input`.     |
 | `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
-| `-d`, `--dataset`   | `cities500`    | Location dataset to use: `cities500`, `cities1000`, `cities5000`, `cities15000`, `airports`, or a path to a custom CSV file.            |
+| `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
+| `-m`, `--min-pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
+| `-p`, `--pop-ratio` | `0.0`          | Relative population threshold (0.0–1.0). During geolocation, keeps only cities with `pop >= max_pop × ratio` among candidates.          |
 | `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
 | `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
 | `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
@@ -213,20 +220,21 @@ You can also pass a full URL instead of a numeric ID:
 
 ### Datasets
 
-MiGreedy ships with several embedded location datasets. The default (`cities500`) provides the highest geographic coverage, while smaller datasets are faster to process.
+MiGreedy ships with embedded airports and cities datasets.
+The airports dataset is the original airport dataset (as used by iGreedy) with duplicate airports removed.
+The cities dataset contains all cities with a population of 500 or higher (sourced from GeoNames).
 
-| Dataset      | Locations | Min. Population | Description                         |
-|:-------------|----------:|----------------:|:------------------------------------|
-| `cities500`  |   230,873 |             500 | Maximum coverage (default)          |
-| `cities1000` |   167,274 |           1,000 | Good coverage, faster processing    |
-| `cities5000` |    68,162 |           5,000 | Balanced coverage and performance   |
-| `cities15000`|    33,440 |          15,000 | Fast, suitable for large-scale runs |
-| `airports`   |     2,716 |               — | Original airport-only dataset       |
+**Population filtering:**
+- `--min-pop <N>` filters cities globally at load time (absolute threshold)
+- `--pop-ratio <R>` filters cities per-geolocation, keeping only those with `pop >= max_pop × R` (relative threshold)
+
+These can be combined. For example, `--min-pop 10000 --pop-ratio 0.5` first removes all cities under 10k, then during each geolocation keeps only the top 50% by population among candidates.
 
 Select a dataset with the `-d` flag:
 
 ```bash
-./migreedy --atlas 11501 -d cities15000
+./migreedy --atlas 11501 -d cities
+./migreedy --atlas 11501 -d cities --min-pop 15000
 ./migreedy --input measurements.csv --output results.csv -d airports
 ```
 
