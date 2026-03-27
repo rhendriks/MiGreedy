@@ -16,11 +16,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 /// Embedded datasets (gzip-compressed) at compile time so the binary is self-contained.
 static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../../datasets/airports.csv.gz");
-static EMBEDDED_CITIES500: &[u8] = include_bytes!("../../datasets/cities500.csv.gz");
-static EMBEDDED_CITIES1_000: &[u8] = include_bytes!("../../datasets/cities1_000.csv.gz");
-static EMBEDDED_CITIES5_000: &[u8] = include_bytes!("../../datasets/cities5_000.csv.gz");
-static EMBEDDED_CITIES15_000: &[u8] = include_bytes!("../../datasets/cities15_000.csv.gz");
-static EMBEDDED_CITIES100_000: &[u8] = include_bytes!("../../datasets/cities100_000.csv.gz");
+static EMBEDDED_CITIES: &[u8] = include_bytes!("../../datasets/cities500.csv.gz");
 
 
 /// Decompress a gzip-compressed byte slice into a Vec<u8>.
@@ -403,10 +399,18 @@ struct Args {
     #[arg(
         short,
         long,
-        default_value = "cities500",
-        help = "Dataset to use: cities500, cities1000, cities5000, cities15000, airports, or path to custom CSV"
+        default_value = "cities",
+        help = "Dataset to use: 'cities' (embedded), 'airports' (embedded), or path to custom CSV"
     )]
     dataset: String,
+
+    #[arg(
+        short,
+        long,
+        default_value_t = 500,
+        help = "Minimum population threshold for cities (only applies to embedded cities dataset)"
+    )]
+    min_pop: u32,
 
     #[arg(
         short,
@@ -667,9 +671,10 @@ fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<DataFr
 /// Additional fields lat_rad and lon_rad are computed in radians.
 /// Parameters:
 /// * reader: Any type implementing Read (file or in-memory cursor)
+/// * min_pop: Minimum population threshold (0 means no filtering)
 /// Returns:
 /// * Result<Vec<Airport>>: List of airports, or error if loading fails
-fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R) -> Result<Vec<Airport>> {
+fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R, min_pop: u32) -> Result<Vec<Airport>> {
     // Define the schema for the airports data
     let airports_schema = Arc::new(Schema::from_iter([
         Field::new(PlSmallStr::from("iata"), DataType::String),
@@ -696,13 +701,18 @@ fn load_airports<R: polars::io::mmap::MmapBytesReader>(reader: R) -> Result<Vec<
         .finish()?
         .lazy();
 
-    // Compute radians for lat and lon
-    let airports_df = airports_df
+    // Apply population filter and compute radians for lat and lon
+    let mut airports_df = airports_df
         .with_columns([
             col("lat").radians().alias("lat_rad"),
             col("lon").radians().alias("lon_rad"),
-        ])
-        .collect()?;
+        ]);
+
+    if min_pop > 0 {
+        airports_df = airports_df.filter(col("pop").gt_eq(lit(min_pop)));
+    }
+
+    let airports_df = airports_df.collect()?;
 
     // Extract columns into typed Series for building the structs.
     let iata = airports_df.column("iata")?.str()?;
@@ -824,33 +834,21 @@ fn main() -> Result<()> {
     let airports = match args.dataset.as_str() {
         "airports" => {
             println!("Using embedded airports dataset.");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?))?
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?), 0)?
         }
-        // TODO embed only the cities500 file, allow for any population threshold
-        // TODO threshold should support relative numbers (e.g., Guam has no high-population city and would often result in NoCity with an absolute threshold)
-        "cities500" => {
-            println!("Using embedded cities500 dataset (cities with population >= 500).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES500)?))?
-        }
-        "cities1000" => {
-            println!("Using embedded cities1000 dataset (cities with population >= 1,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES1_000)?))?
-        }
-        "cities5000" => {
-            println!("Using embedded cities5000 dataset (cities with population >= 5,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES5_000)?))?
-        }
-        "cities15000" => {
-            println!("Using embedded cities15000 dataset (cities with population >= 15,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES15_000)?))?
-        }
-        "cities100000" => {
-            println!("Using embedded cities15000 dataset (cities with population >= 100,000).");
-            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES100_000)?))?
+        "cities" => {
+            println!(
+                "Using embedded cities dataset (filtering to population >= {}).",
+                args.min_pop
+            );
+            load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES)?), args.min_pop)?
         }
         custom_path => {
-            println!("Loading custom dataset from: {}", custom_path);
-            load_airports(File::open(custom_path)?)?
+            println!(
+                "Loading custom dataset from: {} (filtering to population >= {}).",
+                custom_path, args.min_pop
+            );
+            load_airports(File::open(custom_path)?, args.min_pop)?
         }
     };
     println!("Loaded {} locations.", airports.len());
@@ -1014,7 +1012,7 @@ mod tests {
 
     /// Load the embedded airports dataset (same one the binary uses).
     fn test_airports() -> Vec<Airport> {
-        load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS).expect("decompress airports"))).expect("embedded airports must parse")
+        load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS).expect("decompress airports")), 0).expect("embedded airports must parse")
     }
 
     /// Build a `Disc` from a vantage-point location (degrees) and an RTT (ms).
