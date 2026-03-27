@@ -213,20 +213,15 @@ You can also pass a full URL instead of a numeric ID:
 
 ### Datasets
 
-MiGreedy ships with several embedded location datasets. The default (`cities500`) provides the highest geographic coverage, while smaller datasets are faster to process.
-
-| Dataset      | Locations | Min. Population | Description                         |
-|:-------------|----------:|----------------:|:------------------------------------|
-| `cities500`  |   230,873 |             500 | Maximum coverage (default)          |
-| `cities1000` |   167,274 |           1,000 | Good coverage, faster processing    |
-| `cities5000` |    68,162 |           5,000 | Balanced coverage and performance   |
-| `cities15000`|    33,440 |          15,000 | Fast, suitable for large-scale runs |
-| `airports`   |     2,716 |               — | Original airport-only dataset       |
+MiGreedy ships with an airports and cities500 file.
+The former is the original airpot dataset (as used by iGreedy) with duplicate airports removed.
+The latter is a dataset containing all cities with a population higher than 500.
+Users may filter for larger cities using the --min-pop argument which provides a tradeoff between coverage and processing speed against performance and noise.
 
 Select a dataset with the `-d` flag:
 
 ```bash
-./migreedy --atlas 11501 -d cities15000
+./migreedy --atlas 11501 -d cities
 ./migreedy --input measurements.csv --output results.csv -d airports
 ```
 
