@@ -4,6 +4,15 @@ use std::collections::HashSet;
 use crate::geo::{haversine_batch, haversine_distance, EARTH_RADIUS_KM};
 use crate::model::{Airport, Disc, OutputRecord};
 
+/// Result of geolocating a single MIS cluster.
+pub struct GeolocationResult {
+    pub airport: Airport,
+    /// Max pairwise distance (km) between surviving candidate cities
+    pub candidate_diameter: f32,
+    /// Number of discs that successfully narrowed the candidate set
+    pub num_constraints: u32,
+}
+
 pub struct AnycastAnalyzer<'a> {
     /// Alpha parameter (distance/population tuner)
     alpha: f32,
@@ -15,6 +24,8 @@ pub struct AnycastAnalyzer<'a> {
     all_discs: Vec<Disc>,
     /// Boolean, returns only geolocation for anycast targets if true
     anycast_only: bool,
+    /// Whether to compute accuracy metrics
+    accuracy: bool,
 }
 
 impl<'a> AnycastAnalyzer<'a> {
@@ -26,6 +37,7 @@ impl<'a> AnycastAnalyzer<'a> {
         alpha: f32,
         pop_ratio: f32,
         anycast_only: bool,
+        accuracy: bool,
     ) -> Self {
         // Sort discs from lowest to highest
         discs.sort_unstable_by(|a, b| a.radius.partial_cmp(&b.radius).unwrap());
@@ -35,6 +47,7 @@ impl<'a> AnycastAnalyzer<'a> {
             airport_tree,
             all_discs: discs,
             anycast_only,
+            accuracy,
         }
     }
 
@@ -67,11 +80,11 @@ impl<'a> AnycastAnalyzer<'a> {
             let geolocation_result = self.geolocation(&cluster);
 
             // Return the geolocation result (in expected output format)
-            if let Some(best_airport) = geolocation_result {
-                if chosen_airports.contains(&best_airport.iata) {
+            if let Some(geo) = geolocation_result {
+                if chosen_airports.contains(&geo.airport.iata) {
                     continue;
                 }
-                chosen_airports.insert(best_airport.iata.clone());
+                chosen_airports.insert(geo.airport.iata.clone());
 
                 results.push(OutputRecord {
                     target: target_ip.clone(),
@@ -79,11 +92,13 @@ impl<'a> AnycastAnalyzer<'a> {
                     vp_lat: disc_in_mis.lat.to_degrees(),
                     vp_lon: disc_in_mis.lon.to_degrees(),
                     radius: disc_in_mis.radius,
-                    pop_iata: best_airport.iata.clone(),
-                    pop_lat: best_airport.lat,
-                    pop_lon: best_airport.lon,
-                    pop_city: best_airport.city.clone(),
-                    pop_cc: best_airport.country_code.clone(),
+                    pop_iata: geo.airport.iata.clone(),
+                    pop_lat: geo.airport.lat,
+                    pop_lon: geo.airport.lon,
+                    pop_city: geo.airport.city.clone(),
+                    pop_cc: geo.airport.country_code.clone(),
+                    candidate_diameter: self.accuracy.then_some(geo.candidate_diameter),
+                    num_constraints: self.accuracy.then_some(geo.num_constraints),
                 });
             } else {
                 results.push(OutputRecord {
@@ -97,6 +112,8 @@ impl<'a> AnycastAnalyzer<'a> {
                     pop_lon: disc_in_mis.lon.to_degrees(),
                     pop_city: "N/A".to_string(),
                     pop_cc: "N/A".to_string(),
+                    candidate_diameter: self.accuracy.then_some(0.0),
+                    num_constraints: self.accuracy.then_some(0),
                 });
             }
         }
@@ -205,7 +222,7 @@ impl<'a> AnycastAnalyzer<'a> {
     }
 
     /// Geolocate the best location for an MIS cluster of discs
-    fn geolocation(&self, cluster: &[&Disc]) -> Option<Airport> {
+    fn geolocation(&self, cluster: &[&Disc]) -> Option<GeolocationResult> {
         // Get the MIS for this cluster (smallest circle)
         let smallest = cluster
             .iter()
@@ -257,15 +274,19 @@ impl<'a> AnycastAnalyzer<'a> {
         let mut batch_dists = vec![0.0f32; n_apts];
 
         // Progressively intersect (reducing bbox size)
+        // Start at 1: the bbox pre-filter already applies the smallest disc's constraint
+        let mut num_constraints: u32 = 1;
         for disc in &sorted_cluster {
             prev_alive.copy_from_slice(&alive);
             // Calculate distance between current discs and all eligible locations
             haversine_batch(disc.lat, disc.lon, &apt_lats, &apt_lons, &mut batch_dists);
 
             // Eliminate cities outside of this disc
+            let mut changed = false;
             for i in 0..n_apts {
                 if alive[i] && batch_dists[i] > disc.radius {
                     alive[i] = false;
+                    changed = true;
                 }
             }
 
@@ -273,6 +294,11 @@ impl<'a> AnycastAnalyzer<'a> {
             if !alive.iter().any(|&a| a) {
                 alive.copy_from_slice(&prev_alive);
                 break;
+            }
+
+            // Count discs that actually narrowed the candidate set
+            if changed {
+                num_constraints += 1;
             }
         }
 
@@ -302,6 +328,27 @@ impl<'a> AnycastAnalyzer<'a> {
         let total_pop: f32 = candidates.iter().map(|(a, _)| a.pop as f32).sum();
         let total_dist: f32 = candidates.iter().map(|(_, d)| *d).sum();
 
+        // Compute candidate diameter: max pairwise distance between surviving candidates
+        let candidate_diameter = if self.accuracy && candidates.len() > 1 {
+            let mut max_dist: f32 = 0.0;
+            for i in 0..candidates.len() {
+                for j in (i + 1)..candidates.len() {
+                    let d = haversine_distance(
+                        candidates[i].0.lat_rad,
+                        candidates[i].0.lon_rad,
+                        candidates[j].0.lat_rad,
+                        candidates[j].0.lon_rad,
+                    );
+                    if d > max_dist {
+                        max_dist = d;
+                    }
+                }
+            }
+            max_dist
+        } else {
+            0.0
+        };
+
         // Return the city with the highest score
         candidates
             .into_iter()
@@ -316,6 +363,10 @@ impl<'a> AnycastAnalyzer<'a> {
 
                 score1.partial_cmp(&score2).unwrap_or(std::cmp::Ordering::Equal)
             })
-            .map(|(a, _)| a.clone())
+            .map(|(a, _)| GeolocationResult {
+                airport: a.clone(),
+                candidate_diameter,
+                num_constraints,
+            })
     }
 }

@@ -5,10 +5,25 @@ use std::collections::HashMap;
 
 use crate::geo::{FIBER_RI, SPEED_OF_LIGHT};
 
+/// Deserialize a value that may be a number or a numeric string into Option<f64>.
+/// The RIPE Atlas API inconsistently returns some fields as strings.
+fn deserialize_f64_or_string<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value: Option<serde_json::Value> = Option::deserialize(deserializer)?;
+    match value {
+        None => Ok(None),
+        Some(serde_json::Value::Number(n)) => Ok(n.as_f64()),
+        Some(serde_json::Value::String(s)) => Ok(s.parse::<f64>().ok()),
+        _ => Ok(None),
+    }
+}
+
 #[derive(Deserialize)]
 struct AtlasResult {
     dst_addr: Option<String>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_f64_or_string")]
     min: Option<f64>,
     prb_id: u32,
     #[serde(rename = "type")]

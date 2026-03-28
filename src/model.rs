@@ -42,4 +42,8 @@ pub struct OutputRecord {
     pub pop_lon: f32,
     pub pop_city: String,
     pub pop_cc: String,
+    /// Max pairwise distance (km) between surviving candidate cities (Option 2)
+    pub candidate_diameter: Option<f32>,
+    /// Number of discs that successfully narrowed the candidate set (Option 4)
+    pub num_constraints: Option<u32>,
 }

@@ -85,6 +85,13 @@ struct Args {
         help = "Only output anycast geolocations (skip unicast)"
     )]
     anycast: bool,
+
+    #[arg(
+        long,
+        default_value_t = false,
+        help = "Include accuracy metrics: candidate_diameter (km) and num_constraints"
+    )]
+    accuracy: bool,
 }
 
 fn main() -> Result<()> {
@@ -218,6 +225,7 @@ fn main() -> Result<()> {
                     args.alpha,
                     args.pop_ratio,
                     args.anycast,
+                    args.accuracy,
                 );
                 analyzer.analyze()
             })
@@ -295,6 +303,26 @@ fn main() -> Result<()> {
             )
             .into(),
         ])?;
+
+        // Append accuracy columns if --accuracy flag is set
+        if args.accuracy {
+            let diameter_col = Series::new(
+                "candidate_diameter".into(),
+                results
+                    .iter()
+                    .map(|r| r.candidate_diameter.unwrap_or(0.0))
+                    .collect::<Vec<f32>>(),
+            );
+            let constraints_col = Series::new(
+                "num_constraints".into(),
+                results
+                    .iter()
+                    .map(|r| r.num_constraints.unwrap_or(0))
+                    .collect::<Vec<u32>>(),
+            );
+            output_df.with_column(diameter_col.into())?;
+            output_df.with_column(constraints_col.into())?;
+        }
 
         let mut file = File::create(output_path)?;
         CsvWriter::new(&mut file)
