@@ -178,6 +178,7 @@ After the command finishes, the output file `results.csv` will appear in your lo
 | `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
 | `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
 | `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
+| `--accuracy`        | `false`        | If set, adds `candidate_diameter` (km) and `num_constraints` columns to the output (see below).                                         |
 
 ### RIPE Atlas example
 
@@ -249,6 +250,13 @@ The output CSV file will have a header and contain the following columns:
 | `pop_lon`  | The longitude of the geolocated location.                                                                           |
 | `pop_city` | The city name of the geolocated location.                                                                           |
 | `pop_cc`   | The country code of the geolocated location.                                                                        |
+
+When `--accuracy` is set, two additional columns are appended:
+
+| Column               | Description                                                                                                    |
+|:---------------------|:---------------------------------------------------------------------------------------------------------------|
+| `candidate_diameter` | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision.   |
+| `num_constraints`    | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.        |
 
 ---
 
