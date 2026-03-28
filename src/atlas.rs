@@ -68,6 +68,11 @@ pub fn parse_atlas_id(input: &str) -> Result<u64> {
     bail!("Could not parse RIPE Atlas measurement ID from: {}", input)
 }
 
+/// Extract RTT from a DNS result (stored in result.rt).
+fn extract_dns_rtt(result_value: &serde_json::Value) -> Option<f64> {
+    result_value.get("rt").and_then(|v| v.as_f64())
+}
+
 /// Extract minimum RTT from a traceroute result by finding the last hop with valid RTT.
 fn extract_traceroute_min_rtt(result_value: &serde_json::Value) -> Option<f64> {
     let hops = result_value.as_array()?;
@@ -178,6 +183,10 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
                 .result
                 .as_ref()
                 .and_then(|r| extract_traceroute_min_rtt(r)),
+            Some(t) if t == "dns" => result
+                .result
+                .as_ref()
+                .and_then(|r| extract_dns_rtt(r)),
             _ => result.min,
         };
 
