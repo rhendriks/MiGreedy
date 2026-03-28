@@ -13,9 +13,9 @@ RUN apt-get update && \
 # Install the musl target
 RUN rustup target add x86_64-unknown-linux-musl
 
-# Copy the Cargo files and source code from the rust_impl directory
-COPY rust_impl/Cargo.toml ./
-COPY rust_impl/src ./src
+# Copy the Cargo files and source code
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
 # Copy the airport/cities files
 COPY datasets/*.csv.gz ../datasets/
 

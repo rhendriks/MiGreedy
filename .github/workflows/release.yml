@@ -40,17 +40,14 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: "./rust_impl -> target"
 
       - name: Build Binary
         run: cargo build --release --target ${{ matrix.target }}
-        working-directory: ./rust_impl
 
       - name: Package Artifacts
         run: |
           # build dir
-          cd rust_impl/target/${{ matrix.target }}/release
+          cd target/${{ matrix.target }}/release
 
           # filenames
           PKG_NAME="migreedy-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"

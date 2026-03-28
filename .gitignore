@@ -1,14 +1,9 @@
 .cargo
-*.gz
 target
 
 .DS_Store
 .idea/
 *igreedy_latencies
 *.csv
-testing/
-code/__pycache__
-__pycache__/
-*.pyc
-*.pyo
-Cargo.lock
+*.gz
+

@@ -34,7 +34,7 @@
 contains a geolocation algorithm based on [iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
 that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
 
-The delta of this work is a performance aware implementation through multi-threading, implemented in Python and Rust (the latter for performance).
+The delta of this work is a performance aware implementation through multi-threading, implemented in Rust.
 In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of discs within each MIS cluster (see iGreedy paper for details) rather than the lowest circle in each set.
 This implementation outputs the most likely city (or airport) for each MIS cluster. Unicast targets produce a single location, whereas anycast targets produce multiple locations corresponding to different anycast sites.
 
@@ -140,16 +140,15 @@ After the command finishes, the output file `results.csv` will appear in your lo
 
 ---
 
-## Installation (Rust)
-We include a Rust implementation (significantly faster than the Python version).
+## Installation
 
 1.  Clone this repository:
     ```bash
-    git clone [https://github.com/rhendriks/MiGreedy]
-    cd [MiGreedy]
+    git clone https://github.com/rhendriks/MiGreedy
+    cd MiGreedy
     ```
-    
-2. Install Rust
+
+2. Install Rust:
     ```bash
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
     source $HOME/.cargo/env
@@ -158,32 +157,12 @@ We include a Rust implementation (significantly faster than the Python version).
 
 3. Build the project using Cargo:
     ```bash
-    cd rust_impl
     cargo build --release
     ```
-   
+
 4. Run the compiled binary with the required arguments:
     ```bash
     ./target/release/migreedy --input path/to/measurements.csv --output path/to/results.csv
-    ```
-
-## Installation (python)
-
-1.  Clone this repository:
-    ```bash
-    git clone [https://github.com/rhendriks/MiGreedy]
-    cd [MiGreedy]
-    ```
-
-2.  Install the required Python packages using `pip`:
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-3. Run the script with the required arguments (see below).
-
-    ```bash
-    python igreedy.py -i path/to/measurements.csv -o path/to/results.csv -a 1.0 -t 100
     ```
 
 ### Command-Line Arguments
