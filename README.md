@@ -183,7 +183,7 @@ After the command finishes, the output file `results.csv` will appear in your lo
 ### RIPE Atlas example
 
 You can geolocate targets directly from a RIPE Atlas measurement without any local data files.
-For example, measurement [2001](https://atlas.ripe.net/measurements/2001/) is a traceroute towards K-root:
+For example, measurement [2001](https://atlas.ripe.net/measurements/2001/) is a periodic ping towards K-root:
 
 ```bash
 ./migreedy --atlas 2001
