@@ -4,7 +4,7 @@ version = "1.5.3"
 edition = "2024"
 
 [dependencies]
-polars = { version = "0.53.0", features = ["lazy", "trigonometry", "performant"] } # rust pandas
+polars = { version = "0.55.1", features = ["lazy", "trigonometry", "performant"] } # rust pandas
 clap = { version = "4.6.0", features = ["derive"] } # command line parser
 rayon = "1.10.0" # parallel processing
 indicatif = { version = "0.18.4", features = ["rayon"] } # progress bars

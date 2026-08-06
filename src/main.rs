@@ -187,8 +187,8 @@ fn main() -> Result<()> {
     );
 
     // Perform geolocation
-    let results: Vec<OutputRecord> = group_indices
-        .into_iter() // Iterate over each series of indices
+    let results: Vec<OutputRecord> = (0..num_targets)
+        .map(|i| group_indices.get_as_series(i)) // Iterate over each series of indices
         .par_bridge() // Bridge to Rayon's multi-thread processing
         .progress_with(pb) // Progress bar
         .filter_map(|opt_indices_series| {
