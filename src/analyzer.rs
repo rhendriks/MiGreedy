@@ -246,7 +246,7 @@ impl<'a> AnycastAnalyzer<'a> {
         // Get all eligible locations within the box (alongside their distance to the center)
         let airports_in_bbox: Vec<(&Airport, f32)> = self
             .airport_tree
-            .locate_in_envelope(&bbox)
+            .locate_in_envelope(bbox)
             .map(|a| {
                 let dist = haversine_distance(center_lat, center_lon, a.lat_rad, a.lon_rad);
                 (a, dist)
