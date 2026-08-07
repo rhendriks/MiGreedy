@@ -1,4 +1,5 @@
 use rstar::{AABB, RTree};
+use std::cmp::Ordering;
 use std::collections::HashSet;
 
 use crate::geo::{EARTH_RADIUS_KM, haversine_batch, haversine_distance};
@@ -350,37 +351,32 @@ impl<'a> AnycastAnalyzer<'a> {
             0.0
         };
 
+        // Score a candidate: relative population minus relative distance to the disc center
+        let score = |a: &Airport, d: f32| {
+            let pop_score = if total_pop > 0.0 {
+                a.pop as f32 / total_pop
+            } else {
+                0.0
+            };
+            let dist_score = if total_dist > 0.0 {
+                d / total_dist
+            } else {
+                0.0
+            };
+            self.alpha * pop_score - (1.0 - self.alpha) * dist_score
+        };
+
         // Return the city with the highest score
         candidates
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
-                let pop_score1 = if total_pop > 0.0 {
-                    a1.pop as f32 / total_pop
-                } else {
-                    0.0
-                };
-                let dist_score1 = if total_dist > 0.0 {
-                    d1 / total_dist
-                } else {
-                    0.0
-                };
-                let score1 = self.alpha * pop_score1 - (1.0 - self.alpha) * dist_score1;
-
-                let pop_score2 = if total_pop > 0.0 {
-                    a2.pop as f32 / total_pop
-                } else {
-                    0.0
-                };
-                let dist_score2 = if total_dist > 0.0 {
-                    d2 / total_dist
-                } else {
-                    0.0
-                };
-                let score2 = self.alpha * pop_score2 - (1.0 - self.alpha) * dist_score2;
-
-                score1
-                    .partial_cmp(&score2)
-                    .unwrap_or(std::cmp::Ordering::Equal)
+                score(a1, *d1)
+                    .partial_cmp(&score(a2, *d2))
+                    .unwrap_or(Ordering::Equal)
+                    // Tiebreaker (equal scores), smaller distance preferred
+                    .then_with(|| d2.partial_cmp(d1).unwrap_or(Ordering::Equal))
+                    // Tiebreaker, lexical
+                    .then_with(|| a2.iata.cmp(&a1.iata))
             })
             .map(|(a, _)| GeolocationResult {
                 airport: a.clone(),
