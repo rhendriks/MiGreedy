@@ -2,6 +2,12 @@
 name = "migreedy"
 version = "1.5.3"
 edition = "2024"
+description = "A fast, parallel improved version of the iGreedy algorithm for large-scale anycast-aware geolocation"
+repository = "https://github.com/rhendriks/MiGreedy"
+license = "MPL-2.0"
+authors = ["Remi Hendriks <remi.hendriks@utwente.nl>"]
+keywords = ["anycast", "geolocation", "measurement", "igreedy", "networking"]
+rust-version = "1.96"
 
 [dependencies]
 polars = { version = "0.55.2", features = ["lazy", "trigonometry", "performant"] } # rust pandas
@@ -20,7 +26,8 @@ rstar = "0.13.0" # R-tree spatial indexing for efficient geographic queries
 mimalloc = { version = "0.1.52", default-features = false }
 
 [profile.release]
-strip = true      # strip binary
-opt-level = 3     # optimize for speed
-lto = true        # link time optimization
-panic = "abort"   # reduce size
+opt-level = 3         # maximize for performance
+lto = "fat"           # link-time optimization across all crates
+codegen-units = 1     # compiling optimization (better inlining/vectorization)
+panic = "abort"       # remove stack unwinding code
+strip = true          # reduce binary size
