@@ -1,11 +1,11 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use polars::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
 use crate::geo::{FIBER_RI, SPEED_OF_LIGHT};
 
-/// Deserialize a value that may be a number or a numeric string into Option<f64>.
+/// Deserialize a value that may be a number or a numeric string into `Option<f64>`.
 /// The RIPE Atlas API inconsistently returns some fields as strings.
 fn deserialize_f64_or_string<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
 where
@@ -56,12 +56,11 @@ pub fn parse_atlas_id(input: &str) -> Result<u64> {
 
     let parts: Vec<&str> = input.trim_end_matches('/').split('/').collect();
     for (i, part) in parts.iter().enumerate() {
-        if *part == "measurements" {
-            if let Some(id_str) = parts.get(i + 1) {
-                if let Ok(id) = id_str.parse::<u64>() {
-                    return Ok(id);
-                }
-            }
+        if *part == "measurements"
+            && let Some(id_str) = parts.get(i + 1)
+            && let Ok(id) = id_str.parse::<u64>()
+        {
+            return Ok(id);
         }
     }
 
@@ -144,12 +143,11 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
             let probe_resp: ProbeResponse = resp.json()?;
 
             for probe in &probe_resp.results {
-                if let Some(ref geom) = probe.geometry {
-                    if let Some(ref coords) = geom.coordinates {
-                        if coords.len() == 2 {
-                            probe_locations.insert(probe.id, (coords[1], coords[0]));
-                        }
-                    }
+                if let Some(ref geom) = probe.geometry
+                    && let Some(ref coords) = geom.coordinates
+                    && coords.len() == 2
+                {
+                    probe_locations.insert(probe.id, (coords[1], coords[0]));
                 }
             }
 
@@ -179,14 +177,10 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
         };
 
         let rtt = match &result.measurement_type {
-            Some(t) if t == "traceroute" => result
-                .result
-                .as_ref()
-                .and_then(|r| extract_traceroute_min_rtt(r)),
-            Some(t) if t == "dns" => result
-                .result
-                .as_ref()
-                .and_then(|r| extract_dns_rtt(r)),
+            Some(t) if t == "traceroute" => {
+                result.result.as_ref().and_then(extract_traceroute_min_rtt)
+            }
+            Some(t) if t == "dns" => result.result.as_ref().and_then(extract_dns_rtt),
             _ => result.min,
         };
 
@@ -215,13 +209,16 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
         bail!("No valid measurement results after filtering.");
     }
 
-    let df = DataFrame::new(addrs.len(), vec![
-        Series::new("addr".into(), addrs).into(),
-        Series::new("hostname".into(), hostnames).into(),
-        Series::new("lat".into(), lats).into(),
-        Series::new("lon".into(), lons).into(),
-        Series::new("rtt".into(), rtts).into(),
-    ])?;
+    let df = DataFrame::new(
+        addrs.len(),
+        vec![
+            Series::new("addr".into(), addrs).into(),
+            Series::new("hostname".into(), hostnames).into(),
+            Series::new("lat".into(), lats).into(),
+            Series::new("lon".into(), lons).into(),
+            Series::new("rtt".into(), rtts).into(),
+        ],
+    )?;
 
     let df = df
         .lazy()

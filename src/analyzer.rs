@@ -1,7 +1,7 @@
-use rstar::{RTree, AABB};
+use rstar::{AABB, RTree};
 use std::collections::HashSet;
 
-use crate::geo::{haversine_batch, haversine_distance, EARTH_RADIUS_KM};
+use crate::geo::{EARTH_RADIUS_KM, haversine_batch, haversine_distance};
 use crate::model::{Airport, Disc, OutputRecord};
 
 /// Result of geolocating a single MIS cluster.
@@ -136,7 +136,8 @@ impl<'a> AnycastAnalyzer<'a> {
         // Starting with the lowest RTT discs, see which discs are its own MIS
         for (i, candidate) in self.all_discs.iter().enumerate() {
             let m = mis_indices.len();
-            if m > 0 { // If m == 0: first disc (lowest RTT) is always an MIS disc
+            if m > 0 {
+                // If m == 0: first disc (lowest RTT) is always an MIS disc
                 batch_dists.resize(m, 0.0);
                 // Calculate distance to each MIS disc found so far
                 haversine_batch(
@@ -353,15 +354,33 @@ impl<'a> AnycastAnalyzer<'a> {
         candidates
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
-                let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
-                let dist_score1 = if total_dist > 0.0 { d1 / total_dist } else { 0.0 };
+                let pop_score1 = if total_pop > 0.0 {
+                    a1.pop as f32 / total_pop
+                } else {
+                    0.0
+                };
+                let dist_score1 = if total_dist > 0.0 {
+                    d1 / total_dist
+                } else {
+                    0.0
+                };
                 let score1 = self.alpha * pop_score1 - (1.0 - self.alpha) * dist_score1;
 
-                let pop_score2 = if total_pop > 0.0 { a2.pop as f32 / total_pop } else { 0.0 };
-                let dist_score2 = if total_dist > 0.0 { d2 / total_dist } else { 0.0 };
+                let pop_score2 = if total_pop > 0.0 {
+                    a2.pop as f32 / total_pop
+                } else {
+                    0.0
+                };
+                let dist_score2 = if total_dist > 0.0 {
+                    d2 / total_dist
+                } else {
+                    0.0
+                };
                 let score2 = self.alpha * pop_score2 - (1.0 - self.alpha) * dist_score2;
 
-                score1.partial_cmp(&score2).unwrap_or(std::cmp::Ordering::Equal)
+                score1
+                    .partial_cmp(&score2)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(a, _)| GeolocationResult {
                 airport: a.clone(),

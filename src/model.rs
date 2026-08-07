@@ -1,4 +1,4 @@
-use rstar::{RTreeObject, AABB};
+use rstar::{AABB, RTreeObject};
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
