@@ -1,4 +1,4 @@
-gname: Docker Image CI for MiGreedy
+name: Docker Image CI for MiGreedy
 
 on:
   push:
