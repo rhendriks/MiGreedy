@@ -5,6 +5,12 @@ use std::collections::HashSet;
 use crate::geo::{EARTH_RADIUS_KM, haversine_batch, haversine_distance};
 use crate::model::{Airport, Disc, OutputRecord};
 
+/// Maximum number of candidates for which we compute the `candidate_diameter`
+const EXACT_DIAMETER_MAX: usize = 512;
+
+/// Upper limit for the number of computations done for `candidate_diameter`
+const DIAMETER_SWEEPS: usize = 8;
+
 /// Result of geolocating a single MIS cluster.
 pub struct GeolocationResult {
     pub airport: Airport,
@@ -12,6 +18,69 @@ pub struct GeolocationResult {
     pub candidate_diameter: f32,
     /// Number of discs that successfully narrowed the candidate set
     pub num_constraints: u32,
+}
+
+/// Largest great-circle distance (km) between any two of the given locations.
+///
+/// Computes all pairwise distances for small candidate sets.
+/// For large candidate sets (> `EXACT_DIAMETER_MAX`) we use a farthest-point sweep
+/// to maintain fast geolocation as this is computation is exponential in cost.
+///
+/// Farthest-point sweep is implemented by computing all distances from a single point
+/// to find its farthest point. This is iteratively repeated using that farthest point
+/// till it fails to beat the farthest distance seen.
+fn max_pairwise_distance(lats: &[f32], lons: &[f32]) -> f32 {
+    debug_assert_eq!(lats.len(), lons.len());
+    let n = lats.len();
+    // Only a single location in the candidate set.
+    if n < 2 {
+        return 0.0;
+    }
+
+    // Small sets: compare every pair
+    if n <= EXACT_DIAMETER_MAX {
+        let mut max_dist: f32 = 0.0;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let d = haversine_distance(lats[i], lons[i], lats[j], lons[j]);
+                if d > max_dist {
+                    max_dist = d;
+                }
+            }
+        }
+        return max_dist;
+    }
+
+    // Large sets: walk to the farthest location until no sweep improves on the last
+    let mut dists = vec![0.0f32; n];
+    let mut current = 0usize;
+    let mut max_dist: f32 = 0.0;
+
+    // Try up to `DIAMETER_SWEEPS` times to find the farthest points
+    for _ in 0..DIAMETER_SWEEPS {
+        // Compute all distances for the current location
+        haversine_batch(lats[current], lons[current], lats, lons, &mut dists);
+
+        // Get the location farthest from the current location and their pairwise distance
+        let (farthest, dist) =
+            dists
+                .iter()
+                .enumerate()
+                .fold((current, 0.0f32), |(best_i, best_d), (i, &d)| {
+                    if d > best_d { (i, d) } else { (best_i, best_d) }
+                });
+
+        // If we fail to find a more distant distance we finish
+        if dist <= max_dist {
+            break;
+        }
+
+        // Repeat the algorithm using the farthest location found
+        max_dist = dist;
+        current = farthest;
+    }
+
+    max_dist
 }
 
 pub struct AnycastAnalyzer<'a> {
@@ -332,21 +401,9 @@ impl<'a> AnycastAnalyzer<'a> {
 
         // Compute candidate diameter: max pairwise distance between surviving candidates
         let candidate_diameter = if self.accuracy && candidates.len() > 1 {
-            let mut max_dist: f32 = 0.0;
-            for i in 0..candidates.len() {
-                for j in (i + 1)..candidates.len() {
-                    let d = haversine_distance(
-                        candidates[i].0.lat_rad,
-                        candidates[i].0.lon_rad,
-                        candidates[j].0.lat_rad,
-                        candidates[j].0.lon_rad,
-                    );
-                    if d > max_dist {
-                        max_dist = d;
-                    }
-                }
-            }
-            max_dist
+            let lats: Vec<f32> = candidates.iter().map(|(a, _)| a.lat_rad).collect();
+            let lons: Vec<f32> = candidates.iter().map(|(a, _)| a.lon_rad).collect();
+            max_pairwise_distance(&lats, &lons)
         } else {
             0.0
         };
