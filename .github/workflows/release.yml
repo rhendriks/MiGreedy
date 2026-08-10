@@ -5,6 +5,9 @@ on:
     tags:
       - 'v*'
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   build-release:
     name: Build (${{ matrix.target }})
@@ -18,19 +21,22 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact: migreedy-linux-x86_64.tar.gz
+            target_cpu: x86-64-v3
           - target: aarch64-apple-darwin
             os: macos-latest
             artifact: migreedy-macos-aarch64.tar.gz
+            target_cpu: apple-m1
           - target: x86_64-apple-darwin
             os: macos-latest
             artifact: migreedy-macos-x86_64.tar.gz
+            target_cpu: x86-64-v3
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@1.96.0
         with:
           targets: ${{ matrix.target }}
 
@@ -40,9 +46,13 @@ jobs:
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
 
       - name: Build Binary
-        run: cargo build --release --target ${{ matrix.target }}
+        run: |
+          RUSTFLAGS="-C target-cpu=${{ matrix.target_cpu }}" \
+          cargo build --release --target ${{ matrix.target }}
 
       - name: Package Artifacts
         run: |
@@ -63,8 +73,11 @@ jobs:
           # move everything there
           mv "$PKG_NAME" "$STABLE_NAME" "${{ github.workspace }}/artifacts/"
 
-      - name: Create GitHub Release
+      - name: Attach binary to the version release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
           generate_release_notes: true
+          make_latest: "true"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

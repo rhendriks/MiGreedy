@@ -1,8 +1,15 @@
-use rstar::{RTree, AABB};
+use rstar::{AABB, RTree};
+use std::cmp::Ordering;
 use std::collections::HashSet;
 
-use crate::geo::{haversine_batch, haversine_distance, EARTH_RADIUS_KM};
+use crate::geo::{EARTH_RADIUS_KM, haversine_batch, haversine_distance};
 use crate::model::{Airport, Disc, OutputRecord};
+
+/// Maximum number of candidates for which we compute the `candidate_diameter`
+const EXACT_DIAMETER_MAX: usize = 512;
+
+/// Upper limit for the number of computations done for `candidate_diameter`
+const DIAMETER_SWEEPS: usize = 8;
 
 /// Result of geolocating a single MIS cluster.
 pub struct GeolocationResult {
@@ -11,6 +18,69 @@ pub struct GeolocationResult {
     pub candidate_diameter: f32,
     /// Number of discs that successfully narrowed the candidate set
     pub num_constraints: u32,
+}
+
+/// Largest great-circle distance (km) between any two of the given locations.
+///
+/// Computes all pairwise distances for small candidate sets.
+/// For large candidate sets (> `EXACT_DIAMETER_MAX`) we use a farthest-point sweep
+/// to maintain fast geolocation as this is computation is quadratic in cost.
+///
+/// Farthest-point sweep is implemented by computing all distances from a single point
+/// to find its farthest point. This is iteratively repeated using that farthest point
+/// till it fails to beat the farthest distance seen.
+fn max_pairwise_distance(lats: &[f32], lons: &[f32]) -> f32 {
+    debug_assert_eq!(lats.len(), lons.len());
+    let n = lats.len();
+    // Only a single location in the candidate set.
+    if n < 2 {
+        return 0.0;
+    }
+
+    // Small sets: compare every pair
+    if n <= EXACT_DIAMETER_MAX {
+        let mut max_dist: f32 = 0.0;
+        for i in 0..n {
+            for j in (i + 1)..n {
+                let d = haversine_distance(lats[i], lons[i], lats[j], lons[j]);
+                if d > max_dist {
+                    max_dist = d;
+                }
+            }
+        }
+        return max_dist;
+    }
+
+    // Large sets: walk to the farthest location until no sweep improves on the last
+    let mut dists = vec![0.0f32; n];
+    let mut current = 0usize;
+    let mut max_dist: f32 = 0.0;
+
+    // Try up to `DIAMETER_SWEEPS` times to find the farthest points
+    for _ in 0..DIAMETER_SWEEPS {
+        // Compute all distances for the current location
+        haversine_batch(lats[current], lons[current], lats, lons, &mut dists);
+
+        // Get the location farthest from the current location and their pairwise distance
+        let (farthest, dist) =
+            dists
+                .iter()
+                .enumerate()
+                .fold((current, 0.0f32), |(best_i, best_d), (i, &d)| {
+                    if d > best_d { (i, d) } else { (best_i, best_d) }
+                });
+
+        // If we fail to find a more distant distance we finish
+        if dist <= max_dist {
+            break;
+        }
+
+        // Repeat the algorithm using the farthest location found
+        max_dist = dist;
+        current = farthest;
+    }
+
+    max_dist
 }
 
 pub struct AnycastAnalyzer<'a> {
@@ -136,7 +206,8 @@ impl<'a> AnycastAnalyzer<'a> {
         // Starting with the lowest RTT discs, see which discs are its own MIS
         for (i, candidate) in self.all_discs.iter().enumerate() {
             let m = mis_indices.len();
-            if m > 0 { // If m == 0: first disc (lowest RTT) is always an MIS disc
+            if m > 0 {
+                // If m == 0: first disc (lowest RTT) is always an MIS disc
                 batch_dists.resize(m, 0.0);
                 // Calculate distance to each MIS disc found so far
                 haversine_batch(
@@ -246,7 +317,7 @@ impl<'a> AnycastAnalyzer<'a> {
         // Get all eligible locations within the box (alongside their distance to the center)
         let airports_in_bbox: Vec<(&Airport, f32)> = self
             .airport_tree
-            .locate_in_envelope(&bbox)
+            .locate_in_envelope(bbox)
             .map(|a| {
                 let dist = haversine_distance(center_lat, center_lon, a.lat_rad, a.lon_rad);
                 (a, dist)
@@ -330,38 +401,39 @@ impl<'a> AnycastAnalyzer<'a> {
 
         // Compute candidate diameter: max pairwise distance between surviving candidates
         let candidate_diameter = if self.accuracy && candidates.len() > 1 {
-            let mut max_dist: f32 = 0.0;
-            for i in 0..candidates.len() {
-                for j in (i + 1)..candidates.len() {
-                    let d = haversine_distance(
-                        candidates[i].0.lat_rad,
-                        candidates[i].0.lon_rad,
-                        candidates[j].0.lat_rad,
-                        candidates[j].0.lon_rad,
-                    );
-                    if d > max_dist {
-                        max_dist = d;
-                    }
-                }
-            }
-            max_dist
+            let lats: Vec<f32> = candidates.iter().map(|(a, _)| a.lat_rad).collect();
+            let lons: Vec<f32> = candidates.iter().map(|(a, _)| a.lon_rad).collect();
+            max_pairwise_distance(&lats, &lons)
         } else {
             0.0
+        };
+
+        // Score a candidate: relative population minus relative distance to the disc center
+        let score = |a: &Airport, d: f32| {
+            let pop_score = if total_pop > 0.0 {
+                a.pop as f32 / total_pop
+            } else {
+                0.0
+            };
+            let dist_score = if total_dist > 0.0 {
+                d / total_dist
+            } else {
+                0.0
+            };
+            self.alpha * pop_score - (1.0 - self.alpha) * dist_score
         };
 
         // Return the city with the highest score
         candidates
             .into_iter()
             .max_by(|(a1, d1), (a2, d2)| {
-                let pop_score1 = if total_pop > 0.0 { a1.pop as f32 / total_pop } else { 0.0 };
-                let dist_score1 = if total_dist > 0.0 { d1 / total_dist } else { 0.0 };
-                let score1 = self.alpha * pop_score1 - (1.0 - self.alpha) * dist_score1;
-
-                let pop_score2 = if total_pop > 0.0 { a2.pop as f32 / total_pop } else { 0.0 };
-                let dist_score2 = if total_dist > 0.0 { d2 / total_dist } else { 0.0 };
-                let score2 = self.alpha * pop_score2 - (1.0 - self.alpha) * dist_score2;
-
-                score1.partial_cmp(&score2).unwrap_or(std::cmp::Ordering::Equal)
+                score(a1, *d1)
+                    .partial_cmp(&score(a2, *d2))
+                    .unwrap_or(Ordering::Equal)
+                    // Tiebreaker (equal scores), smaller distance preferred
+                    .then_with(|| d2.partial_cmp(d1).unwrap_or(Ordering::Equal))
+                    // Tiebreaker, lexical
+                    .then_with(|| a2.iata.cmp(&a1.iata))
             })
             .map(|(a, _)| GeolocationResult {
                 airport: a.clone(),

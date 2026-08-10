@@ -1,5 +1,5 @@
 # Build musl static binary
-FROM --platform=linux/amd64 rust:1-slim AS builder
+FROM --platform=linux/amd64 rust:1.96-slim AS builder
 
 # Set the working directory
 WORKDIR /usr/src/app
@@ -19,8 +19,9 @@ COPY src ./src
 # Copy the airport/cities files
 COPY datasets/*.csv.gz ./datasets/
 
-# Build the release binary for the musl target
-RUN cargo build --release --target x86_64-unknown-linux-musl
+# Build the release binary for the musl target (requires Haswell/Zen or newer)
+RUN RUSTFLAGS="-C target-cpu=x86-64-v3" \
+    cargo build --release --target x86_64-unknown-linux-musl
 
 # Final stage: minimal image
 FROM scratch AS final

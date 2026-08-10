@@ -1,0 +1,59 @@
+name: Rust CI (MUSL Target)
+
+on:
+  push:
+    branches: [ "main" ]
+    tags: [ "v*.*.*" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_TARGET: x86_64-unknown-linux-musl
+  TARGET_CPU: x86-64-v3
+
+jobs:
+  build-and-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up stable Rust and MUSL target
+      uses: dtolnay/rust-toolchain@1.96.0
+      with:
+        targets: ${{ env.RUST_TARGET }}
+        components: rustfmt, clippy
+
+    # cargo-udeps needs nightly
+    - name: Install nightly (for cargo-udeps only)
+      run: rustup toolchain install nightly --profile minimal --target ${{ env.RUST_TARGET }}
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ env.RUST_TARGET }}
+
+    - name: Install build dependencies (MUSL tools)
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends musl-tools gcc
+
+    - name: Install cargo-udeps
+      run: cargo install cargo-udeps --locked
+
+    - name: Check for unused dependencies
+      continue-on-error: true
+      run: cargo +nightly udeps --all-targets --target ${{ env.RUST_TARGET }}
+
+    - name: Check code formatting
+      run: cargo fmt -- --check
+
+    - name: Run Clippy (linting)
+      run: cargo clippy --target ${{ env.RUST_TARGET }} --all-targets -- -D warnings
+
+    - name: Build project for MUSL target
+      run: |
+        RUSTFLAGS="-C target-cpu=${{ env.TARGET_CPU }}" \
+        cargo build --release --target ${{ env.RUST_TARGET }} --verbose

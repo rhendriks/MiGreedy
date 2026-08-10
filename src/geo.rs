@@ -1,5 +1,5 @@
 pub const FIBER_RI: f32 = 1.52;
-pub const SPEED_OF_LIGHT: f32 = 299792.458; // km/s
+pub const SPEED_OF_LIGHT: f32 = 299_792.47; // km/s
 pub const EARTH_RADIUS_KM: f32 = 6371.0;
 
 /// Haversine formula to calculate the great-circle distance between two points
@@ -20,13 +20,7 @@ pub fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
 /// Uses SoA (struct-of-arrays) layout so LLVM can auto-vectorize with -O3 + LTO.
 /// Writes results into the provided `out` slice (must be same length as input slices).
 #[inline(never)] // prevent inlining so LLVM vectorizes the tight loop
-pub fn haversine_batch(
-    lat1: f32,
-    lon1: f32,
-    lats2: &[f32],
-    lons2: &[f32],
-    out: &mut [f32],
-) {
+pub fn haversine_batch(lat1: f32, lon1: f32, lats2: &[f32], lons2: &[f32], out: &mut [f32]) {
     debug_assert_eq!(lats2.len(), lons2.len());
     debug_assert_eq!(lats2.len(), out.len());
 

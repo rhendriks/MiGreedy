@@ -1,10 +1,30 @@
+//! # MiGreedy
+//!
+//! A fast, parallel improved version of the [iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
+//! algorithm for large-scale anycast-aware geolocation.
+//!
+//! Given latency (RTT) measurements from geographically dispersed vantage points,
+//! MiGreedy detects whether a target is anycast and geolocates its sites:
+//!
+//! * Each measurement is turned into a disc bounding the target's possible location
+//!   (Great-Circle-Distance, see [`geo`]).
+//! * Discs that cannot cover the same location are collected into a maximum
+//!   independent set (MIS); more than one MIS disc means the target is anycast.
+//! * Each MIS cluster is geolocated to the best city (or airport) inside the
+//!   intersection of its discs, scored on population and distance (see [`analyzer`]).
+//!
+//! Input comes either from a CSV file (`--input`) or directly from a RIPE Atlas
+//! measurement (`--atlas`, see [`atlas`]); results are written as CSV (see [`io`]).
+//!
+//! This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
+
 mod analyzer;
 mod atlas;
 mod geo;
 mod io;
 mod model;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use clap::Parser;
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
 use polars::prelude::*;
@@ -17,7 +37,7 @@ use std::sync::Arc;
 
 use analyzer::AnycastAnalyzer;
 use atlas::{fetch_atlas_measurement, parse_atlas_id};
-use io::{decompress_gz, load_airports, load_input_data, EMBEDDED_AIRPORTS, EMBEDDED_CITIES};
+use io::{EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data};
 use model::{Airport, Disc, OutputRecord};
 
 #[cfg(target_env = "musl")]
@@ -30,7 +50,11 @@ struct Args {
     #[arg(short, long, help = "Input CSV file (mutually exclusive with --atlas)")]
     input: Option<PathBuf>,
 
-    #[arg(short, long, help = "Output CSV file (defaults to atlas_<ID>.csv when using --atlas)")]
+    #[arg(
+        short,
+        long,
+        help = "Output CSV file (defaults to atlas_<ID>.csv when using --atlas)"
+    )]
     output: Option<PathBuf>,
 
     #[arg(
@@ -187,12 +211,13 @@ fn main() -> Result<()> {
     );
 
     // Perform geolocation
-    let results: Vec<OutputRecord> = group_indices
-        .into_iter() // Iterate over each series of indices
+    let results: Vec<OutputRecord> = (0..num_targets)
+        .map(|i| group_indices.get_as_series(i)) // Iterate over each series of indices
         .par_bridge() // Bridge to Rayon's multi-thread processing
         .progress_with(pb) // Progress bar
         .filter_map(|opt_indices_series| {
-            opt_indices_series.map(|indices_series| { // Perform for each individual indices series
+            opt_indices_series.map(|indices_series| {
+                // Perform for each individual indices series
                 // Get the dataframe data of this indices group
                 let indices_ca = indices_series.u32().unwrap();
                 let group_df = in_df.take(indices_ca).unwrap();
@@ -242,67 +267,70 @@ fn main() -> Result<()> {
     if !results.is_empty() {
         println!("Saving results to {:?}...", output_path);
         let num_results = results.len();
-        let mut output_df = DataFrame::new(num_results, vec![
-            Series::new(
-                "addr".into(),
-                results.iter().map(|r| &*r.target).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "vp".into(),
-                results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "vp_lat".into(),
-                results.iter().map(|r| r.vp_lat).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "vp_lon".into(),
-                results.iter().map(|r| r.vp_lon).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "radius".into(),
-                results.iter().map(|r| r.radius).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "pop_iata".into(),
-                results
-                    .iter()
-                    .map(|r| r.pop_iata.as_str())
-                    .collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "pop_lat".into(),
-                results.iter().map(|r| r.pop_lat).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "pop_lon".into(),
-                results.iter().map(|r| r.pop_lon).collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "pop_city".into(),
-                results
-                    .iter()
-                    .map(|r| r.pop_city.as_str())
-                    .collect::<Vec<_>>(),
-            )
-            .into(),
-            Series::new(
-                "pop_cc".into(),
-                results
-                    .iter()
-                    .map(|r| r.pop_cc.as_str())
-                    .collect::<Vec<_>>(),
-            )
-            .into(),
-        ])?;
+        let mut output_df = DataFrame::new(
+            num_results,
+            vec![
+                Series::new(
+                    "addr".into(),
+                    results.iter().map(|r| &*r.target).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "vp".into(),
+                    results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "vp_lat".into(),
+                    results.iter().map(|r| r.vp_lat).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "vp_lon".into(),
+                    results.iter().map(|r| r.vp_lon).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "radius".into(),
+                    results.iter().map(|r| r.radius).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "pop_iata".into(),
+                    results
+                        .iter()
+                        .map(|r| r.pop_iata.as_str())
+                        .collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "pop_lat".into(),
+                    results.iter().map(|r| r.pop_lat).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "pop_lon".into(),
+                    results.iter().map(|r| r.pop_lon).collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "pop_city".into(),
+                    results
+                        .iter()
+                        .map(|r| r.pop_city.as_str())
+                        .collect::<Vec<_>>(),
+                )
+                .into(),
+                Series::new(
+                    "pop_cc".into(),
+                    results
+                        .iter()
+                        .map(|r| r.pop_cc.as_str())
+                        .collect::<Vec<_>>(),
+                )
+                .into(),
+            ],
+        )?;
 
         // Append accuracy columns if --accuracy flag is set
         if args.accuracy {
