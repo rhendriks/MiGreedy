@@ -2,11 +2,16 @@
 
 All notable changes to MiGreedy are documented in this file.
 
-## [Unreleased]
+## [1.5.4] - 2026-08-10
 
 ### Changed
-- Updated dependencies (polars, clap, rayon, indicatif, reqwest, serde).
-- Clarified the RIPE Atlas measurement example in the README.
+- **Fixed `--accuracy` quadratic cost** - `candidate_diameter` was computed by
+  comparing every pair of surviving candidates. This was expensive for large MIS discs.
+  We now approximate the distance for large MIS discs using a farthest-point sweep.
+
+### Documentation
+- Added a section on the accuracy trade-off between disc intersection and single-disc
+  (iGreedy) geolocation.
 
 ## [1.5.3] - 2026-03-28
 

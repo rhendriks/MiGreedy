@@ -24,7 +24,7 @@ pub struct GeolocationResult {
 ///
 /// Computes all pairwise distances for small candidate sets.
 /// For large candidate sets (> `EXACT_DIAMETER_MAX`) we use a farthest-point sweep
-/// to maintain fast geolocation as this is computation is exponential in cost.
+/// to maintain fast geolocation as this is computation is quadratic in cost.
 ///
 /// Farthest-point sweep is implemented by computing all distances from a single point
 /// to find its farthest point. This is iteratively repeated using that farthest point
