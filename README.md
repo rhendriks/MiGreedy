@@ -54,15 +54,48 @@ Given a set of RTT (round-trip time) measurements from geographically distribute
 3. **Clustering** — For each MIS disc, all other discs that overlap with it (and *only* it—discs overlapping multiple MIS discs are excluded as ambiguous) are collected into a *cluster*. These discs all likely measured the same site.
 
 4. **Intersection & geolocation** — Within the cluster:
-   - Find the **smallest disc** in the cluster (tightest constraint).
-   - Collect all candidate cities within this smallest disc's bounding box.
+   - Find the **smallest disc** in the cluster (tightest constraint). This is always the MIS disc itself.
+   - Collect all candidate cities inside that disc.
    - Progressively intersect with each cluster disc (smallest to largest). If adding the next disc would remove all candidates, stop and use the last non-empty set.
    - Apply the **relative population filter** (`--pop-ratio`): keep only cities with `pop >= max_pop × ratio`, where `max_pop` is the largest population among remaining candidates.
-   - Select the best city using: `score = α × (pop / Σpop) − (1 − α) × (dist / Σdist)`, where distance is measured from the smallest disc's center.
+   - Select the best city using: `score = α × (pop / Σpop) − (1 − α) × (dist / Σdist)`, where distance is measured from the disc's center.
 
-5. **Deduplication** — If two MIS clusters resolve to the same city, only the one with the smaller radius (processed first) is kept.
+5. **Output** — One row per detected site, each with the geolocated city, its coordinates, and the MIS disc VP.
 
-The result is one output row per detected site, each with the geolocated city, its coordinates, and the defining VP.
+### Accuracy trade-off: intersection vs. single-disc geolocation
+
+The original iGreedy algorithm geolocates each site from its MIS disc alone.
+We instead intersect the MIS disc with the other discs in its cluster (step 4 above).
+Both approaches are approximations, and they fail in different ways.
+
+**Single-disc (iGreedy).**
+The geolocation of an anycast site is located within the MIS disc that found it.
+In some cases the MIS disc may be very large, in which case the accuracy of the geolocation is affected.
+I.e., there may be many candidate cities, and it will pick the most likely based on population and distance.
+Our analysis shows this often leads to false geolocations, especially when ran on latency data collected using VPs with sparse coverage in certain regions.
+
+**Intersection (this implementation).**
+Large MIS discs are likely to have intersections with other non-MIS discs.
+We use those to intersect our MIS disc and narrow the possible location of the anycast site reached.
+This substantially improves geolocation in regions with sparse coverage where multiple VPs reach the same site (with medium to high latencies).
+However, this may also lead to false geolocations e.g., when an intersecting non-MIS disc is reaching a different anycast site (creating a fake intersecting area).
+We limit the occurrence of this by only using intersecting discs that intersect only this MIS disc, but it may still happen.
+
+**Why we keep the intersection.**
+Both methods may lead to false geolocations within the MIS disc.
+This is especially prevalent when there are large MIS discs, which we observe in areas with poor VP coverage.
+In such cases, we find the accuracy can be improved substantially by using other non-MIS discs that intersect with this MIS disc (and this MIS disc only).
+Whilst it is possible we intersect with non-MIS discs that happened to reach a different anycast site,
+we find it is quite rare.
+It would have to intersect no other MIS disc and create an intersection that maintains valid cities (elsewise it will simply not be used).
+Using intersecting discs also allows us to extend the script to output unicast geolocation.
+
+The most decisive difference is observability.
+The `--accuracy` flag reports
+`num_constraints` (how many discs actually narrowed the candidate set)
+and `candidate_diameter` (the spread of the surviving candidates),
+so low-confidence geolocations can be identified and filtered.
+Rows combining a large `radius` with a low `num_constraints` should be treated as weak.
 
 ---
 
@@ -257,6 +290,8 @@ When `--accuracy` is set, two additional columns are appended:
 |:---------------------|:---------------------------------------------------------------------------------------------------------------|
 | `candidate_diameter` | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision.   |
 | `num_constraints`    | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.        |
+
+`candidate_diameter` is computed exactly for up to 512 surviving candidates. Larger sets — which only arise from wide MIS discs, where the diameter is large and its exact value carries no information — use an iterated farthest-point sweep instead of an exhaustive pairwise comparison. That estimate is always a real distance between two candidates, so it never overstates the diameter, and it is never below half of the true value — in practice it is exact at city scale and within a few percent for globe-spanning candidate sets.
 
 ---
 
