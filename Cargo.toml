@@ -1,6 +1,6 @@
 [package]
 name = "migreedy"
-version = "1.5.4"
+version = "1.6.0"
 edition = "2024"
 description = "A fast, parallel improved version of the iGreedy algorithm for large-scale anycast-aware geolocation"
 repository = "https://github.com/rhendriks/MiGreedy"
@@ -18,8 +18,9 @@ anyhow = "1.0.104" # error handling
 reqwest = { version = "0.13.4", features = ["blocking", "json"] } # HTTP client for RIPE Atlas API
 serde = { version = "1.0.229", features = ["derive"] } # JSON deserialization
 serde_json = "1.0.151" # JSON parsing
-flate2 = "1.1.9" # gzip decompression for embedded datasets
+flate2 = "1.1.9" # gzip decompression for embedded datasets and warts input
 rstar = "0.13.0" # R-tree spatial indexing for efficient geographic queries
+glob = "0.3.4" # glob patterns for --warts paths
 
 # use high performance allocator when running musl
 [target.'cfg(target_env = "musl")'.dependencies]
