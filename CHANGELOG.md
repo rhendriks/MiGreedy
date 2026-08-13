@@ -2,6 +2,25 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.6.0] - 2026-08-13
+
+Adds scamper warts input support and allows for VPs files rather than repeated lat/lon values within CSV files.
+
+### Added
+- **Warts input** (`--warts`) — accepts files, glob patterns and directories for `.warts` and `.warts.gz` files.
+  Files are parsed in parallel. Currently, only Alias-resolution (`dealias`) records are supported.
+- **Vantage point coordinates file** (`--vps`) — whitespace-separated
+  `hostname lat lon`, no header. Required with `--warts` which contains no `lat/lon` values. 
+  Also usable with CSV files (`--input`) so the CSV can omit its `lat`/`lon` columns.
+
+### Changed
+- **Filtering and deduplication** - measurements with a missing or non-positive RTT are dropped.
+  When there are multiple RTT results per (`addr`, `hostname`) pair, only the minimum RTT result is kept.
+
+### Fixed
+- **Deduplication preserves input order**, so the vantage point credited for a site
+  no longer varies between runs when two discs share a radius exactly.
+
 ## [1.5.4] - 2026-08-10
 
 ### Changed
