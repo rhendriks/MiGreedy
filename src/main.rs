@@ -1,7 +1,8 @@
 //! # MiGreedy
 //!
 //! A fast, parallel improved version of the [iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
-//! algorithm for large-scale anycast-aware geolocation.
+//! algorithm for large-scale anycast-aware geolocation and is
+//! used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
 //!
 //! Given latency (RTT) measurements from geographically dispersed vantage points,
 //! MiGreedy detects whether a target is anycast and geolocates its sites:
@@ -13,20 +14,27 @@
 //! * Each MIS cluster is geolocated to the best city (or airport) inside the
 //!   intersection of its discs, scored on population and distance (see [`analyzer`]).
 //!
-//! Input comes either from a CSV file (`--input`) or directly from a RIPE Atlas
-//! measurement (`--atlas`, see [`atlas`]); results are written as CSV (see [`io`]).
+//! Measurements must contain the following columns `addr, hostname, rtt`.
+//! They also need `lat, lon` which can be additional columns
+//! or extracted using a VPs file (`--vps`, see [`vps`]).
 //!
-//! This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
-
+//! * a CSV file (`--input`, see [`io`]);
+//! * scamper warts files read natively (`--warts`, see [`warts`]).
+//!
+//! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
+//!
+//! Results are written as CSV (see [`io`]).
 mod analyzer;
 mod atlas;
 mod geo;
 mod io;
 mod model;
+mod vps;
+mod warts;
 
 use anyhow::{Result, bail};
-use clap::Parser;
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
+use clap::{ArgGroup, Parser};
+use indicatif::ParallelProgressIterator;
 use polars::prelude::*;
 use rayon::prelude::*;
 use rstar::RTree;
@@ -37,8 +45,12 @@ use std::sync::Arc;
 
 use analyzer::AnycastAnalyzer;
 use atlas::{fetch_atlas_measurement, parse_atlas_id};
-use io::{EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data};
+use io::{
+    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data, progress_bar,
+};
 use model::{Airport, Disc, OutputRecord};
+use vps::VpTable;
+use warts::load_warts_data;
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
@@ -46,8 +58,14 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
+#[command(group(ArgGroup::new("source").required(true).args(["input", "atlas", "warts"])))]
 struct Args {
-    #[arg(short, long, help = "Input CSV file (mutually exclusive with --atlas)")]
+    #[arg(
+        short,
+        long,
+        group = "source",
+        help = "Input CSV file: addr,hostname,lat,lon,rtt (or addr,hostname,rtt with --vps)"
+    )]
     input: Option<PathBuf>,
 
     #[arg(
@@ -57,11 +75,26 @@ struct Args {
     )]
     output: Option<PathBuf>,
 
+    #[arg(long, group = "source", help = "RIPE Atlas measurement ID or URL")]
+    atlas: Option<String>,
+
     #[arg(
         long,
-        help = "RIPE Atlas measurement ID or URL (mutually exclusive with --input)"
+        group = "source",
+        num_args = 1..,
+        value_name = "PATH",
+        requires = "vps",
+        help = "scamper warts files to read (.warts/.warts.gz); accepts files, globs and directories. Requires --vps"
     )]
-    atlas: Option<String>,
+    warts: Option<Vec<PathBuf>>,
+
+    #[arg(
+        long,
+        value_name = "FILE",
+        conflicts_with = "atlas",
+        help = "Vantage point coordinates file: whitespace-separated 'hostname lat lon', no header"
+    )]
+    vps: Option<PathBuf>,
 
     #[arg(
         short,
@@ -122,14 +155,7 @@ fn main() -> Result<()> {
     // Parse arguments
     let args = Args::parse();
 
-    if args.input.is_some() && args.atlas.is_some() {
-        bail!("--input and --atlas are mutually exclusive. Use one or the other.");
-    }
-    if args.input.is_none() && args.atlas.is_none() {
-        bail!("Either --input or --atlas must be provided.");
-    }
-
-    // Get RIPE Atlas ID
+    // Get optional RIPE Atlas ID
     let atlas_id = match &args.atlas {
         Some(atlas_input) => Some(parse_atlas_id(atlas_input)?),
         None => None,
@@ -140,7 +166,7 @@ fn main() -> Result<()> {
         Some(p) => p,
         None => match atlas_id {
             Some(id) => PathBuf::from(format!("atlas_{}.csv", id)),
-            None => bail!("--output is required when using --input."),
+            None => bail!("--output is required when using --input or --warts."),
         },
     };
 
@@ -181,10 +207,42 @@ fn main() -> Result<()> {
         airport_tree.size()
     );
 
-    // Load input data (file or RIPE Atlas measurement)
+    // Load the vantage point coordinates, if one was given
+    let vp_table = match args.vps {
+        Some(ref path) => {
+            println!("Loading vantage points from: {:?}", path);
+            let table = VpTable::load(path)?;
+            if table.len() == 0 {
+                bail!("No usable vantage points in {:?}.", path);
+            }
+            let notes: Vec<String> = [
+                (table.duplicates > 0).then(|| format!("{} duplicate", table.duplicates)),
+                (table.malformed > 0).then(|| format!("{} malformed", table.malformed)),
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
+            if notes.is_empty() {
+                println!("Loaded {} vantage points.", table.len());
+            } else {
+                println!(
+                    "Loaded {} vantage points ({} line(s) skipped).",
+                    table.len(),
+                    notes.join(", ")
+                );
+            }
+            Some(table)
+        }
+        None => None,
+    };
+
+    // Load input data (CSV file, warts files, or RIPE Atlas measurement)
     let in_df = if let Some(ref input_path) = args.input {
         println!("Loading input data from: {:?}", input_path);
-        load_input_data(input_path, args.threshold)?
+        load_input_data(input_path, args.threshold, vp_table.as_ref())?
+    } else if let Some(ref warts_paths) = args.warts {
+        // --warts always uses a VPs file
+        load_warts_data(warts_paths, vp_table.as_ref().unwrap(), args.threshold)?
     } else {
         fetch_atlas_measurement(atlas_id.unwrap(), args.threshold)?
     };
@@ -201,14 +259,7 @@ fn main() -> Result<()> {
     );
 
     // Create progress bar
-    let pb = ProgressBar::new(num_targets as u64);
-    pb.set_style(
-        ProgressStyle::default_bar()
-            .template(
-                "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
-            )?
-            .progress_chars("#>-"),
-    );
+    let pb = progress_bar(num_targets as u64)?;
 
     // Perform geolocation
     let results: Vec<OutputRecord> = (0..num_targets)
