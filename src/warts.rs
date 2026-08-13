@@ -7,7 +7,7 @@
 //! We read the following objects:
 //! * [`Object::List`] carries the monitor name, which identifies the vantage point.
 //! * [`Object::Dealias`] carries the measurements: per probe a transmit timestamp, and
-//! per reply the responding address and a receive timestamp.
+//!   per reply the responding address and a receive timestamp.
 //!
 //! Support for ping/traceroute can be added on request.
 
@@ -508,7 +508,8 @@ fn load_file(path: &Path, vps: &VpTable, threshold: u32) -> Result<Result<FileDa
                 // Collect all latency measurement data
                 for reply in replies {
                     // Skip negative RTTs TODO verification may not be needed
-                    if !(reply.rtt_ms > 0.0) {
+                    // (`is_finite` first so a NaN is rejected rather than compared)
+                    if !reply.rtt_ms.is_finite() || reply.rtt_ms <= 0.0 {
                         continue;
                     }
                     // Optional upper-limit RTT threshold to speed up algorithm.
