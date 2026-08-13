@@ -3,7 +3,7 @@ use polars::prelude::*;
 use serde::Deserialize;
 use std::collections::HashMap;
 
-use crate::geo::{FIBER_RI, SPEED_OF_LIGHT};
+use crate::io::finalize_measurements;
 
 /// Deserialize a value that may be a number or a numeric string into `Option<f64>`.
 /// The RIPE Atlas API inconsistently returns some fields as strings.
@@ -184,14 +184,8 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
             _ => result.min,
         };
 
-        let rtt = match rtt {
-            Some(r) if r > 0.0 => r,
-            _ => continue,
-        };
-
-        if threshold > 0 && rtt > threshold as f64 {
-            continue;
-        }
+        // Filtering on RTT is left to `finalize_measurements`
+        let Some(rtt) = rtt else { continue };
 
         let (lat, lon) = match probe_locations.get(&result.prb_id) {
             Some(loc) => *loc,
@@ -220,20 +214,5 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
         ],
     )?;
 
-    let df = df
-        .lazy()
-        .with_columns([
-            col("lat").radians().alias("lat_rad"),
-            col("lon").radians().alias("lon_rad"),
-            (col("rtt") * lit(0.001) * lit(SPEED_OF_LIGHT) / lit(FIBER_RI) / lit(2.0))
-                .alias("radius"),
-        ])
-        .collect()?;
-
-    println!(
-        "Loaded {} latency measurements after applying RTT threshold filter.",
-        df.height()
-    );
-
-    Ok(df)
+    finalize_measurements(df, threshold)
 }
