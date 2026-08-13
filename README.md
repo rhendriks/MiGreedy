@@ -40,8 +40,13 @@ This implementation outputs the most likely city (or airport) for each MIS clust
 
 The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
 This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
-It is designed to run using a single input file (containing latencies from multiple vantage points to targets),
-outputting a single file with geolocation results.
+It takes latencies from multiple vantage points to targets — as a CSV file, a RIPE Atlas
+measurement, or scamper warts files read directly — and outputs a single file with
+geolocation results.
+
+Whatever the source, measurements with a missing or implausible RTT are dropped, and
+what remains is reduced to the lowest RTT per (target, vantage point), so each VP
+contributes one disc per target.
 
 ### How our geolocation implementation works
 
@@ -200,10 +205,14 @@ After the command finishes, the output file `results.csv` will appear in your lo
 
 ### Command-Line Arguments
 
+Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
+
 | Argument            | Default        | Description                                                                                                                             |
 |:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
-| `-i`, `--input`     | **(Required)** | Path to the input CSV file containing RTT measurements. Mutually exclusive with `--atlas`.                                              |
-| `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`). Mutually exclusive with `--input`.     |
+| `-i`, `--input`     |                | Path to the input CSV file containing RTT measurements.                                                                                 |
+| `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`).                                        |
+| `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                |
+| `--vps`             |                | Vantage point coordinates file. Required with `--warts`; optional with `--input`; rejected with `--atlas`.                              |
 | `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
 | `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
 | `-m`, `--min-pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
@@ -257,7 +266,7 @@ City datasets are sourced from [GeoNames](https://www.geonames.org/) and license
 
 ### Input File Format
 
-The input CSV file **must not have a header** and should contain the following columns in this specific order:
+The input CSV file **must have a header row**, and its columns are read positionally in this order:
 
 | Column     | Data Type | Description                                |
 |:-----------|:----------|:-------------------------------------------|
@@ -266,6 +275,58 @@ The input CSV file **must not have a header** and should contain the following c
 | `lat`      | float     | The latitude of the prober.                |
 | `lon`      | float     | The longitude of the prober.               |
 | `rtt`      | float     | The round-trip time (in ms) to the target. |
+
+When `--vps` is given, the `lat` and `lon` columns are looked up from the VPs file
+instead and must be omitted, leaving `target,hostname,rtt`.
+
+### VPs File Format
+
+A VPs file gives each vantage point's location, so measurements that identify their
+VP only by name can be turned into discs. It is required with `--warts` and optional
+with `--input`.
+
+The format is whitespace-separated `hostname lat lon`, one per line, with **no header**:
+
+```text
+hlz2-nz.ark.caida.org -37.79 175.28
+fra-de.ark.caida.org 50.11 8.74
+hkg4-cn.ark.caida.org 22.36 114.12
+```
+
+Blank lines and lines starting with `#` are ignored, malformed lines are skipped and
+counted, and if a hostname is listed more than once the first entry wins.
+
+A VP is matched by its full hostname first, and otherwise by the label before the
+first dot on both sides — so `san-us` and `san-us.ark.caida.org` resolve to each
+other, and no DNS suffix is hardcoded. Measurements from a VP the file does not list
+are dropped and reported, which doubles as a way to restrict a run to a set of
+known-good vantage points.
+
+Vantage points are named in the output using the spelling from this file, whatever
+the measurement called them.
+
+### Warts Input
+
+`--warts` reads [scamper](https://www.caida.org/catalog/software/scamper/) output
+directly, with no `sc_warts2json` conversion step. `.warts` and `.warts.gz` are both
+read, gzip is decompressed in-process, and files are parsed in parallel.
+
+```bash
+# a directory of files
+./migreedy --warts /data/2026-08-10/ --vps vps.txt --output results.csv
+
+# explicit files, or a quoted glob
+./migreedy --warts a.warts b.warts.gz --vps vps.txt --output results.csv
+./migreedy --warts '/data/*.iffinder.warts.gz' --vps vps.txt --output results.csv
+```
+
+The vantage point for each file is taken from the monitor name recorded inside the
+file, falling back to the filename if that name is not one the VPs file lists.
+
+Alias-resolution (`dealias`) records are currently supported — this is what CAIDA
+Ark's `iffinder` measurements contain. Each reply contributes the responding
+address, which is the address geolocated; for alias resolution this differs from the
+probed destination. Other record types are skipped.
 
 ### Output File Format
 
