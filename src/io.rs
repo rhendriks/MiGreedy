@@ -109,11 +109,9 @@ pub fn load_airports<R: polars::io::mmap::MmapBytesReader>(
 pub fn finalize_measurements(df: DataFrame, threshold: u32) -> Result<DataFrame> {
     let before = df.height();
     // Drop negative and NaN RTT measurements
-    let mut lazy = df.lazy().filter(
-        col("rtt")
-            .is_not_null()
-            .and(col("rtt").gt(lit(0.0f32)))
-    );
+    let mut lazy = df
+        .lazy()
+        .filter(col("rtt").is_not_null().and(col("rtt").gt(lit(0.0f32))));
 
     if threshold > 0 {
         lazy = lazy.filter(col("rtt").lt_eq(lit(threshold as f32)));
