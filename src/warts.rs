@@ -616,17 +616,11 @@ pub fn load_warts_data(paths: &[PathBuf], vps: &VpTable, threshold: u32) -> Resu
     if !unknown_vps.is_empty() {
         unknown_vps.sort();
         unknown_vps.dedup();
-        let shown: Vec<&str> = unknown_vps.iter().take(5).map(|s| s.as_str()).collect();
-        let more = unknown_vps.len().saturating_sub(shown.len());
+        let missing_vps: Vec<&str> = unknown_vps.iter().map(|s| s.as_str()).collect();
         println!(
-            "Dropped {} file(s) whose vantage point is absent from the VPs file: {}{}.",
+            "Dropped {} file(s) whose vantage point is absent from the VPs file: {}.",
             unknown_vps.len(),
-            shown.join(", "),
-            if more > 0 {
-                format!(", and {more} more")
-            } else {
-                String::new()
-            }
+            missing_vps.join(", "),
         );
     }
 
