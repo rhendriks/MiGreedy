@@ -10,12 +10,13 @@
 use anyhow::{Context, Result, bail};
 use indicatif::ProgressBar;
 use polars::prelude::*;
-use serde::Deserialize;
 use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::net::IpAddr;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use crate::config;
 use crate::geo::{haversine_distance, rtt_to_radius_km};
 use crate::io::{finalize_measurements, progress_bar};
 use crate::probes::{AtlasProbe, farthest_point_indices, select_spread};
@@ -38,6 +39,9 @@ const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// How often the wait is reported, so a long one does not scroll the terminal.
 const REPORT_INTERVAL: Duration = Duration::from_secs(30);
+
+/// How long a cached probe catalogue is reused before being fetched again.
+const CATALOGUE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
 /// Anchors used to check probe locations against the speed of light.
 const VALIDATION_ANCHORS: usize = 5;
@@ -235,6 +239,110 @@ fn ping_request_body(
     })
 }
 
+/// One probe as stored in the catalogue cache.
+#[derive(Serialize, Deserialize)]
+struct CachedProbe {
+    id: u32,
+    lat: f32,
+    lon: f32,
+    country_code: Option<String>,
+    is_anchor: bool,
+    asn: Option<u32>,
+}
+
+/// A cached probe catalogue, with enough context to know when it no longer applies.
+#[derive(Serialize, Deserialize)]
+struct ProbeCache {
+    /// Address family the catalogue was fetched for.
+    af: u8,
+    /// Tags the catalogue was filtered by, so changing them invalidates the cache.
+    tags: String,
+    fetched_unix: u64,
+    probes: Vec<CachedProbe>,
+}
+
+/// Seconds since the Unix epoch, or `None` if the clock is before it.
+fn now_unix() -> Option<u64> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_secs())
+}
+
+/// Name of the cache file holding the catalogue for an address family.
+fn catalogue_cache_name(af: u8) -> String {
+    format!("probes_v{af}.json")
+}
+
+/// Read the cached catalogue, if there is a usable one.
+fn read_cached_catalogue(af: u8, tags: &str) -> Option<(Vec<AtlasProbe>, Duration)> {
+    let path = config::cache_path(&catalogue_cache_name(af))?;
+    let cache: ProbeCache = serde_json::from_slice(&std::fs::read(path).ok()?).ok()?;
+
+    if cache.af != af || cache.tags != tags {
+        return None;
+    }
+
+    let age = Duration::from_secs(now_unix()?.checked_sub(cache.fetched_unix)?);
+    if age > CATALOGUE_TTL {
+        return None;
+    }
+
+    let probes: Vec<AtlasProbe> = cache
+        .probes
+        .into_iter()
+        .map(|p| AtlasProbe::new(p.id, p.lat, p.lon, p.country_code, p.is_anchor, p.asn))
+        .collect();
+
+    (!probes.is_empty()).then_some((probes, age))
+}
+
+/// Store the catalogue for the next run.
+///
+/// Best effort: failing to cache is reported once and then ignored, since the run
+/// itself has everything it needs.
+fn write_cached_catalogue(af: u8, tags: &str, probes: &[AtlasProbe]) {
+    let Some((path, fetched_unix)) = config::cache_path(&catalogue_cache_name(af)).zip(now_unix())
+    else {
+        return;
+    };
+
+    let cache = ProbeCache {
+        af,
+        tags: tags.to_string(),
+        fetched_unix,
+        probes: probes
+            .iter()
+            .map(|p| CachedProbe {
+                id: p.id,
+                lat: p.lat,
+                lon: p.lon,
+                country_code: p.country_code.clone(),
+                is_anchor: p.is_anchor,
+                asn: p.asn,
+            })
+            .collect(),
+    };
+
+    match serde_json::to_vec(&cache).map_err(|e| e.to_string()) {
+        Ok(bytes) => match std::fs::write(&path, bytes) {
+            Ok(()) => println!("Cached the probe catalogue in {}.", path.display()),
+            Err(e) => println!("Could not cache the probe catalogue: {e}"),
+        },
+        Err(e) => println!("Could not cache the probe catalogue: {e}"),
+    }
+}
+
+/// Render a cache age in the largest unit that still reads naturally.
+fn describe_age(age: Duration) -> String {
+    let seconds = age.as_secs();
+    match seconds {
+        0..=90 => "just now".to_string(),
+        91..=5400 => format!("{} minutes ago", seconds / 60),
+        _ => format!("{} hours ago", seconds / 3600),
+    }
+}
+
 /// A thin RIPE Atlas API v2 client.
 ///
 /// The API key is only needed to *create* measurements; reading public results and
@@ -331,11 +439,22 @@ impl AtlasClient {
     /// Every connected probe that can reach the given address family.
     /// Uses the `system-ipv4-works` / `system-ipv6-works` tags.
     fn probe_catalogue(&self, af: u8) -> Result<Vec<AtlasProbe>> {
+        let tags = format!("{},{}", capability_tag(af), stability_tag(af));
+
+        // The catalogue is two dozen pages and changes slowly, so a recent copy on
+        // disk is used instead of fetching it again.
+        if let Some((probes, age)) = read_cached_catalogue(af, &tags) {
+            println!(
+                "Using {} IPv{af} probes from the catalogue cached {}.",
+                probes.len(),
+                describe_age(age)
+            );
+            return Ok(probes);
+        }
+
         let url = format!(
-            "{API_BASE}/probes/?status=1&tags={},{}&format=json&page_size={PAGE_SIZE}\
-             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6",
-            capability_tag(af),
-            stability_tag(af)
+            "{API_BASE}/probes/?status=1&tags={tags}&format=json&page_size={PAGE_SIZE}\
+             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6"
         );
         println!("Fetching the RIPE Atlas probe catalogue (this takes a moment)...");
         let probes: Vec<AtlasProbe> = self
@@ -350,6 +469,8 @@ impl AtlasClient {
             "{} connected probes are stable on IPv{af} and report a location.",
             probes.len()
         );
+
+        write_cached_catalogue(af, &tags, &probes);
         Ok(probes)
     }
 

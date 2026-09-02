@@ -1,4 +1,4 @@
-//! Local configuration: storing and resolving the RIPE Atlas API key.
+//! Local state: the RIPE Atlas API key, and where cached data is kept.
 //!
 //! Scheduling measurements (`--measure`) needs a RIPE Atlas API key with the
 //! *measurement creation* permission. The key is resolved in this order:
@@ -35,6 +35,31 @@ fn config_dir() -> Option<PathBuf> {
 /// Path of the file holding the RIPE Atlas API key.
 pub fn key_path() -> Option<PathBuf> {
     config_dir().map(|d| d.join("atlas.key"))
+}
+
+/// Directory holding data MiGreedy caches between runs.
+fn cache_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    {
+        std::env::var_os("LOCALAPPDATA")
+            .map(PathBuf::from)
+            .map(|p| p.join("migreedy").join("cache"))
+    }
+    #[cfg(not(windows))]
+    {
+        std::env::var_os("XDG_CACHE_HOME")
+            .map(PathBuf::from)
+            .filter(|p| p.is_absolute())
+            .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".cache")))
+            .map(|p| p.join("migreedy"))
+    }
+}
+
+/// Path of a named cache file, creating the cache directory if it is missing.
+pub fn cache_path(name: &str) -> Option<PathBuf> {
+    let dir = cache_dir()?;
+    fs::create_dir_all(&dir).ok()?;
+    Some(dir.join(name))
 }
 
 /// Read the stored API key, if there is one.
