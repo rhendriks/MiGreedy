@@ -35,3 +35,9 @@ pub fn haversine_batch(lat1: f32, lon1: f32, lats2: &[f32], lons2: &[f32], out: 
         out[i] = EARTH_RADIUS_KM * c;
     }
 }
+
+/// Convert RTT to radius in km
+#[inline]
+pub fn rtt_to_radius_km(rtt_ms: f32) -> f32 {
+    rtt_ms * 0.001 * SPEED_OF_LIGHT / FIBER_RI / 2.0
+}

@@ -1,11 +1,12 @@
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 use flate2::read::GzDecoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
-use std::path::PathBuf;
+use std::io::{BufReader, Cursor, Read};
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::path::Path;
 use std::sync::Arc;
 
 use crate::geo::{FIBER_RI, SPEED_OF_LIGHT};
@@ -142,11 +143,33 @@ pub fn finalize_measurements(df: DataFrame, threshold: u32) -> Result<DataFrame>
     Ok(deduped)
 }
 
+/// Columns that may carry the vantage point's identity.
+/// `hostname` - expected
+/// `rx` - for compatability with MAnycastR
+const VP_COLUMNS: [&str; 2] = ["hostname", "rx"];
+
+/// Read the measurements at `path`, as CSV or as Parquet.
+///
+/// The format is taken from the extension: `.parquet` is read as Parquet
+/// ([`load_parquet_data`]), anything else as CSV ([`load_csv_data`]), which
+/// decompresses the file first when it ends in `.gz`.
+pub fn load_input_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
+    let is_parquet = path
+        .extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("parquet"));
+
+    if is_parquet {
+        load_parquet_data(path, threshold, vps)
+    } else {
+        load_csv_data(path, threshold, vps)
+    }
+}
+
 /// Read the input CSV.
 ///
 /// Input columns must contain `addr,hostname,rtt` and optionally `lat,lon`.
 /// If the latter is missing, a VPs file must be supplied (mapping hostnames to `lat,lon` values).
-pub fn load_input_data(path: &PathBuf, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
+fn load_csv_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
     let mut fields = vec![
         Field::new(PlSmallStr::from("addr"), DataType::String),
         Field::new(PlSmallStr::from("hostname"), DataType::String),
@@ -164,10 +187,17 @@ pub fn load_input_data(path: &PathBuf, threshold: u32, vps: Option<&VpTable>) ->
         ..Default::default()
     };
 
-    let input_file = File::open(path)?;
-    let df = CsvReader::new(input_file)
-        .with_options(read_options)
-        .finish()?;
+    let df = if is_gzipped(path) {
+        CsvReader::new(Cursor::new(gunzip(path)?))
+            .with_options(read_options)
+            .finish()?
+    } else {
+        let input_file =
+            File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
+        CsvReader::new(input_file)
+            .with_options(read_options)
+            .finish()?
+    };
 
     // Optionally get coordinates from a vps file
     let df = match vps {
@@ -176,6 +206,139 @@ pub fn load_input_data(path: &PathBuf, threshold: u32, vps: Option<&VpTable>) ->
     };
 
     finalize_measurements(df, threshold)
+}
+
+/// Read measurements from a Parquet file.
+fn load_parquet_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
+    let file = File::open(path)
+        .with_context(|| format!("failed to open Parquet file {}", path.display()))?;
+    let schema = ParquetReader::new(file).schema()?;
+    let has = |name: &str| schema.iter_names().any(|field| field.as_str() == name);
+
+    let Some(vp_column) = VP_COLUMNS.into_iter().find(|name| has(name)) else {
+        bail!(
+            "{} has no vantage point column: expected one of {}.",
+            path.display(),
+            VP_COLUMNS.join(", ")
+        );
+    };
+    for required in ["addr", "rtt"] {
+        if !has(required) {
+            bail!("{} has no '{required}' column.", path.display());
+        }
+    }
+
+    // Coordinates in the file are only used when no VPs file overrides them.
+    let use_file_coordinates = vps.is_none() && has("lat") && has("lon");
+    if vps.is_none() && !use_file_coordinates {
+        bail!(
+            "{} has no 'lat'/'lon' columns; supply --vps to resolve {vp_column} to coordinates.",
+            path.display()
+        );
+    }
+
+    // Columns we want
+    let mut wanted = vec!["addr".to_string(), vp_column.to_string(), "rtt".to_string()];
+    if use_file_coordinates {
+        wanted.push("lat".to_string());
+        wanted.push("lon".to_string());
+    }
+
+    let file = File::open(path)
+        .with_context(|| format!("failed to open Parquet file {}", path.display()))?;
+    let mut df = ParquetReader::new(file)
+        .with_columns(Some(wanted))
+        .finish()?;
+
+    // Addresses may be stored as text or as packed bytes; the algorithm wants text.
+    let addr = df.column("addr")?.as_materialized_series();
+    if addr.dtype() != &DataType::String {
+        let decoded = decode_packed_addresses(addr)
+            .with_context(|| format!("could not read the 'addr' column of {}", path.display()))?;
+        df.with_column(decoded.into_column())?;
+    }
+
+    let mut df = df
+        .lazy()
+        .with_columns([
+            col(vp_column).cast(DataType::String).alias("hostname"),
+            col("rtt").cast(DataType::Float32),
+        ])
+        .collect()?;
+
+    if use_file_coordinates {
+        df = df
+            .lazy()
+            .with_columns([
+                col("lat").cast(DataType::Float32),
+                col("lon").cast(DataType::Float32),
+            ])
+            .collect()?;
+    }
+
+    let df = match vps {
+        Some(vps) => attach_vp_coordinates(df, vps)?,
+        None => df,
+    };
+
+    finalize_measurements(df, threshold)
+}
+
+/// Turn a column of packed binary addresses into printable text.
+fn decode_packed_addresses(series: &Series) -> Result<Series> {
+    let binary = series.cast(&DataType::Binary).map_err(|_| {
+        anyhow::anyhow!(
+            "'addr' is {} which is neither text nor packed address bytes",
+            series.dtype()
+        )
+    })?;
+
+    let addresses: Vec<Option<String>> = binary
+        .binary()?
+        .iter()
+        .map(|value| value.and_then(format_packed_address))
+        .collect();
+
+    Ok(Series::new("addr".into(), addresses))
+}
+
+/// Render packed address bytes as text.
+///
+/// MAnycastR stores every address as 16 IPv6-mapped bytes, so an IPv4 target arrives
+/// as `::ffff:1.1.1.1`; it is unwrapped back to `1.1.1.1`. Plain 4-byte IPv4 is
+/// accepted too. Anything else yields `None`, dropping the row.
+fn format_packed_address(bytes: &[u8]) -> Option<String> {
+    match bytes.len() {
+        4 => {
+            let octets: [u8; 4] = bytes.try_into().ok()?;
+            Some(Ipv4Addr::from(octets).to_string())
+        }
+        16 => {
+            let octets: [u8; 16] = bytes.try_into().ok()?;
+            let address = Ipv6Addr::from(octets);
+            Some(match address.to_ipv4_mapped() {
+                Some(v4) => v4.to_string(),
+                None => address.to_string(),
+            })
+        }
+        _ => None,
+    }
+}
+
+/// Whether the path names a gzipped file, by its extension as `--warts` does.
+fn is_gzipped(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("gz"))
+}
+
+/// Decompress a gzipped file into memory.
+fn gunzip(path: &Path) -> Result<Vec<u8>> {
+    let file = File::open(path).with_context(|| format!("failed to open {}", path.display()))?;
+    let mut decompressed = Vec::new();
+    GzDecoder::new(BufReader::with_capacity(1 << 20, file))
+        .read_to_end(&mut decompressed)
+        .with_context(|| format!("failed to decompress {}", path.display()))?;
+    Ok(decompressed)
 }
 
 /// Add `lat`/`lon` columns by resolving each row's `hostname` against the VPs file.
