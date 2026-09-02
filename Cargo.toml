@@ -10,7 +10,7 @@ keywords = ["anycast", "geolocation", "measurement", "igreedy", "networking"]
 rust-version = "1.96"
 
 [dependencies]
-polars = { version = "0.55.2", features = ["lazy", "trigonometry", "performant"] } # rust pandas
+polars = { version = "0.55.2", features = ["lazy", "trigonometry", "performant", "parquet"] } # rust pandas
 clap = { version = "4.6.6", features = ["derive"] } # command line parser
 rayon = "1.12.0" # parallel processing
 indicatif = { version = "0.18.6", features = ["rayon"] } # progress bars
