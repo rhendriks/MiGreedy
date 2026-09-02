@@ -2,6 +2,25 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.7.0] - 2026-09-01
+
+Adds live RIPE Atlas measurements: give MiGreedy a target and it schedules the ping
+itself. Measurement files can now also be read as Parquet.
+
+### Added
+- **Gzipped CSV input** (`--input <FILE>.csv.gz`) — gzip now supported.
+- **Parquet input** (`--input <FILE>.parquet`) — parquet now supported.
+  Including native support for MAnycastR latency measurement files.
+- **Live measurements** (`--measure`) — schedules a one-off RIPE Atlas ping to one or
+  more targets, waits for the results, and geolocates them in the same run.
+- **Probe selection** (`--num_probes`, `--probes`) — probes are chosen by greedy
+  farthest-point sampling, maximising the minimum distance between them for coverage.
+  Selects stable probes only, and prefers well-connected probes in CDN networks or anchors.
+- **Probe location validation** (`--validate_probes`) — optionally pings five globally
+  spread anchors and drops probes whose reported location is farther from an anchor than
+  the measured RTT allows at the speed of light in fibre. Selects 10% extra candidates
+  first so coverage survives the removals.
+
 ## [1.6.0] - 2026-08-13
 
 Adds scamper warts input support and allows for VPs files rather than repeated lat/lon values within CSV files.
@@ -44,9 +63,9 @@ Reworks geolocation around the cities dataset and makes the candidate search
 substantially faster.
 
 ### Added
-- **Relative population threshold** (`-p`/`--pop-ratio`) — during geolocation only
+- **Relative population threshold** (`-p`/`--pop_ratio`) — during geolocation only
   cities with `pop >= max_pop × ratio` are kept among the candidates. Combines with
-  the absolute `--min-pop` threshold, which filters at load time.
+  the absolute `--min_pop` threshold, which filters at load time.
 - **Accuracy output** (`--accuracy`) — adds `candidate_diameter` (km) and
   `num_constraints` columns to the output.
 
