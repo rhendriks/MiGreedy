@@ -210,7 +210,7 @@ Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
 
 | Argument            | Default        | Description                                                                                                                             |
 |:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
-| `-i`, `--input`     |                | Path to the input CSV file containing RTT measurements.                                                                                 |
+| `-i`, `--input`     |                | Path to the input CSV (optionally `.gz`) or `.parquet` file containing RTT measurements.                                                |
 | `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`).                                        |
 | `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                 |
 | `--measure`         |                | Target(s) to measure live: schedules RIPE Atlas ping measurements and geolocates the results. Needs an API key.                         |
@@ -305,7 +305,7 @@ This is done using greedy farthest-point sampling, which is reported.
 
 ```text
 Selected 20 probes for 1 IPv4 target(s): 1.1.1.1.
-Coverage: 17 countries, closest pair 3438 km apart.
+Coverage: 19 countries, closest pair 3265 km apart, 17/20 probes on well-connected networks.
 ```
 
 Alternatively, you can use your own list of probes.
@@ -384,6 +384,30 @@ The input CSV file **must have a header row**, and its columns are read position
 
 When `--vps` is given, the `lat` and `lon` columns are looked up from the VPs file
 instead and must be omitted, leaving `target,hostname,rtt`.
+
+A path ending in `.gz` is decompressed first, so a gzipped CSV is read directly:
+
+```bash
+./migreedy --input measurements.csv.gz --output results.csv
+```
+
+#### Parquet input
+
+A path ending in `.parquet` is read as Parquet. Parquet files carry their own column
+names, so unlike CSV their columns are matched **by name** and in any order.
+
+| Column              | Required | Description                                                        |
+|:--------------------|:---------|:-------------------------------------------------------------------|
+| `addr`              | yes      | The IP address being measured, as text or as packed address bytes. |
+| `hostname`, or `rx` | yes      | The hostname or ID of the prober (VP).                             |
+| `rtt`               | yes      | The round-trip time (in ms) to the target.                         |
+| `lat`, `lon`        | no       | The prober's coordinates. Without them, `--vps` is required.       |
+
+This reads [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output as it is
+written, whose columns are `rx, addr, ttl, rtt`:
+
+MAnycastR stores each address as 16 IPv6-mapped bytes rather than as text.
+This format is supported.
 
 ### VPs File Format
 
