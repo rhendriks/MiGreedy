@@ -10,7 +10,6 @@
 use anyhow::{Context, Result, bail};
 use indicatif::ProgressBar;
 use polars::prelude::*;
-use rstar::RTree;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::{HashMap, HashSet};
@@ -19,10 +18,14 @@ use std::time::{Duration, Instant};
 
 use crate::geo::{haversine_distance, rtt_to_radius_km};
 use crate::io::{finalize_measurements, progress_bar};
-use crate::model::Airport;
-use crate::probes::{
-    AtlasProbe, farthest_point_indices, filter_probes, reference_city_index, select_spread,
-};
+use crate::probes::{AtlasProbe, farthest_point_indices, select_spread};
+
+/// Attach MiGreedy descriptions to RIPE Atlas measurements created
+const DESCRIPTION_PREFIX: &str = concat!(
+    "MiGreedy v",
+    env!("CARGO_PKG_VERSION"),
+    " anycast geolocation"
+);
 
 const API_HOST: &str = "https://atlas.ripe.net/";
 const API_BASE: &str = "https://atlas.ripe.net/api/v2";
@@ -96,6 +99,10 @@ struct ProbeInfo {
     #[serde(default)]
     is_anchor: bool,
     #[serde(default)]
+    asn_v4: Option<u32>,
+    #[serde(default)]
+    asn_v6: Option<u32>,
+    #[serde(default)]
     address_v4: Option<String>,
     #[serde(default)]
     address_v6: Option<String>,
@@ -109,14 +116,20 @@ impl ProbeInfo {
         (coords.len() == 2).then(|| (coords[1], coords[0]))
     }
 
-    fn into_probe(self) -> Option<AtlasProbe> {
+    /// The probe as MiGreedy models it, carrying the AS it measures `af` from.
+    fn into_probe(self, af: u8) -> Option<AtlasProbe> {
         let (lat, lon) = self.coordinates()?;
+        let asn = match af {
+            6 => self.asn_v6,
+            _ => self.asn_v4,
+        };
         Some(AtlasProbe::new(
             self.id,
             lat as f32,
             lon as f32,
             self.country_code.clone(),
             self.is_anchor,
+            asn,
         ))
     }
 }
@@ -194,7 +207,7 @@ fn ping_request_body(
     af: u8,
     probe_ids: &[u32],
     packets: u8,
-    description: &str,
+    purpose: &str,
 ) -> serde_json::Value {
     let definitions: Vec<serde_json::Value> = targets
         .iter()
@@ -204,7 +217,7 @@ fn ping_request_body(
                 "af": af,
                 "type": "ping",
                 "packets": packets,
-                "description": format!("{description} ({target})"),
+                "description": format!("{DESCRIPTION_PREFIX}: {purpose} ({target})"),
                 "resolve_on_probe": false,
             })
         })
@@ -318,21 +331,25 @@ impl AtlasClient {
     /// Every connected probe that can reach the given address family.
     /// Uses the `system-ipv4-works` / `system-ipv6-works` tags.
     fn probe_catalogue(&self, af: u8) -> Result<Vec<AtlasProbe>> {
-        let tag = capability_tag(af);
         let url = format!(
-            "{API_BASE}/probes/?status=1&tags={tag}&format=json&page_size={PAGE_SIZE}\
-             &fields=id,geometry,country_code,is_anchor"
+            "{API_BASE}/probes/?status=1&tags={},{}&format=json&page_size={PAGE_SIZE}\
+             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6",
+            capability_tag(af),
+            stability_tag(af)
         );
         println!("Fetching the RIPE Atlas probe catalogue (this takes a moment)...");
         let probes: Vec<AtlasProbe> = self
             .paged_probes(url)?
             .into_iter()
-            .filter_map(ProbeInfo::into_probe)
+            .filter_map(|info| info.into_probe(af))
             .collect();
         if probes.is_empty() {
-            bail!("RIPE Atlas returned no connected IPv{af} probes.");
+            bail!("RIPE Atlas returned no connected, stable IPv{af} probes.");
         }
-        println!("{} connected probes report a location.", probes.len());
+        println!(
+            "{} connected probes are stable on IPv{af} and report a location.",
+            probes.len()
+        );
         Ok(probes)
     }
 
@@ -340,7 +357,7 @@ impl AtlasClient {
     fn anchors(&self, af: u8) -> Result<Vec<(AtlasProbe, String)>> {
         let url = format!(
             "{API_BASE}/probes/?status=1&is_anchor=true&format=json&page_size={PAGE_SIZE}\
-             &fields=id,geometry,country_code,is_anchor,address_v4,address_v6"
+             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6,address_v4,address_v6"
         );
         let anchors: Vec<(AtlasProbe, String)> = self
             .paged_probes(url)?
@@ -351,13 +368,15 @@ impl AtlasClient {
                     _ => info.address_v4.clone(),
                 }
                 .filter(|a| !a.is_empty())?;
-                Some((info.into_probe()?, address))
+                Some((info.into_probe(af)?, address))
             })
             .collect();
         Ok(anchors)
     }
 
     /// Schedule a one-off ping from `probe_ids` to each target.
+    ///
+    /// `purpose` is a description that is added to the RIPE Atlas measurement
     ///
     /// Returns one measurement ID per target, in the order the targets were given.
     fn create_ping(
@@ -366,14 +385,14 @@ impl AtlasClient {
         af: u8,
         probe_ids: &[u32],
         packets: u8,
-        description: &str,
+        purpose: &str,
     ) -> Result<Vec<u64>> {
         let key = self
             .key
             .as_ref()
             .context("An API key is required to create RIPE Atlas measurements.")?;
 
-        let body = ping_request_body(targets, af, probe_ids, packets, description);
+        let body = ping_request_body(targets, af, probe_ids, packets, purpose);
 
         let response = self
             .http
@@ -485,6 +504,14 @@ fn capability_tag(af: u8) -> &'static str {
     match af {
         6 => "system-ipv6-works",
         _ => "system-ipv4-works",
+    }
+}
+
+/// The RIPE Atlas system tag asserting a probe is stable.
+fn stability_tag(af: u8) -> &'static str {
+    match af {
+        6 => "system-ipv6-stable-30d",
+        _ => "system-ipv4-stable-30d",
     }
 }
 
@@ -631,12 +658,9 @@ pub fn run_measurement(
     }
     let af = address_family(&options.targets)?;
 
-    println!("Loading reference locations to check probe locations against...");
-    let cities = reference_city_index()?;
-
-    let probes = choose_probes(client, options, &cities, af)?;
+    let probes = choose_probes(client, options, af)?;
     if probes.is_empty() {
-        bail!("No probes with a plausible location remain; select probes explicitly to override.");
+        bail!("No usable probes remain; select probes explicitly to override.");
     }
 
     println!(
@@ -675,7 +699,7 @@ pub fn run_measurement(
         af,
         &probe_ids,
         options.packets,
-        "MiGreedy anycast geolocation",
+        "target measurement",
     )?;
     for id in &ids {
         println!("Created measurement {id}: https://atlas.ripe.net/measurements/{id}/");
@@ -704,18 +728,16 @@ pub fn run_measurement(
 fn choose_probes(
     client: &AtlasClient,
     options: &MeasureOptions,
-    cities: &RTree<Airport>,
     af: u8,
 ) -> Result<Vec<AtlasProbe>> {
     match &options.probes {
         ProbeChoice::Explicit(ids) => {
             println!("Looking up the {} requested probes...", ids.len());
-            let mut probes = fetch_probes_by_id(client, ids)?;
+            let mut probes = fetch_probes_by_id(client, ids, af)?;
             let missing = ids.len().saturating_sub(probes.len());
             if missing > 0 {
                 println!("{missing} requested probe(s) are unknown or report no location.");
             }
-            probes = apply_filter(probes, cities);
             // Validation pings anchors, so a dry run must not reach it.
             if options.validate && !options.dry_run {
                 probes = validate_locations(client, probes, af, options)?;
@@ -723,7 +745,7 @@ fn choose_probes(
             Ok(probes)
         }
         ProbeChoice::Spread(wanted) => {
-            let catalogue = apply_filter(client.probe_catalogue(af)?, cities);
+            let catalogue = client.probe_catalogue(af)?;
 
             // Validation pings anchors, so a dry run must not reach it.
             if options.validate && !options.dry_run {
@@ -740,46 +762,24 @@ fn choose_probes(
 }
 
 /// Fetch specific probes by ID, keeping only those that report a location.
-fn fetch_probes_by_id(client: &AtlasClient, ids: &[u32]) -> Result<Vec<AtlasProbe>> {
+fn fetch_probes_by_id(client: &AtlasClient, ids: &[u32], af: u8) -> Result<Vec<AtlasProbe>> {
     let mut probes = Vec::new();
     for chunk in ids.chunks(PAGE_SIZE) {
         let ids_str: Vec<String> = chunk.iter().map(|id| id.to_string()).collect();
         let url = format!(
             "{API_BASE}/probes/?id__in={}&format=json&page_size={PAGE_SIZE}\
-             &fields=id,geometry,country_code,is_anchor",
+             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6",
             ids_str.join(",")
         );
         probes.extend(
             client
                 .paged_probes(url)?
                 .into_iter()
-                .filter_map(ProbeInfo::into_probe),
+                .filter_map(|info| info.into_probe(af)),
         );
     }
     probes.sort_unstable_by_key(|p| p.id);
     Ok(probes)
-}
-
-/// Run the static location filter and report what it removed.
-fn apply_filter(probes: Vec<AtlasProbe>, cities: &RTree<Airport>) -> Vec<AtlasProbe> {
-    let before = probes.len();
-    let (kept, report) = filter_probes(probes, cities);
-    if report.rejected == 0 {
-        println!("Location filter: all {before} probes look plausible.");
-    } else {
-        let reasons: Vec<String> = report
-            .breakdown()
-            .into_iter()
-            .map(|(reason, count)| format!("{count} {reason}"))
-            .collect();
-        println!(
-            "Location filter: dropped {}/{} probes ({}).",
-            report.rejected,
-            before,
-            reasons.join(", ")
-        );
-    }
-    kept
 }
 
 /// Drop probes whose reported location is farther from an anchor than the measured
@@ -804,7 +804,7 @@ fn validate_locations(
     let lats: Vec<f32> = anchors.iter().map(|(a, _)| a.lat_rad).collect();
     let lons: Vec<f32> = anchors.iter().map(|(a, _)| a.lon_rad).collect();
     let chosen: Vec<&(AtlasProbe, String)> =
-        farthest_point_indices(&lats, &lons, VALIDATION_ANCHORS.min(anchors.len()))
+        farthest_point_indices(&lats, &lons, None, VALIDATION_ANCHORS.min(anchors.len()))
             .into_iter()
             .map(|i| &anchors[i])
             .collect();
@@ -828,7 +828,7 @@ fn validate_locations(
         af,
         &probe_ids,
         options.packets,
-        "MiGreedy probe location validation",
+        "probe location validation",
     )?;
     let results = client.wait_for_results(&ids, options.timeout)?;
 
@@ -910,10 +910,13 @@ fn report_spread(probes: &[AtlasProbe]) {
         .iter()
         .filter_map(|p| p.country_code.as_deref())
         .collect();
+    let well_connected = probes.iter().filter(|p| p.is_well_connected()).count();
     println!(
-        "Coverage: {} countries, closest pair {:.0} km apart.",
+        "Coverage: {} countries, closest pair {:.0} km apart, {}/{} probes on well-connected networks.",
         countries.len(),
-        nearest
+        nearest,
+        well_connected,
+        probes.len()
     );
 }
 
