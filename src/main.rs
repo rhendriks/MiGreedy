@@ -18,7 +18,7 @@
 //! They also need `lat, lon` which can be additional columns
 //! or extracted using a VPs file (`--vps`, see [`vps`]).
 //!
-//! * a CSV file (`--input`, see [`io`]);
+//! * a CSV (optionally gzipped) or Parquet file (`--input`, see [`io`]);
 //! * scamper warts files read natively (`--warts`, see [`warts`]).
 //!
 //! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
@@ -424,7 +424,7 @@ fn parse_cmd() -> ArgMatches {
         .version(env!("CARGO_PKG_VERSION"))
         .author("Remi Hendriks <remi.hendriks@utwente.nl>")
         .about("A fast, parallel improved version of the iGreedy algorithm for large-scale anycast-aware geolocation")
-        .arg(arg!(-i --input <FILE> "Input CSV file: addr,hostname,lat,lon,rtt (or addr,hostname,rtt with --vps)")
+        .arg(arg!(-i --input <FILE> "Input CSV (optionally .gz) or .parquet file: addr,hostname,lat,lon,rtt (or addr,hostname,rtt with --vps)")
             .value_parser(value_parser!(PathBuf)))
         .arg(arg!(--atlas <ID> "RIPE Atlas measurement ID or URL"))
         .arg(arg!(--warts <PATH> "scamper warts files to read (.warts/.warts.gz); accepts files, globs and directories. Requires --vps")
