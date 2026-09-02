@@ -63,7 +63,7 @@ Given a set of RTT (round-trip time) measurements from geographically distribute
    - Find the **smallest disc** in the cluster (tightest constraint). This is always the MIS disc itself.
    - Collect all candidate cities inside that disc.
    - Progressively intersect with each cluster disc (smallest to largest). If adding the next disc would remove all candidates, stop and use the last non-empty set.
-   - Apply the **relative population filter** (`--pop-ratio`): keep only cities with `pop >= max_pop × ratio`, where `max_pop` is the largest population among remaining candidates.
+   - Apply the **relative population filter** (`--pop_ratio`): keep only cities with `pop >= max_pop × ratio`, where `max_pop` is the largest population among remaining candidates.
    - Select the best city using: `score = α × (pop / Σpop) − (1 − α) × (dist / Σdist)`, where distance is measured from the disc's center.
 
 5. **Output** — One row per detected site, each with the geolocated city, its coordinates, and the MIS disc VP.
@@ -217,8 +217,8 @@ Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
 | `--vps`             |                | Optional vantage point coordinates file. rejected with `--atlas` and `--measure`.                                                       |
 | `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
 | `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
-| `-m`, `--min-pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
-| `-p`, `--pop-ratio` | `0.0`          | Relative population threshold (0.0–1.0). During geolocation, keeps only cities with `pop >= max_pop × ratio` among candidates.          |
+| `-m`, `--min_pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
+| `-p`, `--pop_ratio` | `0.0`          | Relative population threshold (0.0–1.0). During geolocation, keeps only cities with `pop >= max_pop × ratio` among candidates.          |
 | `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
 | `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
 | `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
@@ -228,14 +228,14 @@ These apply only together with `--measure`:
 
 | Argument                | Default | Description                                                                                       |
 |:------------------------|:--------|:--------------------------------------------------------------------------------------------------|
-| `--api-key`             |         | RIPE Atlas API key with the *measurement creation* permission.                                    |
-| `--save-api-key`        | `false` | Store `--api-key` for later runs.                                                                 |
-| `--num-probes`          | `100`   | How many probes to select, spread for the widest global coverage.                                 |
+| `--api_key`             |         | RIPE Atlas API key with the *measurement creation* permission.                                    |
+| `--save_api_key`        | `false` | Store `--api_key` for later runs.                                                                 |
+| `--num_probes`          | `100`   | How many probes to select, spread for the widest global coverage.                                 |
 | `--probes`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them.                   |
 | `--packets`             | `1`     | Ping packets sent per probe.                                                                      |
-| `--measurement-timeout` | `300`   | Seconds to wait for results before continuing with whatever has arrived.                          |
-| `--validate-probes`     | `false` | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits.  |
-| `--dry-run`             | `false` | Report the probe selection and exit without scheduling anything (and without needing an API key). |
+| `--measurement_timeout` | `300`   | Seconds to wait for results before continuing with whatever has arrived.                          |
+| `--validate_probes`     | `false` | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits.  |
+| `--dry_run`             | `false` | Report the probe selection and exit without scheduling anything (and without needing an API key). |
 
 ### RIPE Atlas example
 
@@ -269,12 +269,12 @@ permission, which you can make at [atlas.ripe.net/keys](https://atlas.ripe.net/k
 Store it once:
 
 ```bash
-./migreedy --api-key <YOUR-KEY> --save-api-key
+./migreedy --api_key <YOUR-KEY> --save_api_key
 ```
 
 The key is written to `~/.config/migreedy/atlas.key` with owner-only permissions.
 MiGreedy looks for a key in this order:
-`--api-key`, then the `MIGREEDY_ATLAS_KEY` environment variable, then that file.
+`--api_key`, then the `MIGREEDY_ATLAS_KEY` environment variable, then that file.
 
 #### Measuring a target
 
@@ -288,14 +288,14 @@ is linked from the output so you can inspect it afterwards. Several targets can 
 one probe set and one run, as long as they are all IPv4 or all IPv6:
 
 ```bash
-./migreedy --measure 1.1.1.1 8.8.8.8 9.9.9.9 --num-probes 200 --output results.csv
+./migreedy --measure 1.1.1.1 8.8.8.8 9.9.9.9 --num_probes 200 --output results.csv
 ```
 
-Measurements spend RIPE Atlas credits. Use `--dry-run` to see which probes would be used
+Measurements spend RIPE Atlas credits. Use `--dry_run` to see which probes would be used
 without scheduling anything (and without needing a key):
 
 ```bash
-./migreedy --measure 1.1.1.1 --num-probes 20 --dry-run
+./migreedy --measure 1.1.1.1 --num_probes 20 --dry_run
 ```
 
 #### Choosing probes
@@ -330,19 +330,19 @@ and filter those with conflicts.
 
 #### Validating probe locations using anchors
 
-Using `--validate-probes` verifies probe location validity using anchor measurements.
+Using `--validate_probes` verifies probe location validity using anchor measurements.
 It pings five globally spread anchors from the candidate probe.
 Probes reporting a speed-of-light violation to any of the anchors are dropped.
 
 ```bash
-./migreedy --measure 1.1.1.1 --validate-probes
+./migreedy --measure 1.1.1.1 --validate_probes
 ```
 
 This is off by default as it incurs additional measurements.
 
 NOTE: do not use 50% more candidates, too expensive perhaps 10% is more sensible.
 Because validation removes probes, MiGreedy selects 10% more candidates than asked for
-and keeps up to `--num-probes` validated probes.
+and keeps up to `--num_probes` validated probes.
 
 NOTE: remove probes that answer no anchor at all
 
@@ -353,16 +353,16 @@ The airports dataset is the original airport dataset (as used by iGreedy) with d
 The cities dataset contains all cities with a population of 500 or higher (sourced from GeoNames).
 
 **Population filtering:**
-- `--min-pop <N>` filters cities globally at load time (absolute threshold)
-- `--pop-ratio <R>` filters cities per-geolocation, keeping only those with `pop >= max_pop × R` (relative threshold)
+- `--min_pop <N>` filters cities globally at load time (absolute threshold)
+- `--pop_ratio <R>` filters cities per-geolocation, keeping only those with `pop >= max_pop × R` (relative threshold)
 
-These can be combined. For example, `--min-pop 10000 --pop-ratio 0.5` first removes all cities under 10k, then during each geolocation keeps only the top 50% by population among candidates.
+These can be combined. For example, `--min_pop 10000 --pop_ratio 0.5` first removes all cities under 10k, then during each geolocation keeps only the top 50% by population among candidates.
 
 Select a dataset with the `-d` flag:
 
 ```bash
 ./migreedy --atlas 11501 -d cities
-./migreedy --atlas 11501 -d cities --min-pop 15000
+./migreedy --atlas 11501 -d cities --min_pop 15000
 ./migreedy --input measurements.csv --output results.csv -d airports
 ```
 
