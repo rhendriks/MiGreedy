@@ -40,13 +40,14 @@ This implementation outputs the most likely city (or airport) for each MIS clust
 
 The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
 This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
-It takes latencies from multiple vantage points to targets — as a CSV file, a RIPE Atlas
-measurement, or scamper warts files read directly — and outputs a single file with
-geolocation results.
 
-Whatever the source, measurements with a missing or implausible RTT are dropped, and
-what remains is reduced to the lowest RTT per (target, vantage point), so each VP
-contributes one disc per target.
+It supports both CSV and scamper warts files.
+The latter for the LACeS pipeline.
+The output is a single geolocation results file.
+
+Instead of providing an input file, a RIPE Atlas measurement ID can be used
+or a live measurement can be scheduled (using a RIPE Atlas API key).
+See notes below regarding probe selection.
 
 ### How our geolocation implementation works
 
@@ -211,8 +212,9 @@ Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
 |:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
 | `-i`, `--input`     |                | Path to the input CSV file containing RTT measurements.                                                                                 |
 | `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`).                                        |
-| `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                |
-| `--vps`             |                | Vantage point coordinates file. Required with `--warts`; optional with `--input`; rejected with `--atlas`.                              |
+| `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                 |
+| `--measure`         |                | Target(s) to measure live: schedules RIPE Atlas ping measurements and geolocates the results. Needs an API key.                         |
+| `--vps`             |                | Optional vantage point coordinates file. rejected with `--atlas` and `--measure`.                                                       |
 | `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
 | `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
 | `-m`, `--min-pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
@@ -221,6 +223,19 @@ Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
 | `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
 | `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
 | `--accuracy`        | `false`        | If set, adds `candidate_diameter` (km) and `num_constraints` columns to the output (see below).                                         |
+
+These apply only together with `--measure`:
+
+| Argument                | Default | Description                                                                                       |
+|:------------------------|:--------|:--------------------------------------------------------------------------------------------------|
+| `--api-key`             |         | RIPE Atlas API key with the *measurement creation* permission.                                    |
+| `--save-api-key`        | `false` | Store `--api-key` for later runs.                                                                 |
+| `--num-probes`          | `100`   | How many probes to select, spread for the widest global coverage.                                 |
+| `--probes`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them.                   |
+| `--packets`             | `1`     | Ping packets sent per probe.                                                                      |
+| `--measurement-timeout` | `300`   | Seconds to wait for results before continuing with whatever has arrived.                          |
+| `--validate-probes`     | `false` | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits.  |
+| `--dry-run`             | `false` | Report the probe selection and exit without scheduling anything (and without needing an API key). |
 
 ### RIPE Atlas example
 
@@ -238,7 +253,98 @@ You can also pass a full URL instead of a numeric ID:
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
 ```
 
-**NOTE**: RIPE Atlas probes may have wrong user-reported locations which result in wrong geolocation results.
+**NOTE**: RIPE Atlas probes may have wrong user-reported locations which result in wrong
+geolocation results. `--atlas` uses every probe in the measurement as-is; `--measure`
+screens them first (see below).
+
+### Running your own RIPE Atlas measurements
+
+`--measure` takes a target instead of a measurement ID: MiGreedy picks the probes,
+schedules a one-off ping, waits for the results and geolocates them in one go.
+
+#### Configuring an API key
+
+Scheduling measurements needs a RIPE Atlas API key with the **measurement creation**
+permission, which you can make at [atlas.ripe.net/keys](https://atlas.ripe.net/keys/).
+Store it once:
+
+```bash
+./migreedy --api-key <YOUR-KEY> --save-api-key
+```
+
+The key is written to `~/.config/migreedy/atlas.key` with owner-only permissions.
+MiGreedy looks for a key in this order:
+`--api-key`, then the `MIGREEDY_ATLAS_KEY` environment variable, then that file.
+
+#### Measuring a target
+
+```bash
+./migreedy --measure 1.1.1.1
+```
+
+This selects 100 probes, pings the target from each of them, and writes the geolocated
+sites to `atlas_<ID>.csv`, where `<ID>` is the measurement RIPE Atlas created — the run
+is linked from the output so you can inspect it afterwards. Several targets can share
+one probe set and one run, as long as they are all IPv4 or all IPv6:
+
+```bash
+./migreedy --measure 1.1.1.1 8.8.8.8 9.9.9.9 --num-probes 200 --output results.csv
+```
+
+Measurements spend RIPE Atlas credits. Use `--dry-run` to see which probes would be used
+without scheduling anything (and without needing a key):
+
+```bash
+./migreedy --measure 1.1.1.1 --num-probes 20 --dry-run
+```
+
+#### Choosing probes
+
+We maximize geographical spread when choosing probes to improve geolocation accuracy.
+This is done using greedy farthest-point sampling, which is reported.
+
+```text
+Selected 20 probes for 1 IPv4 target(s): 1.1.1.1.
+Coverage: 17 countries, closest pair 3438 km apart.
+```
+
+Alternatively, you can use your own list of probes.
+E.g., if you know the target is within Europe, you can create a list of European probes.
+
+```bash
+./migreedy --measure 1.1.1.1 --probes 6118,1010358,23002
+./migreedy --measure 1.1.1.1 --probes my-probes.txt
+```
+
+#### Filtering probes with implausible locations
+
+RIPE Atlas probes have self reported geolocations.
+These can be inaccurate, which would result in wrong geolocation output.
+We filter these based on the following criteria:
+
+TODO
+
+NOTE:
+A robust method is to cross-verify probe locations with geolocation databases
+and filter those with conflicts.
+
+#### Validating probe locations using anchors
+
+Using `--validate-probes` verifies probe location validity using anchor measurements.
+It pings five globally spread anchors from the candidate probe.
+Probes reporting a speed-of-light violation to any of the anchors are dropped.
+
+```bash
+./migreedy --measure 1.1.1.1 --validate-probes
+```
+
+This is off by default as it incurs additional measurements.
+
+NOTE: do not use 50% more candidates, too expensive perhaps 10% is more sensible.
+Because validation removes probes, MiGreedy selects 10% more candidates than asked for
+and keeps up to `--num-probes` validated probes.
+
+NOTE: remove probes that answer no anchor at all
 
 ### Datasets
 
