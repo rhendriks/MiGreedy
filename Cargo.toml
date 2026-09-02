@@ -18,7 +18,7 @@ anyhow = "1.0.104" # error handling
 reqwest = { version = "0.13.4", features = ["blocking", "json"] } # HTTP client for RIPE Atlas API
 serde = { version = "1.0.229", features = ["derive"] } # JSON deserialization
 serde_json = "1.0.151" # JSON parsing
-flate2 = "1.1.9" # gzip decompression for embedded datasets and warts input
+flate2 = "1.1.10" # gzip decompression for embedded datasets and warts input
 rstar = "0.13.0" # R-tree spatial indexing for efficient geographic queries
 glob = "0.3.4" # glob patterns for --warts paths
 
