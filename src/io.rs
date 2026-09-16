@@ -1,5 +1,7 @@
 use anyhow::{Context, Result, bail};
+use flate2::Compression;
 use flate2::read::GzDecoder;
+use flate2::write::GzEncoder;
 use indicatif::{ProgressBar, ProgressStyle};
 use polars::prelude::*;
 use std::collections::HashMap;
@@ -496,11 +498,19 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
             fills.push(col("candidate_diameter").fill_null(lit(0u16)));
             fills.push(col("num_constraints").fill_null(lit(0u16)));
         }
-        // Write csv
+        // Write csv, gzipped when the path asks for it
         let mut df = df.lazy().with_columns(fills).collect()?;
-        CsvWriter::new(&mut file)
-            .with_separator(b'\t')
-            .finish(&mut df)?;
+        if is_gzipped(path) {
+            let mut encoder = GzEncoder::new(file, Compression::default());
+            CsvWriter::new(&mut encoder)
+                .with_separator(b'\t')
+                .finish(&mut df)?;
+            encoder.finish()?;
+        } else {
+            CsvWriter::new(&mut file)
+                .with_separator(b'\t')
+                .finish(&mut df)?;
+        }
     }
 
     Ok(())

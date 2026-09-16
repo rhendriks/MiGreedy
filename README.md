@@ -290,7 +290,7 @@ For example, measurement [2001](https://atlas.ripe.net/measurements/2001/) is a 
 ```
 
 This fetches the latest results from the RIPE Atlas API, runs the geolocation algorithm, and writes
-the output to `atlas_2001.csv`. A full URL works instead of a numeric ID:
+the output to `atlas_2001.csv.gz`. A full URL works instead of a numeric ID:
 
 ```bash
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
@@ -323,7 +323,7 @@ The key is written to `~/.config/migreedy/atlas.key` with owner-only permissions
 ```
 
 This selects 100 probes, pings the target from each of them, and writes the geolocated
-sites to `atlas_<ID>.csv`, where `<ID>` is the measurement RIPE Atlas created.
+sites to `atlas_<ID>.csv.gz`, where `<ID>` is the measurement RIPE Atlas created.
 
 ```bash
 ./migreedy --measure 1.1.1.1 8.8.8.8 9.9.9.9 --num_probes 200 --output results.csv
@@ -403,8 +403,7 @@ City datasets are sourced from [GeoNames](https://www.geonames.org/) and license
 
 ## Output format
 
-Results are written to the path given by `-o` as tab-separated CSV by default,
-or as Parquet when the path ends in `.parquet`.
+Results can be written as `.csv.gz` (default), `.parquet`, or `.csv`, CSV files are tab-separated.
 Rows are sorted by address, so repeated runs of the same input produce identical files.
 
 | Column     | Parquet type | Description                                                                                 |
@@ -463,11 +462,11 @@ Also available as `migreedy --help`.
 
 **Output**
 
-| Option                  | Default        | Description                                                                                                      |
-|-------------------------|----------------|------------------------------------------------------------------------------------------------------------------|
-| `-o`, `--output <PATH>` | **(Required)** | Output file; `.parquet` is written as Parquet, anything else as CSV. Defaults to `atlas_<ID>.csv` with `--atlas` |
-| `--anycast`             | off            | Only output geolocations for anycast targets                                                                     |
-| `--accuracy`            | off            | Add the `candidate_diameter` (km) and `num_constraints` columns                                                  |
+| Option                  | Default        | Description                                                                                   |
+|-------------------------|----------------|-----------------------------------------------------------------------------------------------|
+| `-o`, `--output <PATH>` | **(Required)** | Output file; `.parquet`, `.csv.gz`, or `.csv`. Defaults to `atlas_<ID>.csv.gz` with `--atlas` |
+| `--anycast`             | off            | Only output geolocations for anycast targets                                                  |
+| `--accuracy`            | off            | Add the `candidate_diameter` (km) and `num_constraints` columns                               |
 
 **RIPE Atlas measurements** (`--measure` only)
 

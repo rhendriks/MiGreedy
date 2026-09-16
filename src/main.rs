@@ -24,7 +24,7 @@
 //! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
 //! and scheduling new ones (`--measure`).
 //!
-//! Results are written as CSV (default), or as Parquet (see [`io`]).
+//! Results are written as gzipped .csv.gz (default), .csv, or .parquet (see [`io`]).
 mod analyzer;
 mod atlas;
 mod config;
@@ -239,7 +239,7 @@ fn main() -> Result<()> {
             let id =
                 atlas_id.or_else(|| measured_ids.as_ref().and_then(|ids| ids.first().copied()));
             match id {
-                Some(id) => PathBuf::from(format!("atlas_{}.csv", id)),
+                Some(id) => PathBuf::from(format!("atlas_{}.csv.gz", id)),
                 None => bail!("--output is required when using --input or --warts."),
             }
         }
@@ -348,7 +348,7 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(--measure <TARGET> "Schedule RIPE Atlas ping measurements to these targets and geolocate the results (needs an API key)")
             .num_args(1..)
             .conflicts_with("source"))
-        .arg(arg!(-o --output <PATH> "Path to write output, as .csv or .parquet (defaults to atlas_<ID>.csv with --atlas and --measure)")
+        .arg(arg!(-o --output <PATH> "Path to write output, as .csv, .csv.gz or .parquet")
             .value_parser(value_parser!(PathBuf)))
         .arg(arg!(--vps <FILE> "Vantage point coordinates file: whitespace-separated 'hostname lat lon', no header")
             .value_parser(value_parser!(PathBuf))

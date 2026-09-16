@@ -5,6 +5,7 @@ All notable changes to MiGreedy are documented in this file.
 ## [1.8.0]
 
 ### Added
+- **Gzipped CSV output** (`--output <FILE>.csv.gz`) — default for the `atlas_<ID>` output.
 - **Parquet output** (`--output <FILE>.parquet`) — zstd-compressed, with `addr` stored as
   16 packed bytes (IPv4 as IPv6-mapped).
 
