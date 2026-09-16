@@ -24,7 +24,7 @@
 //! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
 //! and scheduling new ones (`--measure`).
 //!
-//! Results are written as CSV (see [`io`]).
+//! Results are written as CSV (default), or as Parquet (see [`io`]).
 mod analyzer;
 mod atlas;
 mod config;
@@ -39,7 +39,6 @@ use anyhow::{Result, bail};
 use clap::builder::RangedU64ValueParser;
 use clap::{ArgAction, ArgGroup, ArgMatches, Command, arg, value_parser};
 use indicatif::ParallelProgressIterator;
-use polars::prelude::*;
 use rayon::prelude::*;
 use rstar::RTree;
 use std::fs::File;
@@ -54,7 +53,8 @@ use atlas::{
     run_measurement,
 };
 use io::{
-    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data, progress_bar,
+    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data,
+    progress_bar, write_results,
 };
 use model::{Airport, Disc, OutputRecord};
 use probes::parse_probe_list;
@@ -315,97 +315,7 @@ fn main() -> Result<()> {
     // Write results to path
     if !results.is_empty() {
         println!("Saving results to {:?}...", output_path);
-        let num_results = results.len();
-        let mut output_df = DataFrame::new(
-            num_results,
-            vec![
-                Series::new(
-                    "addr".into(),
-                    results.iter().map(|r| &*r.target).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp".into(),
-                    results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp_lat".into(),
-                    results.iter().map(|r| r.vp_lat).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp_lon".into(),
-                    results.iter().map(|r| r.vp_lon).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "radius".into(),
-                    results.iter().map(|r| r.radius).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_iata".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_iata.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_lat".into(),
-                    results.iter().map(|r| r.pop_lat).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_lon".into(),
-                    results.iter().map(|r| r.pop_lon).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_city".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_city.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_cc".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_cc.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-            ],
-        )?;
-
-        // Append accuracy columns if --accuracy flag is set
-        if is_accuracy {
-            let diameter_col = Series::new(
-                "candidate_diameter".into(),
-                results
-                    .iter()
-                    .map(|r| r.candidate_diameter.unwrap_or(0.0))
-                    .collect::<Vec<f32>>(),
-            );
-            let constraints_col = Series::new(
-                "num_constraints".into(),
-                results
-                    .iter()
-                    .map(|r| r.num_constraints.unwrap_or(0))
-                    .collect::<Vec<u32>>(),
-            );
-            output_df.with_column(diameter_col.into())?;
-            output_df.with_column(constraints_col.into())?;
-        }
-
-        let mut file = File::create(output_path)?;
-        CsvWriter::new(&mut file)
-            .with_separator(b'\t')
-            .finish(&mut output_df)?;
-
+        write_results(results, &output_path, is_accuracy)?;
         println!("Results successfully saved.");
     } else {
         println!("No geolocated sites found, no output file written.");
@@ -435,7 +345,7 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(--measure <TARGET> "Schedule RIPE Atlas ping measurements to these targets and geolocate the results (needs an API key)")
             .num_args(1..)
             .conflicts_with("source"))
-        .arg(arg!(-o --output <PATH> "Path to write output (defaults to atlas_<ID>.csv with --atlas and --measure)")
+        .arg(arg!(-o --output <PATH> "Path to write output, as .csv or .parquet (defaults to atlas_<ID>.csv with --atlas and --measure)")
             .value_parser(value_parser!(PathBuf)))
         .arg(arg!(--vps <FILE> "Vantage point coordinates file: whitespace-separated 'hostname lat lon', no header")
             .value_parser(value_parser!(PathBuf))
