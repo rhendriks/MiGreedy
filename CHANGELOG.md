@@ -2,7 +2,7 @@
 
 All notable changes to MiGreedy are documented in this file.
 
-## [1.8.0]
+## [1.8.0] - 2026-09-16
 
 ### Added
 - **Gzipped CSV output** (`--output <FILE>.csv.gz`) — default for the `atlas_<ID>` output.
