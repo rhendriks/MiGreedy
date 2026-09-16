@@ -2,6 +2,22 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.8.0] - 2026-09-16
+
+### Added
+- **Gzipped CSV output** (`--output <FILE>.csv.gz`) — default for the `atlas_<ID>` output.
+- **Parquet output** (`--output <FILE>.parquet`) — zstd-compressed, with `addr` stored as
+  16 packed bytes (IPv4 as IPv6-mapped).
+
+### Changed
+- Output rows are sorted by address, so repeated runs produce identical files.
+- Sites without a geolocated city now report `candidate_diameter` as twice the disc radius.
+- `radius` and `candidate_diameter` converted to u16 (whole kilometers) to shrink output size.
+- Lowered memory usage by avoiding clones.
+
+### Documentation
+- README restructured for improved readability.
+
 ## [1.7.0] - 2026-09-01
 
 Adds live RIPE Atlas measurements: give MiGreedy a target and it schedules the ping

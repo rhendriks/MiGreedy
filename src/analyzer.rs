@@ -17,7 +17,7 @@ pub struct GeolocationResult {
     /// Max pairwise distance (km) between surviving candidate cities
     pub candidate_diameter: f32,
     /// Number of discs that successfully narrowed the candidate set
-    pub num_constraints: u32,
+    pub num_constraints: u16,
 }
 
 /// Largest great-circle distance (km) between any two of the given locations.
@@ -162,11 +162,11 @@ impl<'a> AnycastAnalyzer<'a> {
                     vp_lat: disc_in_mis.lat.to_degrees(),
                     vp_lon: disc_in_mis.lon.to_degrees(),
                     radius: disc_in_mis.radius,
-                    pop_iata: geo.airport.iata.clone(),
+                    pop_iata: Some(geo.airport.iata.clone()),
                     pop_lat: geo.airport.lat,
                     pop_lon: geo.airport.lon,
-                    pop_city: geo.airport.city.clone(),
-                    pop_cc: geo.airport.country_code.clone(),
+                    pop_city: Some(geo.airport.city.clone()),
+                    pop_cc: Some(geo.airport.country_code.clone()),
                     candidate_diameter: self.accuracy.then_some(geo.candidate_diameter),
                     num_constraints: self.accuracy.then_some(geo.num_constraints),
                 });
@@ -177,13 +177,15 @@ impl<'a> AnycastAnalyzer<'a> {
                     vp_lat: disc_in_mis.lat.to_degrees(),
                     vp_lon: disc_in_mis.lon.to_degrees(),
                     radius: disc_in_mis.radius,
-                    pop_iata: "NoCity".to_string(),
+                    // No location found: written as "NoCity"/"N/A" in CSV, null in Parquet
+                    pop_iata: None,
                     pop_lat: disc_in_mis.lat.to_degrees(),
                     pop_lon: disc_in_mis.lon.to_degrees(),
-                    pop_city: "N/A".to_string(),
-                    pop_cc: "N/A".to_string(),
-                    candidate_diameter: self.accuracy.then_some(0.0),
-                    num_constraints: self.accuracy.then_some(0),
+                    pop_city: None,
+                    pop_cc: None,
+                    // The site could be anywhere in the disc
+                    candidate_diameter: self.accuracy.then_some(disc_in_mis.radius * 2.0),
+                    num_constraints: None,
                 });
             }
         }
@@ -346,7 +348,7 @@ impl<'a> AnycastAnalyzer<'a> {
 
         // Progressively intersect (reducing bbox size)
         // Start at 1: the bbox pre-filter already applies the smallest disc's constraint
-        let mut num_constraints: u32 = 1;
+        let mut num_constraints: u16 = 1;
         for disc in &sorted_cluster {
             prev_alive.copy_from_slice(&alive);
             // Calculate distance between current discs and all eligible locations
@@ -369,7 +371,7 @@ impl<'a> AnycastAnalyzer<'a> {
 
             // Count discs that actually narrowed the candidate set
             if changed {
-                num_constraints += 1;
+                num_constraints = num_constraints.saturating_add(1);
             }
         }
 

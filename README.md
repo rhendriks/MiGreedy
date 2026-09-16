@@ -1,4 +1,5 @@
-# A fast, parallel improved version of the iGreedy algorithm for large-scale anycast-aware geolocation
+# MiGreedy
+
 ```text
 180 150W  120W  90W   60W   30W  000   30E   60E   90E   120E  150E 180
 |    |     |     |     |     |    |     |     |     |     |     |     |
@@ -30,34 +31,144 @@
      Based on 1998 Map by Matthew Thomas   |____/ Hacked on 2015 by 8^/
 ```
 
-[This repository](https://github.com/rhendriks/MiGreedy)
-contains a geolocation algorithm based on [iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy)
-that was published in the paper [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+MiGreedy is an anycast-aware IP geolocation implementation using latency measurements.
+Originally designed as a multi-threaded (hence the 'M') and optimized implementation of the
+[iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy) algorithm published in
+[Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+In particular, this was created for the [LACeS](https://manycast.net) daily anycast census
+as the python iGreedy implementation struggled with the scale and frequency of measurements.
 
-The delta of this work is a performance aware implementation through multi-threading, implemented in Rust.
-In addition, we improve the iGreedy algorithm by geolocating IPs using the intersection of discs within each MIS cluster (see iGreedy paper for details) rather than the lowest circle in each set.
-This implementation outputs the most likely city (or airport) for each MIS cluster. Unicast targets produce a single location, whereas anycast targets produce multiple locations corresponding to different anycast sites.
+This has been extended by:
+* Implemented in Rust for speed and resource efficiency
+* Unicast geolocation alongside anycast geolocation
+* Improved accuracy of anycast geolocation using intersection of discs in MIS clusters
+* Support for geolocation at city granularity in addition to airports
+* Confidence and accuracy metrics (`--accuracy`)
+* Improved live RIPE Atlas measurement support through VP selection algorithms
 
-The goal of this implementation is to reduce processing time for [LACeS](https://arxiv.org/abs/2503.20554) (an Open, Fast, Responsible and Efficient Longitudinal Anycast Census System).
-This code is used to produce daily anycast censuses, [publicly available](https://github.com/ut-dacs/anycast-census).
+**Measurement input**
+* CSV (optionally gzipped) and Parquet files, including [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output
+* scamper warts files, read natively — used by the LACeS pipeline
+* RIPE Atlas measurements, fetched by ID or scheduled live against a target
 
-It supports both CSV and scamper warts files.
-The latter for the LACeS pipeline.
-The output is a single geolocation results file.
+This README is the manual for installing and running MiGreedy.
 
-Instead of providing an input file, a RIPE Atlas measurement ID can be used
-or a live measurement can be scheduled (using a RIPE Atlas API key).
-See notes below regarding probe selection.
+## Contents
 
-### How our geolocation implementation works
+* [Installation](#installation)
+* [Quick start](#quick-start)
+* [How it works](#how-it-works)
+* [Input formats](#input-formats)
+* [RIPE Atlas](#ripe-atlas)
+* [Datasets](#datasets)
+* [Output format](#output-format)
+* [Options reference](#options-reference)
+* [Contributing](#contributing)
+* [Citation](#citation)
 
-Given a set of RTT (round-trip time) measurements from geographically distributed vantage points (VPs) to a target IP, the algorithm determines the target's location(s):
+## Installation
 
-1. **RTT to distance** — Each VP's RTT is converted to a maximum geographic radius (a *disc*) using the speed of light in fiber, centered on the VP's known location. The target must lie somewhere within this disc.
+### Download a binary
 
-2. **Enumeration (MIS)** — Discs are sorted by radius (ascending). A greedy Maximum Independent Set (MIS) is built: each disc that does not overlap with any already-selected disc is added. Each MIS disc represents a distinct network site. A single MIS disc means unicast; multiple means anycast.
+Pre-compiled binaries are available for Linux and macOS.
 
-3. **Clustering** — For each MIS disc, all other discs that overlap with it (and *only* it—discs overlapping multiple MIS discs are excluded as ambiguous) are collected into a *cluster*. These discs all likely measured the same site.
+**Linux (x86_64, static musl)**
+
+```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-linux-x86_64.tar.gz
+tar -xzvf migreedy-linux-x86_64.tar.gz
+```
+
+**macOS (Apple Silicon)**
+
+```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-aarch64.tar.gz
+tar -xzvf migreedy-macos-aarch64.tar.gz
+```
+
+**macOS (Intel)**
+
+```bash
+curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-x86_64.tar.gz
+tar -xzvf migreedy-macos-x86_64.tar.gz
+```
+
+### Docker
+
+```bash
+docker pull ghcr.io/rhendriks/migreedy:main
+```
+
+The container reads and writes in a mounted data directory:
+
+```bash
+mkdir igreedy_data
+mv measurements.csv igreedy_data/
+
+docker run --rm \
+  -v "$(pwd)"/igreedy_data:/app/data \
+  ghcr.io/rhendriks/migreedy:main \
+  --input /app/data/measurements.csv \
+  --output /app/data/results.csv
+```
+
+On Windows (PowerShell):
+
+```powershell
+docker run --rm `
+  -v "${PWD}\igreedy_data:/app/data" `
+  ghcr.io/rhendriks/migreedy:main `
+  --input /app/data/measurements.csv `
+  --output /app/data/results.csv
+```
+
+The output file appears in the mounted directory once the run finishes.
+
+### Build from source
+
+Requires rustup.
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && source $HOME/.cargo/env
+git clone https://github.com/rhendriks/MiGreedy.git && cd MiGreedy
+cargo build --release
+```
+
+The binary is written to `target/release/migreedy`.
+
+## Quick start
+
+**1. Geolocate a measurement file** (CSV, gzipped CSV, Parquet, or warts):
+
+```bash
+./migreedy --input measurements.csv --output results.csv
+```
+
+Each output row is one geolocated site: a unicast target produces a single row, an anycast target
+one row per detected site. See [Input formats](#input-formats) and [Output format](#output-format).
+
+**2. Or geolocate an existing RIPE Atlas measurement**, by ID or URL, with no local data files:
+
+```bash
+./migreedy --atlas 2001
+```
+
+**3. Or schedule your own measurement** towards a target, which needs a RIPE Atlas API key:
+
+```bash
+./migreedy --measure 1.1.1.1
+```
+
+## How it works
+
+Given a set of RTT (round-trip time) measurements from geographically distributed vantage points
+(VPs) to a target IP, the algorithm determines the target's location(s):
+
+1. **RTT to distance** — Each VP's RTT is converted to a disc using the speed of light in fiber. The target must lie somewhere within this disc.
+
+2. **Enumeration (MIS)** — Discs are sorted by radius (ascending). Every non-overlapping MIS disc geolocates an anycast replica (a single MIS disc means unicast).
+
+3. **Clustering** — For each MIS disc, all other discs that overlap with it (and only this MIS disc) are collected into a *cluster*. These discs all likely measured the same site.
 
 4. **Intersection & geolocation** — Within the cluster:
    - Find the **smallest disc** in the cluster (tightest constraint). This is always the MIS disc itself.
@@ -89,181 +200,112 @@ We limit the occurrence of this by only using intersecting discs that intersect 
 
 **Why we keep the intersection.**
 Both methods may lead to false geolocations within the MIS disc.
-This is especially prevalent when there are large MIS discs, which we observe in areas with poor VP coverage.
-In such cases, we find the accuracy can be improved substantially by using other non-MIS discs that intersect with this MIS disc (and this MIS disc only).
-Whilst it is possible we intersect with non-MIS discs that happened to reach a different anycast site,
-we find it is quite rare.
-It would have to intersect no other MIS disc and create an intersection that maintains valid cities (elsewise it will simply not be used).
-Using intersecting discs also allows us to extend the script to output unicast geolocation.
+However, for our large scale census we find it improves accuracy.
+Intersecting discs also allows us to output accurate unicast geolocations.
 
-The most decisive difference is observability.
-The `--accuracy` flag reports
-`num_constraints` (how many discs actually narrowed the candidate set)
-and `candidate_diameter` (the spread of the surviving candidates),
-so low-confidence geolocations can be identified and filtered.
-Rows combining a large `radius` with a low `num_constraints` should be treated as weak.
+## Input formats
 
----
+Exactly one input source is required: `--input`, `--atlas`, `--warts`, or `--measure`.
 
-## Pre-compiled binaries
+### CSV
 
-We provide pre-compiled binaries for Linux and macOS.
+The input CSV file **must have a header row**, and its columns are read positionally in this order:
 
-### Linux (x86_64, static musl)
-```bash
-curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-linux-x86_64.tar.gz
-tar -xzvf migreedy-linux-x86_64.tar.gz
-./migreedy --input path/to/measurements.csv --output path/to/results.csv
-```
+| Column     | Data type | Description                                |
+|------------|-----------|--------------------------------------------|
+| `addr`     | string    | The IP address being measured.             |
+| `hostname` | string    | The hostname or ID of the prober (VP).     |
+| `lat`      | float     | The latitude of the prober.                |
+| `lon`      | float     | The longitude of the prober.               |
+| `rtt`      | float     | The round-trip time (in ms) to the target. |
 
-### macOS (Apple Silicon)
-```bash
-curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-aarch64.tar.gz
-tar -xzvf migreedy-macos-aarch64.tar.gz
-./migreedy --input path/to/measurements.csv --output path/to/results.csv
-```
+When `--vps` is given, the `lat` and `lon` columns are looked up from the VPs file
+instead and must be omitted, leaving `addr,hostname,rtt`.
 
-### macOS (Intel)
-```bash
-curl -LO https://github.com/rhendriks/MiGreedy/releases/latest/download/migreedy-macos-x86_64.tar.gz
-tar -xzvf migreedy-macos-x86_64.tar.gz
-./migreedy --input path/to/measurements.csv --output path/to/results.csv
-```
-
-## Running with Docker
-
-The code can be ran using Docker.
-
-### Step 1: Pull the Docker Image
-
-Pull the latest pre-built image from the GitHub Container Registry:
+A path ending in `.gz` is decompressed first, so a gzipped CSV is read directly:
 
 ```bash
-docker pull ghcr.io/rhendriks/migreedy:main
+./migreedy --input measurements.csv.gz --output results.csv
 ```
 
-### Step 2: Prepare Your Data Directory
+### Parquet
 
-You need a local directory containing your input CSV file (e.g., `measurements.csv`).
-This directory will be mounted into the Docker container.
+A path ending in `.parquet` is read as Parquet. Parquet files carry their own column
+names, so unlike CSV their columns are matched **by name** and in any order.
+
+| Column              | Required | Description                                                        |
+|---------------------|----------|--------------------------------------------------------------------|
+| `addr`              | yes      | The IP address being measured, as text or as packed address bytes. |
+| `hostname`, or `rx` | yes      | The hostname or ID of the prober (VP).                             |
+| `rtt`               | yes      | The round-trip time (in ms) to the target.                         |
+| `lat`, `lon`        | no       | The prober's coordinates. Without them, `--vps` is required.       |
+
+This reads [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output as it is
+written, whose columns are `rx, addr, ttl, rtt`.
+MAnycastR stores each address as 16 IPv6-mapped bytes rather than as text.
+This format is supported.
+
+### VPs file
+
+A VPs file gives each vantage point's location, so measurements that identify their
+VP only by name can be turned into discs. It is required with `--warts` and optional
+with `--input`.
+
+The format is whitespace-separated `hostname lat lon`, one per line, with **no header**:
+
+```text
+hlz2-nz.ark.caida.org -37.79 175.28
+fra-de.ark.caida.org 50.11 8.74
+hkg4-cn.ark.caida.org 22.36 114.12
+```
+
+### Warts
+
+`--warts` reads [scamper](https://www.caida.org/catalog/software/scamper/) output
+directly. `.warts` and `.warts.gz` are both supported.
 
 ```bash
-# Example: Create a directory and move your data into it
-mkdir igreedy_data
-mv measurements.csv igreedy_data/
+# a directory of files
+./migreedy --warts /data/2026-08-10/ --vps vps.txt --output results.csv
+
+# explicit files, or a quoted glob
+./migreedy --warts a.warts b.warts.gz --vps vps.txt --output results.csv
+./migreedy --warts '/data/*.iffinder.warts.gz' --vps vps.txt --output results.csv
 ```
 
-### Step 3: Run the Container
+The vantage point for each file is taken from the monitor name recorded inside the
+file, falling back to the filename if that name is not one the VPs file lists.
 
-Execute the `docker run` command, which mounts your data directory and passes the necessary arguments to the MiGreedy script.
+This only supports `dealias` records.
 
-#### Linux/MacOS
-```bash
-docker run --rm \
-  -v "$(pwd)"/igreedy_data:/app/data \
-  ghcr.io/rhendriks/migreedy:main \
-  --input /app/data/measurements.csv \
-  --output /app/data/results.csv
-```
+## RIPE Atlas
 
-#### Windows (PowerShell)
-```powershell
-docker run --rm `
-  -v "${PWD}\igreedy_data:/app/data" `
-  ghcr.io/rhendriks/migreedy:main `
-  --input /app/data/measurements.csv `
-  --output /app/data/results.csv
-```
+### Geolocating an existing measurement
 
-After the command finishes, the output file `results.csv` will appear in your local `igreedy_data` directory.
-
----
-
-## Installation
-
-1.  Clone this repository:
-    ```bash
-    git clone https://github.com/rhendriks/MiGreedy
-    cd MiGreedy
-    ```
-
-2. Install Rust:
-    ```bash
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-    source $HOME/.cargo/env
-    rustup update
-    ```
-
-3. Build the project using Cargo:
-    ```bash
-    cargo build --release
-    ```
-
-4. Run the compiled binary with the required arguments:
-    ```bash
-    ./target/release/migreedy --input path/to/measurements.csv --output path/to/results.csv
-    ```
-
-### Command-Line Arguments
-
-Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
-
-| Argument            | Default        | Description                                                                                                                             |
-|:--------------------|:---------------|:----------------------------------------------------------------------------------------------------------------------------------------|
-| `-i`, `--input`     |                | Path to the input CSV (optionally `.gz`) or `.parquet` file containing RTT measurements.                                                |
-| `--atlas`           |                | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`).                                        |
-| `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                 |
-| `--measure`         |                | Target(s) to measure live: schedules RIPE Atlas ping measurements and geolocates the results. Needs an API key.                         |
-| `--vps`             |                | Optional vantage point coordinates file. rejected with `--atlas` and `--measure`.                                                       |
-| `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
-| `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
-| `-m`, `--min_pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
-| `-p`, `--pop_ratio` | `0.0`          | Relative population threshold (0.0–1.0). During geolocation, keeps only cities with `pop >= max_pop × ratio` among candidates.          |
-| `-a`, `--alpha`     | `1.0`          | A float (0.0 to 1.0) to tune the geolocation scoring. A higher alpha prioritizes population density over distance from the disc center. |
-| `-t`, `--threshold` | `0`            | Discards measurements with an RTT greater than this value (in ms) to bound the maximum radius and potential error.                      |
-| `--anycast`         | `false`        | If set, outputs only geolocation for anycast targets.                                                                                   |
-| `--accuracy`        | `false`        | If set, adds `candidate_diameter` (km) and `num_constraints` columns to the output (see below).                                         |
-
-These apply only together with `--measure`:
-
-| Argument                | Default | Description                                                                                       |
-|:------------------------|:--------|:--------------------------------------------------------------------------------------------------|
-| `--api_key`             |         | RIPE Atlas API key with the *measurement creation* permission.                                    |
-| `--save_api_key`        | `false` | Store `--api_key` for later runs.                                                                 |
-| `--num_probes`          | `100`   | How many probes to select, spread for the widest global coverage.                                 |
-| `--probes`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them.                   |
-| `--packets`             | `1`     | Ping packets sent per probe.                                                                      |
-| `--measurement_timeout` | `300`   | Seconds to wait for results before continuing with whatever has arrived.                          |
-| `--validate_probes`     | `false` | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits.  |
-| `--dry_run`             | `false` | Report the probe selection and exit without scheduling anything (and without needing an API key). |
-
-### RIPE Atlas example
-
-You can geolocate targets directly from a RIPE Atlas measurement without any local data files.
+Targets can be geolocated directly from a RIPE Atlas measurement.
 For example, measurement [2001](https://atlas.ripe.net/measurements/2001/) is a periodic ping towards K-root:
 
 ```bash
 ./migreedy --atlas 2001
 ```
 
-This fetches the latest results from the RIPE Atlas API, runs the geolocation algorithm, and writes the output to `atlas_2001.csv`.
-You can also pass a full URL instead of a numeric ID:
+This fetches the latest results from the RIPE Atlas API, runs the geolocation algorithm, and writes
+the output to `atlas_2001.csv.gz`. A full URL works instead of a numeric ID:
 
 ```bash
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
 ```
 
-**NOTE**: RIPE Atlas probes may have wrong user-reported locations which result in wrong
-geolocation results. `--atlas` uses every probe in the measurement as-is; `--measure`
-screens them first (see below).
+> **NOTE:** RIPE Atlas probes may have wrong user-reported locations which result in wrong
+> geolocation results. `--atlas` uses every probe in the measurement as-is; `--measure`
+> screens them first (see below).
 
-### Running your own RIPE Atlas measurements
+### Scheduling a new measurement
 
 `--measure` takes a target instead of a measurement ID: MiGreedy picks the probes,
 schedules a one-off ping, waits for the results and geolocates them in one go.
 
-#### Configuring an API key
-
+**Configuring an API key.**
 Scheduling measurements needs a RIPE Atlas API key with the **measurement creation**
 permission, which you can make at [atlas.ripe.net/keys](https://atlas.ripe.net/keys/).
 Store it once:
@@ -273,32 +315,27 @@ Store it once:
 ```
 
 The key is written to `~/.config/migreedy/atlas.key` with owner-only permissions.
-MiGreedy looks for a key in this order:
-`--api_key`, then the `MIGREEDY_ATLAS_KEY` environment variable, then that file.
 
-#### Measuring a target
+**Measuring a target.**
 
 ```bash
 ./migreedy --measure 1.1.1.1
 ```
 
 This selects 100 probes, pings the target from each of them, and writes the geolocated
-sites to `atlas_<ID>.csv`, where `<ID>` is the measurement RIPE Atlas created — the run
-is linked from the output so you can inspect it afterwards. Several targets can share
-one probe set and one run, as long as they are all IPv4 or all IPv6:
+sites to `atlas_<ID>.csv.gz`, where `<ID>` is the measurement RIPE Atlas created.
 
 ```bash
 ./migreedy --measure 1.1.1.1 8.8.8.8 9.9.9.9 --num_probes 200 --output results.csv
 ```
 
-Measurements spend RIPE Atlas credits. Use `--dry_run` to see which probes would be used
-without scheduling anything (and without needing a key):
+Use `--dry_run` to see which probes would be used without scheduling anything.
 
 ```bash
 ./migreedy --measure 1.1.1.1 --num_probes 20 --dry_run
 ```
 
-#### Choosing probes
+### Choosing probes
 
 We maximize geographical spread when choosing probes to improve geolocation accuracy.
 This is done using greedy farthest-point sampling, which is reported.
@@ -316,23 +353,20 @@ E.g., if you know the target is within Europe, you can create a list of European
 ./migreedy --measure 1.1.1.1 --probes my-probes.txt
 ```
 
-#### Filtering probes with implausible locations
+### Filtering probes with implausible locations
 
 RIPE Atlas probes have self reported geolocations.
 These can be inaccurate, which would result in wrong geolocation output.
-We filter these based on the following criteria:
 
-TODO
+> **NOTE:** A good method is to verify probe locations with geolocation databases.
 
-NOTE:
-A robust method is to cross-verify probe locations with geolocation databases
-and filter those with conflicts.
-
-#### Validating probe locations using anchors
+### Validating probe locations using anchors
 
 Using `--validate_probes` verifies probe location validity using anchor measurements.
 It pings five globally spread anchors from the candidate probe.
 Probes reporting a speed-of-light violation to any of the anchors are dropped.
+
+> **NOTE:** Few anchors have false geolocations, which would invalidate this check.
 
 ```bash
 ./migreedy --measure 1.1.1.1 --validate_probes
@@ -340,23 +374,13 @@ Probes reporting a speed-of-light violation to any of the anchors are dropped.
 
 This is off by default as it incurs additional measurements.
 
-NOTE: do not use 50% more candidates, too expensive perhaps 10% is more sensible.
 Because validation removes probes, MiGreedy selects 10% more candidates than asked for
 and keeps up to `--num_probes` validated probes.
 
-NOTE: remove probes that answer no anchor at all
-
-### Datasets
+## Datasets
 
 MiGreedy ships with embedded airports and cities datasets.
-The airports dataset is the original airport dataset (as used by iGreedy) with duplicate airports removed.
 The cities dataset contains all cities with a population of 500 or higher (sourced from GeoNames).
-
-**Population filtering:**
-- `--min_pop <N>` filters cities globally at load time (absolute threshold)
-- `--pop_ratio <R>` filters cities per-geolocation, keeping only those with `pop >= max_pop × R` (relative threshold)
-
-These can be combined. For example, `--min_pop 10000 --pop_ratio 0.5` first removes all cities under 10k, then during each geolocation keeps only the top 50% by population among candidates.
 
 Select a dataset with the `-d` flag:
 
@@ -366,139 +390,108 @@ Select a dataset with the `-d` flag:
 ./migreedy --input measurements.csv --output results.csv -d airports
 ```
 
-City datasets are sourced from [GeoNames](https://www.geonames.org/) and licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+**Population filtering**
 
-## Data Format
+* `--min_pop <N>` filters cities globally at load time (absolute threshold)
+* `--pop_ratio <R>` filters cities per-geolocation, keeping only those with `pop >= max_pop × R` (relative threshold)
 
-### Input File Format
+These can be combined. For example, `--min_pop 10000 --pop_ratio 0.5` first removes all cities under 10k,
+then during each geolocation keeps only the top 50% by population among candidates.
 
-The input CSV file **must have a header row**, and its columns are read positionally in this order:
+City datasets are sourced from [GeoNames](https://www.geonames.org/) and licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-| Column     | Data Type | Description                                |
-|:-----------|:----------|:-------------------------------------------|
-| `target`   | string    | The IP address being measured.             |
-| `hostname` | string    | The hostname or ID of the prober (VP).     |
-| `lat`      | float     | The latitude of the prober.                |
-| `lon`      | float     | The longitude of the prober.               |
-| `rtt`      | float     | The round-trip time (in ms) to the target. |
+## Output format
 
-When `--vps` is given, the `lat` and `lon` columns are looked up from the VPs file
-instead and must be omitted, leaving `target,hostname,rtt`.
+Results can be written as `.csv.gz` (default), `.parquet`, or `.csv`, CSV files are tab-separated.
+Rows are sorted by address, so repeated runs of the same input produce identical files.
 
-A path ending in `.gz` is decompressed first, so a gzipped CSV is read directly:
+| Column     | Parquet type | Description                                                                                 |
+|------------|--------------|---------------------------------------------------------------------------------------------|
+| `addr`     | binary       | The IP address.                                                                             |
+| `vp`       | string       | The hostname of the vantage point that defined the disc.                                    |
+| `vp_lat`   | float32      | The latitude of the vantage point.                                                          |
+| `vp_lon`   | float32      | The longitude of the vantage point.                                                         |
+| `radius`   | uint16       | The radius of the disc, in whole kilometers.                                                |
+| `pop_iata` | string       | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). |
+| `pop_lat`  | float32      | The latitude of the geolocated location. The vantage point's latitude if none found.        |
+| `pop_lon`  | float32      | The longitude of the geolocated location. The vantage point's longitude if none found.      |
+| `pop_city` | string       | The city name of the geolocated location.                                                   |
+| `pop_cc`   | string       | The country code of the geolocated location.                                                |
 
-```bash
-./migreedy --input measurements.csv.gz --output results.csv
-```
+With `--accuracy`, two columns are appended:
 
-#### Parquet input
+| Column               | Parquet type | Description                                                                                                                                                 |
+|----------------------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `candidate_diameter` | uint16       | Maximum distance in whole km between surviving candidate cities, or twice the disc radius when no city was found. Smaller values indicate higher precision. |
+| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.                                                    |
 
-A path ending in `.parquet` is read as Parquet. Parquet files carry their own column
-names, so unlike CSV their columns are matched **by name** and in any order.
+When no valid location is found, `candidate_diameter` is set to 2x the disc's radius.
 
-| Column              | Required | Description                                                        |
-|:--------------------|:---------|:-------------------------------------------------------------------|
-| `addr`              | yes      | The IP address being measured, as text or as packed address bytes. |
-| `hostname`, or `rx` | yes      | The hostname or ID of the prober (VP).                             |
-| `rtt`               | yes      | The round-trip time (in ms) to the target.                         |
-| `lat`, `lon`        | no       | The prober's coordinates. Without them, `--vps` is required.       |
+**Parquet files** store `addr` as 16 packed bytes, with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`).
 
-This reads [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output as it is
-written, whose columns are `rx, addr, ttl, rtt`:
+**Distances are whole kilometers.** `radius` and `candidate_diameter` are rounded to the nearest
+kilometer and capped at 20,038 km.
+We round as RTT measurements cannot provide sub-kilometer precision
+and cap at 20,038 as it is half the Earth's circumference (covers the whole planet).
+These changes shrink the output size.
 
-MAnycastR stores each address as 16 IPv6-mapped bytes rather than as text.
-This format is supported.
+## Options reference
 
-### VPs File Format
+Also available as `migreedy --help`.
 
-A VPs file gives each vantage point's location, so measurements that identify their
-VP only by name can be turned into discs. It is required with `--warts` and optional
-with `--input`.
+**Input** (exactly one source is required)
 
-The format is whitespace-separated `hostname lat lon`, one per line, with **no header**:
+| Option                   | Default | Description                                                                                        |
+|--------------------------|---------|----------------------------------------------------------------------------------------------------|
+| `-i`, `--input <PATH>`   |         | Input CSV (optionally `.gz`) or `.parquet` file containing RTT measurements                        |
+| `--atlas <ID>`           |         | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`)    |
+| `--warts <PATHS>`        |         | scamper warts files (`.warts`/`.warts.gz`): files, glob patterns or directories. Requires `--vps`  |
+| `--measure <TARGETS>`    |         | Target(s) to measure live: schedules RIPE Atlas pings and geolocates the results. Needs an API key |
+| `--vps <PATH>`           |         | Vantage point coordinates file. Required with `--warts`; rejected with `--atlas` and `--measure`   |
+| `-t`, `--threshold <MS>` | `0`     | Discard measurements with an RTT above this value (in ms), bounding the maximum radius and error   |
 
-```text
-hlz2-nz.ark.caida.org -37.79 175.28
-fra-de.ark.caida.org 50.11 8.74
-hkg4-cn.ark.caida.org 22.36 114.12
-```
+**Geolocation**
 
-Blank lines and lines starting with `#` are ignored, malformed lines are skipped and
-counted, and if a hostname is listed more than once the first entry wins.
+| Option                   | Default  | Description                                                                                  |
+|--------------------------|----------|----------------------------------------------------------------------------------------------|
+| `-d`, `--dataset <NAME>` | `cities` | Location dataset: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file |
+| `-m`, `--min_pop <N>`    | `0`      | Absolute minimum population. Cities below this are filtered out at load time                 |
+| `-p`, `--pop_ratio <R>`  | `0.0`    | Relative population threshold (0.0–1.0): keeps candidates with `pop >= max_pop × ratio`      |
+| `-a`, `--alpha <A>`      | `1.0`    | Scoring weight (0.0–1.0). Higher prioritizes population over distance from the disc center   |
 
-A VP is matched by its full hostname first, and otherwise by the label before the
-first dot on both sides — so `san-us` and `san-us.ark.caida.org` resolve to each
-other, and no DNS suffix is hardcoded. Measurements from a VP the file does not list
-are dropped and reported, which doubles as a way to restrict a run to a set of
-known-good vantage points.
+**Output**
 
-Vantage points are named in the output using the spelling from this file, whatever
-the measurement called them.
+| Option                  | Default        | Description                                                                                   |
+|-------------------------|----------------|-----------------------------------------------------------------------------------------------|
+| `-o`, `--output <PATH>` | **(Required)** | Output file; `.parquet`, `.csv.gz`, or `.csv`. Defaults to `atlas_<ID>.csv.gz` with `--atlas` |
+| `--anycast`             | off            | Only output geolocations for anycast targets                                                  |
+| `--accuracy`            | off            | Add the `candidate_diameter` (km) and `num_constraints` columns                               |
 
-### Warts Input
+**RIPE Atlas measurements** (`--measure` only)
 
-`--warts` reads [scamper](https://www.caida.org/catalog/software/scamper/) output
-directly, with no `sc_warts2json` conversion step. `.warts` and `.warts.gz` are both
-read, gzip is decompressed in-process, and files are parsed in parallel.
-
-```bash
-# a directory of files
-./migreedy --warts /data/2026-08-10/ --vps vps.txt --output results.csv
-
-# explicit files, or a quoted glob
-./migreedy --warts a.warts b.warts.gz --vps vps.txt --output results.csv
-./migreedy --warts '/data/*.iffinder.warts.gz' --vps vps.txt --output results.csv
-```
-
-The vantage point for each file is taken from the monitor name recorded inside the
-file, falling back to the filename if that name is not one the VPs file lists.
-
-Alias-resolution (`dealias`) records are currently supported — this is what CAIDA
-Ark's `iffinder` measurements contain. Each reply contributes the responding
-address, which is the address geolocated; for alias resolution this differs from the
-probed destination. Other record types are skipped.
-
-### Output File Format
-
-The output CSV file will have a header and contain the following columns:
-
-| Column     | Description                                                                                                         |
-|:-----------|:--------------------------------------------------------------------------------------------------------------------|
-| `target`   | The IP address.                                                                                                     |
-| `vp`       | The hostname of the vantage point that defined the disc.                                                            |
-| `vp_lat`   | The latitude of the vantage point.                                                                                  |
-| `vp_lon`   | The longitude of the vantage point.                                                                                 |
-| `radius`   | The radius of the disc in kilometers.                                                                               |
-| `pop_iata` | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). "NoCity" if none found. |
-| `pop_lat`  | The latitude of the geolocated location.                                                                            |
-| `pop_lon`  | The longitude of the geolocated location.                                                                           |
-| `pop_city` | The city name of the geolocated location.                                                                           |
-| `pop_cc`   | The country code of the geolocated location.                                                                        |
-
-When `--accuracy` is set, two additional columns are appended:
-
-| Column               | Description                                                                                                    |
-|:---------------------|:---------------------------------------------------------------------------------------------------------------|
-| `candidate_diameter` | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision.   |
-| `num_constraints`    | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.        |
-
-`candidate_diameter` is computed exactly for up to 512 surviving candidates. Larger sets — which only arise from wide MIS discs, where the diameter is large and its exact value carries no information — use an iterated farthest-point sweep instead of an exhaustive pairwise comparison. That estimate is always a real distance between two candidates, so it never overstates the diameter, and it is never below half of the true value — in practice it is exact at city scale and within a few percent for globe-spanning candidate sets.
-
----
-
-## Author
-
-*   **Remi Hendriks**
-*   **GitHub:** [@rhendriks](https://github.com/rhendriks)
-*   **Contact:** `remi.hendriks@utwente.nl`
-
----
+| Option                        | Default | Description                                                                                      |
+|-------------------------------|---------|--------------------------------------------------------------------------------------------------|
+| `--api_key <KEY>`             |         | RIPE Atlas API key with the *measurement creation* permission                                    |
+| `--save_api_key`              | off     | Store `--api_key` for later runs                                                                 |
+| `--num_probes <N>`            | `100`   | How many probes to select, spread for the widest global coverage                                 |
+| `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                   |
+| `--packets <N>`               | `1`     | Ping packets sent per probe                                                                      |
+| `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                          |
+| `--validate_probes`           | off     | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits  |
+| `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key) |
 
 ## Contributing
-Issues and pull requests are welcome!
+
+Issues and pull requests are welcome.
+
+Maintained by Remi Hendriks ([@rhendriks](https://github.com/rhendriks), `remi.hendriks@utwente.nl`).
 
 ## Citation
-This code was designed for our paper [LACeS](manycast.net/laces.pdf). Please use the following citation when using this code.
+
+MiGreedy was developed for the [following paper](https://manycast.net/laces.pdf).
+Please cite it when using MiGreedy.
+
 ```
 @inproceedings{10.1145/3730567.3764484,
       author = {Hendriks, Remi and Luckie, Matthew and Jonker, Mattijs and Sommese, Raffaele and van Rijswijk-Deij, Roland},

@@ -24,7 +24,7 @@
 //! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
 //! and scheduling new ones (`--measure`).
 //!
-//! Results are written as CSV (see [`io`]).
+//! Results are written as gzipped .csv.gz (default), .csv, or .parquet (see [`io`]).
 mod analyzer;
 mod atlas;
 mod config;
@@ -39,7 +39,6 @@ use anyhow::{Result, bail};
 use clap::builder::RangedU64ValueParser;
 use clap::{ArgAction, ArgGroup, ArgMatches, Command, arg, value_parser};
 use indicatif::ParallelProgressIterator;
-use polars::prelude::*;
 use rayon::prelude::*;
 use rstar::RTree;
 use std::fs::File;
@@ -54,7 +53,8 @@ use atlas::{
     run_measurement,
 };
 use io::{
-    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data, progress_bar,
+    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data,
+    progress_bar, validate_output_addresses, write_results,
 };
 use model::{Airport, Disc, OutputRecord};
 use probes::parse_probe_list;
@@ -239,11 +239,18 @@ fn main() -> Result<()> {
             let id =
                 atlas_id.or_else(|| measured_ids.as_ref().and_then(|ids| ids.first().copied()));
             match id {
-                Some(id) => PathBuf::from(format!("atlas_{}.csv", id)),
+                Some(id) => PathBuf::from(format!("atlas_{}.csv.gz", id)),
                 None => bail!("--output is required when using --input or --warts."),
             }
         }
     };
+
+    // Ensure input addresses can be mapped to packed bytes
+    validate_output_addresses(&in_df, &output_path)?;
+
+    // One chunk per column, so reading a row by index is a direct lookup
+    let mut in_df = in_df;
+    in_df.rechunk_mut();
 
     // Create a group for each target address
     let groups_df = in_df.group_by(["addr"])?.groups()?;
@@ -256,6 +263,13 @@ fn main() -> Result<()> {
         num_targets
     );
 
+    // Get a reference to all dataframe rows
+    let target_col = in_df.column("addr")?.str()?;
+    let hostname_col = in_df.column("hostname")?.str()?;
+    let lat_rad_col = in_df.column("lat_rad")?.f32()?;
+    let lon_rad_col = in_df.column("lon_rad")?.f32()?;
+    let radius_col = in_df.column("radius")?.f32()?;
+
     // Create progress bar
     let pb = progress_bar(num_targets as u64)?;
 
@@ -266,29 +280,25 @@ fn main() -> Result<()> {
         .progress_with(pb) // Progress bar
         .filter_map(|opt_indices_series| {
             opt_indices_series.map(|indices_series| {
-                // Perform for each individual indices series
-                // Get the dataframe data of this indices group
-                let indices_ca = indices_series.u32().unwrap();
-                let group_df = in_df.take(indices_ca).unwrap();
-
-                // Get each column as a group of values (typed arrays)
-                let target = group_df.column("addr").unwrap().str().unwrap();
-                let hostname = group_df.column("hostname").unwrap().str().unwrap();
-                let lat_rad = group_df.column("lat_rad").unwrap().f32().unwrap();
-                let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
-                let radius = group_df.column("radius").unwrap().f32().unwrap();
+                // Row indices of this target's measurements in `in_df`
+                let rows = indices_series.u32().unwrap();
 
                 // Get a reference to the first target value (all the same)
-                let target_arc: Arc<str> = Arc::from(target.get(0).unwrap_or(""));
+                let first_row = rows.get(0).unwrap_or(0) as usize;
+                let target_arc: Arc<str> = Arc::from(target_col.get(first_row).unwrap_or(""));
 
                 // Build a Disc per measurement
-                let discs: Vec<Disc> = (0..group_df.height())
-                    .map(|i| Disc {
-                        target: Arc::clone(&target_arc),
-                        hostname: hostname.get(i).unwrap_or("").to_string(),
-                        lat: lat_rad.get(i).unwrap_or(0.0),
-                        lon: lon_rad.get(i).unwrap_or(0.0),
-                        radius: radius.get(i).unwrap_or(0.0),
+                let discs: Vec<Disc> = rows
+                    .into_no_null_iter()
+                    .map(|row| {
+                        let row = row as usize;
+                        Disc {
+                            target: Arc::clone(&target_arc),
+                            hostname: hostname_col.get(row).unwrap_or("").to_string(),
+                            lat: lat_rad_col.get(row).unwrap_or(0.0),
+                            lon: lon_rad_col.get(row).unwrap_or(0.0),
+                            radius: radius_col.get(row).unwrap_or(0.0),
+                        }
                     })
                     .collect();
 
@@ -312,100 +322,15 @@ fn main() -> Result<()> {
         results.len()
     );
 
+    // Free memory for writing results
+    drop(groups_df);
+    drop(in_df);
+    drop(airport_tree);
+
     // Write results to path
     if !results.is_empty() {
         println!("Saving results to {:?}...", output_path);
-        let num_results = results.len();
-        let mut output_df = DataFrame::new(
-            num_results,
-            vec![
-                Series::new(
-                    "addr".into(),
-                    results.iter().map(|r| &*r.target).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp".into(),
-                    results.iter().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp_lat".into(),
-                    results.iter().map(|r| r.vp_lat).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "vp_lon".into(),
-                    results.iter().map(|r| r.vp_lon).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "radius".into(),
-                    results.iter().map(|r| r.radius).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_iata".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_iata.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_lat".into(),
-                    results.iter().map(|r| r.pop_lat).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_lon".into(),
-                    results.iter().map(|r| r.pop_lon).collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_city".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_city.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-                Series::new(
-                    "pop_cc".into(),
-                    results
-                        .iter()
-                        .map(|r| r.pop_cc.as_str())
-                        .collect::<Vec<_>>(),
-                )
-                .into(),
-            ],
-        )?;
-
-        // Append accuracy columns if --accuracy flag is set
-        if is_accuracy {
-            let diameter_col = Series::new(
-                "candidate_diameter".into(),
-                results
-                    .iter()
-                    .map(|r| r.candidate_diameter.unwrap_or(0.0))
-                    .collect::<Vec<f32>>(),
-            );
-            let constraints_col = Series::new(
-                "num_constraints".into(),
-                results
-                    .iter()
-                    .map(|r| r.num_constraints.unwrap_or(0))
-                    .collect::<Vec<u32>>(),
-            );
-            output_df.with_column(diameter_col.into())?;
-            output_df.with_column(constraints_col.into())?;
-        }
-
-        let mut file = File::create(output_path)?;
-        CsvWriter::new(&mut file)
-            .with_separator(b'\t')
-            .finish(&mut output_df)?;
-
+        write_results(results, &output_path, is_accuracy)?;
         println!("Results successfully saved.");
     } else {
         println!("No geolocated sites found, no output file written.");
@@ -435,7 +360,7 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(--measure <TARGET> "Schedule RIPE Atlas ping measurements to these targets and geolocate the results (needs an API key)")
             .num_args(1..)
             .conflicts_with("source"))
-        .arg(arg!(-o --output <PATH> "Path to write output (defaults to atlas_<ID>.csv with --atlas and --measure)")
+        .arg(arg!(-o --output <PATH> "Path to write output, as .csv, .csv.gz or .parquet")
             .value_parser(value_parser!(PathBuf)))
         .arg(arg!(--vps <FILE> "Vantage point coordinates file: whitespace-separated 'hostname lat lon', no header")
             .value_parser(value_parser!(PathBuf))
