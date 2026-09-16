@@ -5,12 +5,12 @@ use polars::prelude::*;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, Cursor, Read};
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::path::Path;
 use std::sync::Arc;
 
 use crate::geo::{FIBER_RI, SPEED_OF_LIGHT};
-use crate::model::Airport;
+use crate::model::{Airport, OutputRecord};
 use crate::vps::{Vp, VpTable};
 
 pub static EMBEDDED_AIRPORTS: &[u8] = include_bytes!("../datasets/airports.csv.gz");
@@ -154,11 +154,7 @@ const VP_COLUMNS: [&str; 2] = ["hostname", "rx"];
 /// ([`load_parquet_data`]), anything else as CSV ([`load_csv_data`]), which
 /// decompresses the file first when it ends in `.gz`.
 pub fn load_input_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
-    let is_parquet = path
-        .extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("parquet"));
-
-    if is_parquet {
+    if is_parquet(path) {
         load_parquet_data(path, threshold, vps)
     } else {
         load_csv_data(path, threshold, vps)
@@ -323,6 +319,167 @@ fn format_packed_address(bytes: &[u8]) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// Pack a textual address into 16 bytes, IPv4 as IPv6-mapped (`::ffff:1.1.1.1`).
+fn pack_address(addr: &str) -> Option<[u8; 16]> {
+    match addr.parse::<IpAddr>().ok()? {
+        IpAddr::V4(v4) => Some(v4.to_ipv6_mapped().octets()),
+        IpAddr::V6(v6) => Some(v6.octets()),
+    }
+}
+
+/// Rows per Parquet row group.
+const OUTPUT_ROW_GROUP_SIZE: usize = 256 * 1024;
+
+/// Write the results to `path`: Parquet when it ends in `.parquet`, tab-separated CSV otherwise.
+///
+/// Rows are sorted by `addr` (then PoP and VP), for identical output between runs.
+/// Parquet stores `addr` as 16 packed bytes and leaves missing values null.
+/// CSV writes `addr` as string, "NoCity"/"N/A" for a missing location.
+pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) -> Result<()> {
+    let parquet = is_parquet(path);
+
+    // Convert all addresses (string) to packed addresses
+    let mut keyed: Vec<(Option<[u8; 16]>, OutputRecord)> = results
+        .into_iter()
+        .map(|r| (pack_address(&r.target), r))
+        .collect();
+    // Sort for stable output, better compression, and organized row groups
+    keyed.sort_unstable_by(|(key_a, a), (key_b, b)| {
+        key_a
+            .cmp(key_b)
+            .then_with(|| a.target.cmp(&b.target))
+            .then_with(|| a.pop_iata.cmp(&b.pop_iata))
+            .then_with(|| a.vp.cmp(&b.vp))
+    });
+    let rows = || keyed.iter().map(|(_, r)| r);
+
+    let addr = if parquet {
+        // Disallow non-IP addresses for .parquet output
+        if let Some((_, r)) = keyed.iter().find(|(key, _)| key.is_none()) {
+            bail!(
+                "Cannot write '{}' (invalid IP address), write as .csv or ensure valid IP address formats.",
+                r.target
+            );
+        }
+        Series::new(
+            "addr".into(),
+            keyed
+                .iter()
+                .map(|(key, _)| key.as_ref().map(|bytes| bytes.as_slice()))
+                .collect::<Vec<_>>(),
+        )
+    } else {
+        Series::new(
+            "addr".into(),
+            rows().map(|r| &*r.target).collect::<Vec<_>>(),
+        )
+    };
+
+    // Create columns as Series with column name
+    let mut columns: Vec<Column> = vec![
+        addr.into(),
+        Series::new(
+            "vp".into(),
+            rows().map(|r| r.vp.as_str()).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "vp_lat".into(),
+            rows().map(|r| r.vp_lat).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "vp_lon".into(),
+            rows().map(|r| r.vp_lon).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "radius".into(),
+            rows().map(|r| r.radius).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "pop_iata".into(),
+            rows().map(|r| r.pop_iata.as_deref()).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "pop_lat".into(),
+            rows().map(|r| r.pop_lat).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "pop_lon".into(),
+            rows().map(|r| r.pop_lon).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "pop_city".into(),
+            rows().map(|r| r.pop_city.as_deref()).collect::<Vec<_>>(),
+        )
+        .into(),
+        Series::new(
+            "pop_cc".into(),
+            rows().map(|r| r.pop_cc.as_deref()).collect::<Vec<_>>(),
+        )
+        .into(),
+    ];
+
+    // Append accuracy columns if --accuracy flag is set
+    if accuracy {
+        columns.push(
+            Series::new(
+                "candidate_diameter".into(),
+                rows().map(|r| r.candidate_diameter).collect::<Vec<_>>(),
+            )
+            .into(),
+        );
+        columns.push(
+            Series::new(
+                "num_constraints".into(),
+                rows().map(|r| r.num_constraints).collect::<Vec<_>>(),
+            )
+            .into(),
+        );
+    }
+
+    // Create dataframe from filled columns
+    let mut df = DataFrame::new(keyed.len(), columns)?;
+    // Create output file
+    let mut file =
+        File::create(path).with_context(|| format!("failed to create {}", path.display()))?;
+
+    if parquet {
+        ParquetWriter::new(&mut file)
+            .with_row_group_size(Some(OUTPUT_ROW_GROUP_SIZE))
+            .finish(&mut df)?;
+    } else {
+        // Replace null with NoCity and N/A
+        let mut fills = vec![
+            col("pop_iata").fill_null(lit("NoCity")),
+            col("pop_city").fill_null(lit("N/A")),
+            col("pop_cc").fill_null(lit("N/A")),
+        ];
+        if accuracy {
+            fills.push(col("candidate_diameter").fill_null(lit(0.0f32)));
+            fills.push(col("num_constraints").fill_null(lit(0u16)));
+        }
+        // Write csv
+        let mut df = df.lazy().with_columns(fills).collect()?;
+        CsvWriter::new(&mut file)
+            .with_separator(b'\t')
+            .finish(&mut df)?;
+    }
+
+    Ok(())
+}
+
+/// Whether the path names a .parquet file, by its extension.
+fn is_parquet(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|ext| ext.eq_ignore_ascii_case("parquet"))
 }
 
 /// Whether the path names a gzipped file, by its extension as `--warts` does.
