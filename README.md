@@ -413,7 +413,7 @@ Rows are sorted by address, so repeated runs of the same input produce identical
 | `vp`       | string       | The hostname of the vantage point that defined the disc.                                    |
 | `vp_lat`   | float32      | The latitude of the vantage point.                                                          |
 | `vp_lon`   | float32      | The longitude of the vantage point.                                                         |
-| `radius`   | float32      | The radius of the disc in kilometers.                                                       |
+| `radius`   | uint16       | The radius of the disc, in whole kilometers.                                                |
 | `pop_iata` | string       | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). |
 | `pop_lat`  | float32      | The latitude of the geolocated location. The vantage point's latitude if none found.        |
 | `pop_lon`  | float32      | The longitude of the geolocated location. The vantage point's longitude if none found.      |
@@ -422,15 +422,21 @@ Rows are sorted by address, so repeated runs of the same input produce identical
 
 With `--accuracy`, two columns are appended:
 
-| Column               | Parquet type | Description                                                                                                  |
-|----------------------|--------------|--------------------------------------------------------------------------------------------------------------|
-| `candidate_diameter` | float32      | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision. |
-| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.     |
+| Column               | Parquet type | Description                                                                                                |
+|----------------------|--------------|------------------------------------------------------------------------------------------------------------|
+| `candidate_diameter` | uint16       | Maximum distance in whole km between surviving candidate cities. Smaller values indicate higher precision. |
+| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.   |
 
 When no location was found for a site, CSV writes `NoCity`, `N/A` and `0` in the location and
 accuracy columns, and Parquet leaves them null.
 
-**Parquet files** `addr` is stored as 16 packed bytes, with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`).
+**Parquet files** store `addr` as 16 packed bytes, with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`).
+
+**Distances are whole kilometers.** `radius` and `candidate_diameter` are rounded to the nearest
+kilometer and capped at 20,038 km.
+We round as RTT measurements cannot provide sub-kilometer precision
+and cap at 20,038 as it is half the Earth's circumference (covers the whole planet).
+These changes shrink the output size.
 
 ## Options reference
 

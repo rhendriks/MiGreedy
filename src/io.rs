@@ -329,6 +329,14 @@ fn pack_address(addr: &str) -> Option<[u8; 16]> {
     }
 }
 
+/// Half the Earth's circumference (km).
+const MAX_DISTANCE_KM: f32 = 20_038.0;
+
+/// Report a distance in whole kilometres, capped at [`MAX_DISTANCE_KM`].
+fn distance_km(value: f32) -> u16 {
+    value.clamp(0.0, MAX_DISTANCE_KM).round() as u16
+}
+
 /// Rows per Parquet row group.
 const OUTPUT_ROW_GROUP_SIZE: usize = 256 * 1024;
 
@@ -397,7 +405,7 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
         .into(),
         Series::new(
             "radius".into(),
-            rows().map(|r| r.radius).collect::<Vec<_>>(),
+            rows().map(|r| distance_km(r.radius)).collect::<Vec<_>>(),
         )
         .into(),
         Series::new(
@@ -432,7 +440,9 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
         columns.push(
             Series::new(
                 "candidate_diameter".into(),
-                rows().map(|r| r.candidate_diameter).collect::<Vec<_>>(),
+                rows()
+                    .map(|r| r.candidate_diameter.map(distance_km))
+                    .collect::<Vec<_>>(),
             )
             .into(),
         );
@@ -463,7 +473,7 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
             col("pop_cc").fill_null(lit("N/A")),
         ];
         if accuracy {
-            fills.push(col("candidate_diameter").fill_null(lit(0.0f32)));
+            fills.push(col("candidate_diameter").fill_null(lit(0u16)));
             fills.push(col("num_constraints").fill_null(lit(0u16)));
         }
         // Write csv
