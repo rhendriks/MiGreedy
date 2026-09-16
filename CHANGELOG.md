@@ -13,6 +13,10 @@ All notable changes to MiGreedy are documented in this file.
 - Output rows are sorted by address, so repeated runs produce identical files.
 - Sites without a geolocated city now report `candidate_diameter` as twice the disc radius.
 - `radius` and `candidate_diameter` converted to u16 (whole kilometers) to shrink output size.
+- Lowered memory usage by avoiding clones.
+
+### Documentation
+- README restructured for improved readability.
 
 ## [1.7.0] - 2026-09-01
 
