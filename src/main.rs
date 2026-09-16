@@ -322,6 +322,11 @@ fn main() -> Result<()> {
         results.len()
     );
 
+    // Free memory for writing results
+    drop(groups_df);
+    drop(in_df);
+    drop(airport_tree);
+
     // Write results to path
     if !results.is_empty() {
         println!("Saving results to {:?}...", output_path);
