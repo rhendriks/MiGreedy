@@ -2,6 +2,15 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.8.0]
+
+### Added
+- **Parquet output** (`--output <FILE>.parquet`) — zstd-compressed, with `addr` stored as
+  16 packed bytes (IPv4 as IPv6-mapped).
+
+### Changed
+- Output rows are sorted by address, so repeated runs produce identical files.
+
 ## [1.7.0] - 2026-09-01
 
 Adds live RIPE Atlas measurements: give MiGreedy a target and it schedules the ping
