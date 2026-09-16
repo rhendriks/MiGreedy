@@ -184,7 +184,7 @@ impl<'a> AnycastAnalyzer<'a> {
                     pop_city: None,
                     pop_cc: None,
                     // The site could be anywhere in the disc
-                    candidate_diameter: self.accuracy.then(|| disc_in_mis.radius * 2.0),
+                    candidate_diameter: self.accuracy.then_some(disc_in_mis.radius * 2.0),
                     num_constraints: None,
                 });
             }
