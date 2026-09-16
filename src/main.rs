@@ -54,7 +54,7 @@ use atlas::{
 };
 use io::{
     EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data,
-    progress_bar, write_results,
+    progress_bar, validate_output_addresses, write_results,
 };
 use model::{Airport, Disc, OutputRecord};
 use probes::parse_probe_list;
@@ -244,6 +244,9 @@ fn main() -> Result<()> {
             }
         }
     };
+
+    // Ensure input addresses can be mapped to packed bytes
+    validate_output_addresses(&in_df, &output_path)?;
 
     // Create a group for each target address
     let groups_df = in_df.group_by(["addr"])?.groups()?;

@@ -329,6 +329,26 @@ fn pack_address(addr: &str) -> Option<[u8; 16]> {
     }
 }
 
+/// Reject addresses Parquet cannot store as packed bytes
+pub fn validate_output_addresses(df: &DataFrame, path: &Path) -> Result<()> {
+    if !is_parquet(path) {
+        return Ok(());
+    }
+
+    let addresses = df.column("addr")?.str()?;
+    if let Some(invalid) = addresses
+        .iter()
+        .flatten()
+        .find(|addr| pack_address(addr).is_none())
+    {
+        bail!(
+            "Cannot write '{invalid}' (invalid IP address), write as .csv or ensure valid IP address formats."
+        );
+    }
+
+    Ok(())
+}
+
 /// Half the Earth's circumference (km).
 const MAX_DISTANCE_KM: f32 = 20_038.0;
 
