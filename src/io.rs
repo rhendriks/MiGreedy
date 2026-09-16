@@ -245,9 +245,9 @@ fn load_parquet_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Resu
 
     let mut df = reader.with_columns(Some(wanted)).finish()?;
 
-    // Addresses may be stored as text or as packed bytes; the algorithm wants text.
     let addr = df.column("addr")?.as_materialized_series();
     if addr.dtype() != &DataType::String {
+        // Convert packed byte addresses to string for the algorithm (.parquet input)
         let decoded = decode_packed_addresses(addr)
             .with_context(|| format!("could not read the 'addr' column of {}", path.display()))?;
         df.with_column(decoded.into_column())?;
