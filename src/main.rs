@@ -248,6 +248,10 @@ fn main() -> Result<()> {
     // Ensure input addresses can be mapped to packed bytes
     validate_output_addresses(&in_df, &output_path)?;
 
+    // One chunk per column, so reading a row by index is a direct lookup
+    let mut in_df = in_df;
+    in_df.rechunk_mut();
+
     // Create a group for each target address
     let groups_df = in_df.group_by(["addr"])?.groups()?;
     // Get the indices for each group
@@ -259,6 +263,13 @@ fn main() -> Result<()> {
         num_targets
     );
 
+    // Get a reference to all dataframe rows
+    let target_col = in_df.column("addr")?.str()?;
+    let hostname_col = in_df.column("hostname")?.str()?;
+    let lat_rad_col = in_df.column("lat_rad")?.f32()?;
+    let lon_rad_col = in_df.column("lon_rad")?.f32()?;
+    let radius_col = in_df.column("radius")?.f32()?;
+
     // Create progress bar
     let pb = progress_bar(num_targets as u64)?;
 
@@ -269,29 +280,25 @@ fn main() -> Result<()> {
         .progress_with(pb) // Progress bar
         .filter_map(|opt_indices_series| {
             opt_indices_series.map(|indices_series| {
-                // Perform for each individual indices series
-                // Get the dataframe data of this indices group
-                let indices_ca = indices_series.u32().unwrap();
-                let group_df = in_df.take(indices_ca).unwrap();
-
-                // Get each column as a group of values (typed arrays)
-                let target = group_df.column("addr").unwrap().str().unwrap();
-                let hostname = group_df.column("hostname").unwrap().str().unwrap();
-                let lat_rad = group_df.column("lat_rad").unwrap().f32().unwrap();
-                let lon_rad = group_df.column("lon_rad").unwrap().f32().unwrap();
-                let radius = group_df.column("radius").unwrap().f32().unwrap();
+                // Row indices of this target's measurements in `in_df`
+                let rows = indices_series.u32().unwrap();
 
                 // Get a reference to the first target value (all the same)
-                let target_arc: Arc<str> = Arc::from(target.get(0).unwrap_or(""));
+                let first_row = rows.get(0).unwrap_or(0) as usize;
+                let target_arc: Arc<str> = Arc::from(target_col.get(first_row).unwrap_or(""));
 
                 // Build a Disc per measurement
-                let discs: Vec<Disc> = (0..group_df.height())
-                    .map(|i| Disc {
-                        target: Arc::clone(&target_arc),
-                        hostname: hostname.get(i).unwrap_or("").to_string(),
-                        lat: lat_rad.get(i).unwrap_or(0.0),
-                        lon: lon_rad.get(i).unwrap_or(0.0),
-                        radius: radius.get(i).unwrap_or(0.0),
+                let discs: Vec<Disc> = rows
+                    .into_no_null_iter()
+                    .map(|row| {
+                        let row = row as usize;
+                        Disc {
+                            target: Arc::clone(&target_arc),
+                            hostname: hostname_col.get(row).unwrap_or("").to_string(),
+                            lat: lat_rad_col.get(row).unwrap_or(0.0),
+                            lon: lon_rad_col.get(row).unwrap_or(0.0),
+                            radius: radius_col.get(row).unwrap_or(0.0),
+                        }
                     })
                     .collect();
 
