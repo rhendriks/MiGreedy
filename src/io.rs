@@ -210,7 +210,8 @@ fn load_csv_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<D
 fn load_parquet_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Result<DataFrame> {
     let file = File::open(path)
         .with_context(|| format!("failed to open Parquet file {}", path.display()))?;
-    let schema = ParquetReader::new(file).schema()?;
+    let mut reader = ParquetReader::new(file);
+    let schema = reader.schema()?;
     let has = |name: &str| schema.iter_names().any(|field| field.as_str() == name);
 
     let Some(vp_column) = VP_COLUMNS.into_iter().find(|name| has(name)) else {
@@ -242,11 +243,7 @@ fn load_parquet_data(path: &Path, threshold: u32, vps: Option<&VpTable>) -> Resu
         wanted.push("lon".to_string());
     }
 
-    let file = File::open(path)
-        .with_context(|| format!("failed to open Parquet file {}", path.display()))?;
-    let mut df = ParquetReader::new(file)
-        .with_columns(Some(wanted))
-        .finish()?;
+    let mut df = reader.with_columns(Some(wanted)).finish()?;
 
     // Addresses may be stored as text or as packed bytes; the algorithm wants text.
     let addr = df.column("addr")?.as_materialized_series();
