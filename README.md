@@ -215,7 +215,7 @@ Exactly one input source is required: `--input`, `--atlas`, or `--warts`.
 | `--warts`           |                | One or more scamper warts files (`.warts`/`.warts.gz`); accepts files, glob patterns and directories. Requires `--vps`.                 |
 | `--measure`         |                | Target(s) to measure live: schedules RIPE Atlas ping measurements and geolocates the results. Needs an API key.                         |
 | `--vps`             |                | Optional vantage point coordinates file. rejected with `--atlas` and `--measure`.                                                       |
-| `-o`, `--output`    | **(Required)** | Path for the output CSV file where results will be saved. Defaults to `atlas_<ID>.csv` when using `--atlas`.                            |
+| `-o`, `--output`    | **(Required)** | Path for the output file; a `.parquet` path is written as Parquet, anything else as CSV. Defaults to `atlas_<ID>.csv` with `--atlas`.   |
 | `-d`, `--dataset`   | `cities`       | Location dataset to use: `cities` (embedded), `airports` (embedded), or a path to a custom CSV file.                                    |
 | `-m`, `--min_pop`   | `0`            | Absolute minimum population threshold. Cities below this are filtered out at load time.                                                 |
 | `-p`, `--pop_ratio` | `0.0`          | Relative population threshold (0.0–1.0). During geolocation, keeps only cities with `pop >= max_pop × ratio` among candidates.          |
@@ -376,14 +376,14 @@ The input CSV file **must have a header row**, and its columns are read position
 
 | Column     | Data Type | Description                                |
 |:-----------|:----------|:-------------------------------------------|
-| `target`   | string    | The IP address being measured.             |
+| `addr`     | string    | The IP address being measured.             |
 | `hostname` | string    | The hostname or ID of the prober (VP).     |
 | `lat`      | float     | The latitude of the prober.                |
 | `lon`      | float     | The longitude of the prober.               |
 | `rtt`      | float     | The round-trip time (in ms) to the target. |
 
 When `--vps` is given, the `lat` and `lon` columns are looked up from the VPs file
-instead and must be omitted, leaving `target,hostname,rtt`.
+instead and must be omitted, leaving `addr,hostname,rtt`.
 
 A path ending in `.gz` is decompressed first, so a gzipped CSV is read directly:
 
@@ -460,29 +460,30 @@ probed destination. Other record types are skipped.
 
 ### Output File Format
 
-The output CSV file will have a header and contain the following columns:
+Results are written as a tab-separated CSV file, or as Parquet
+(when the`--output` path ends in `.parquet`).
 
-| Column     | Description                                                                                                         |
-|:-----------|:--------------------------------------------------------------------------------------------------------------------|
-| `target`   | The IP address.                                                                                                     |
-| `vp`       | The hostname of the vantage point that defined the disc.                                                            |
-| `vp_lat`   | The latitude of the vantage point.                                                                                  |
-| `vp_lon`   | The longitude of the vantage point.                                                                                 |
-| `radius`   | The radius of the disc in kilometers.                                                                               |
-| `pop_iata` | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). "NoCity" if none found. |
-| `pop_lat`  | The latitude of the geolocated location.                                                                            |
-| `pop_lon`  | The longitude of the geolocated location.                                                                           |
-| `pop_city` | The city name of the geolocated location.                                                                           |
-| `pop_cc`   | The country code of the geolocated location.                                                                        |
+| Column     | Parquet type | Description                                                                                                                    |
+|:-----------|:-------------|:-------------------------------------------------------------------------------------------------------------------------------|
+| `addr`     | binary       | The IP address.                                                                                                                |
+| `vp`       | string       | The hostname of the vantage point that defined the disc.                                                                       |
+| `vp_lat`   | float32      | The latitude of the vantage point.                                                                                             |
+| `vp_lon`   | float32      | The longitude of the vantage point.                                                                                            |
+| `radius`   | float32      | The radius of the disc in kilometers.                                                                                          |
+| `pop_iata` | string       | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). "NoCity" if none found.            |
+| `pop_lat`  | float32      | The latitude of the geolocated location. The vantage point's latitude if none found.                                           |
+| `pop_lon`  | float32      | The longitude of the geolocated location. The vantage point's longitude if none found.                                         |
+| `pop_city` | string       | The city name of the geolocated location. "N/A" if none found.                                                                 |
+| `pop_cc`   | string       | The country code of the geolocated location. "N/A" if none found.                                                              |
 
 When `--accuracy` is set, two additional columns are appended:
 
-| Column               | Description                                                                                                    |
-|:---------------------|:---------------------------------------------------------------------------------------------------------------|
-| `candidate_diameter` | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision.   |
-| `num_constraints`    | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.        |
+| Column               | Parquet type | Description                                                                                                  |
+|:---------------------|:-------------|:-------------------------------------------------------------------------------------------------------------|
+| `candidate_diameter` | float32      | Maximum pairwise distance (km) between surviving candidate cities. Smaller values indicate higher precision. |
+| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.     |
 
-`candidate_diameter` is computed exactly for up to 512 surviving candidates. Larger sets — which only arise from wide MIS discs, where the diameter is large and its exact value carries no information — use an iterated farthest-point sweep instead of an exhaustive pairwise comparison. That estimate is always a real distance between two candidates, so it never overstates the diameter, and it is never below half of the true value — in practice it is exact at city scale and within a few percent for globe-spanning candidate sets.
+Both are 0 when no location was found.
 
 ---
 
