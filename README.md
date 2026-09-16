@@ -422,13 +422,12 @@ Rows are sorted by address, so repeated runs of the same input produce identical
 
 With `--accuracy`, two columns are appended:
 
-| Column               | Parquet type | Description                                                                                                |
-|----------------------|--------------|------------------------------------------------------------------------------------------------------------|
-| `candidate_diameter` | uint16       | Maximum distance in whole km between surviving candidate cities. Smaller values indicate higher precision. |
-| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.   |
+| Column               | Parquet type | Description                                                                                                                                                 |
+|----------------------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `candidate_diameter` | uint16       | Maximum distance in whole km between surviving candidate cities, or twice the disc radius when no city was found. Smaller values indicate higher precision. |
+| `num_constraints`    | uint16       | Number of discs that narrowed the candidate set. Higher values indicate higher confidence in the result.                                                    |
 
-When no location was found for a site, CSV writes `NoCity`, `N/A` and `0` in the location and
-accuracy columns, and Parquet leaves them null.
+When no valid location is found, `candidate_diameter` is set to 2x the disc's radius.
 
 **Parquet files** store `addr` as 16 packed bytes, with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`).
 

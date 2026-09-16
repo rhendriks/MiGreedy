@@ -183,7 +183,8 @@ impl<'a> AnycastAnalyzer<'a> {
                     pop_lon: disc_in_mis.lon.to_degrees(),
                     pop_city: None,
                     pop_cc: None,
-                    candidate_diameter: None,
+                    // The site could be anywhere in the disc
+                    candidate_diameter: self.accuracy.then(|| disc_in_mis.radius * 2.0),
                     num_constraints: None,
                 });
             }
