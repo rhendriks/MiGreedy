@@ -2,6 +2,11 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.9.0] - 2026-09-25
+
+### Removed
+- **Removed warts support** (`--warts`) — scamper warts files are no longer supported.
+
 ## [1.8.0] - 2026-09-16
 
 ### Added
