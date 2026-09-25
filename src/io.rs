@@ -519,7 +519,7 @@ fn is_parquet(path: &Path) -> bool {
         .is_some_and(|ext| ext.eq_ignore_ascii_case("parquet"))
 }
 
-/// Whether the path names a gzipped file, by its extension as `--warts` does.
+/// Whether the path names a gzipped file, by its extension.
 fn is_gzipped(path: &Path) -> bool {
     path.extension()
         .is_some_and(|ext| ext.eq_ignore_ascii_case("gz"))
