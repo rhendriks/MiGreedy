@@ -1,5 +1,5 @@
 //! Parses a file that maps vantage points (VPs) to its locations.
-//! This allows for parsing CSV/warts files without `lat`/`lon` columns for better data compression.
+//! This allows for parsing input files without `lat`/`lon` columns for better data compression.
 //!
 //! The format is whitespace-separated `hostname lat lon`, one VP per line, no header:
 //!
