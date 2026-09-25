@@ -48,7 +48,6 @@ This has been extended by:
 
 **Measurement input**
 * CSV (optionally gzipped) and Parquet files, including [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output
-* scamper warts files, read natively — used by the LACeS pipeline
 * RIPE Atlas measurements, fetched by ID or scheduled live against a target
 
 This README is the manual for installing and running MiGreedy.
@@ -138,7 +137,7 @@ The binary is written to `target/release/migreedy`.
 
 ## Quick start
 
-**1. Geolocate a measurement file** (CSV, gzipped CSV, Parquet, or warts):
+**1. Geolocate a measurement file** (.csv, .csv.gz, or .parquet):
 
 ```bash
 ./migreedy --input measurements.csv --output results.csv
@@ -205,7 +204,7 @@ Intersecting discs also allows us to output accurate unicast geolocations.
 
 ## Input formats
 
-Exactly one input source is required: `--input`, `--atlas`, `--warts`, or `--measure`.
+Exactly one input source is required: `--input`, `--atlas`, or `--measure`.
 
 ### CSV
 
@@ -247,9 +246,7 @@ This format is supported.
 
 ### VPs file
 
-A VPs file gives each vantage point's location, so measurements that identify their
-VP only by name can be turned into discs. It is required with `--warts` and optional
-with `--input`.
+A VPs file gives each vantage point's location. It is optional with `--input`.
 
 The format is whitespace-separated `hostname lat lon`, one per line, with **no header**:
 
@@ -258,25 +255,6 @@ hlz2-nz.ark.caida.org -37.79 175.28
 fra-de.ark.caida.org 50.11 8.74
 hkg4-cn.ark.caida.org 22.36 114.12
 ```
-
-### Warts
-
-`--warts` reads [scamper](https://www.caida.org/catalog/software/scamper/) output
-directly. `.warts` and `.warts.gz` are both supported.
-
-```bash
-# a directory of files
-./migreedy --warts /data/2026-08-10/ --vps vps.txt --output results.csv
-
-# explicit files, or a quoted glob
-./migreedy --warts a.warts b.warts.gz --vps vps.txt --output results.csv
-./migreedy --warts '/data/*.iffinder.warts.gz' --vps vps.txt --output results.csv
-```
-
-The vantage point for each file is taken from the monitor name recorded inside the
-file, falling back to the filename if that name is not one the VPs file lists.
-
-This only supports `dealias` records.
 
 ## RIPE Atlas
 
@@ -446,9 +424,8 @@ Also available as `migreedy --help`.
 |--------------------------|---------|----------------------------------------------------------------------------------------------------|
 | `-i`, `--input <PATH>`   |         | Input CSV (optionally `.gz`) or `.parquet` file containing RTT measurements                        |
 | `--atlas <ID>`           |         | RIPE Atlas measurement ID or URL (e.g. `11501` or `https://atlas.ripe.net/measurements/11501/`)    |
-| `--warts <PATHS>`        |         | scamper warts files (`.warts`/`.warts.gz`): files, glob patterns or directories. Requires `--vps`  |
 | `--measure <TARGETS>`    |         | Target(s) to measure live: schedules RIPE Atlas pings and geolocates the results. Needs an API key |
-| `--vps <PATH>`           |         | Vantage point coordinates file. Required with `--warts`; rejected with `--atlas` and `--measure`   |
+| `--vps <PATH>`           |         | Vantage point coordinates file. Optional with `--input`; rejected with `--atlas` and `--measure`   |
 | `-t`, `--threshold <MS>` | `0`     | Discard measurements with an RTT above this value (in ms), bounding the maximum radius and error   |
 
 **Geolocation**

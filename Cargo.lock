@@ -1611,12 +1611,11 @@ dependencies = [
 
 [[package]]
 name = "migreedy"
-version = "1.8.0"
+version = "1.9.0"
 dependencies = [
  "anyhow",
  "clap",
  "flate2",
- "glob",
  "indicatif",
  "mimalloc",
  "polars",

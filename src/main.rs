@@ -18,13 +18,12 @@
 //! They also need `lat, lon` which can be additional columns
 //! or extracted using a VPs file (`--vps`, see [`vps`]).
 //!
-//! * a CSV (optionally gzipped) or Parquet file (`--input`, see [`io`]);
-//! * scamper warts files read natively (`--warts`, see [`warts`]).
+//! * a .csv, .csv.gz or .parquet file (`--input`, see [`io`]).
 //!
 //! We also support RIPE Atlas measurements fetched over the API (`--atlas`, see [`atlas`]);
 //! and scheduling new ones (`--measure`).
 //!
-//! Results are written as gzipped .csv.gz (default), .csv, or .parquet (see [`io`]).
+//! Results are written as .csv.gz (default), .csv, or .parquet (see [`io`]).
 mod analyzer;
 mod atlas;
 mod config;
@@ -33,7 +32,6 @@ mod io;
 mod model;
 mod probes;
 mod vps;
-mod warts;
 
 use anyhow::{Result, bail};
 use clap::builder::RangedU64ValueParser;
@@ -59,7 +57,6 @@ use io::{
 use model::{Airport, Disc, OutputRecord};
 use probes::parse_probe_list;
 use vps::VpTable;
-use warts::load_warts_data;
 
 #[cfg(target_env = "musl")]
 #[global_allocator]
@@ -73,9 +70,6 @@ fn main() -> Result<()> {
     let output = matches.get_one::<PathBuf>("output");
     let atlas = matches.get_one::<String>("atlas");
     let vps = matches.get_one::<PathBuf>("vps");
-    let warts: Option<Vec<PathBuf>> = matches
-        .get_many::<PathBuf>("warts")
-        .map(|paths| paths.cloned().collect());
     let measure: Option<Vec<String>> = matches
         .get_many::<String>("measure")
         .map(|targets| targets.cloned().collect());
@@ -96,14 +90,12 @@ fn main() -> Result<()> {
         println!("Stored the RIPE Atlas API key in {}.", path.display());
     }
 
-    let has_source = input.is_some() || atlas.is_some() || warts.is_some() || measure.is_some();
+    let has_source = input.is_some() || atlas.is_some() || measure.is_some();
     if !has_source {
         if is_save_key {
             return Ok(());
         }
-        bail!(
-            "No input source given: pass one of --input, --atlas, --warts or --measure (see --help)."
-        );
+        bail!("No input source given: pass one of --input, --atlas or --measure (see --help).");
     }
 
     // Get optional RIPE Atlas ID
@@ -114,7 +106,7 @@ fn main() -> Result<()> {
 
     // Reject a run with nowhere to write before spending any time on it.
     if output.is_none() && atlas_id.is_none() && measure.is_none() {
-        bail!("--output is required when using --input or --warts.");
+        bail!("--output is required when using --input.");
     }
 
     // A new RIPE Atlas measurement runs first
@@ -219,13 +211,10 @@ fn main() -> Result<()> {
         None => None,
     };
 
-    // Load input data (CSV file, warts files, or RIPE Atlas measurement)
+    // Load input data (CSV/Parquet file, or RIPE Atlas measurement)
     let in_df = if let Some(input_path) = input {
         println!("Loading input data from: {:?}", input_path);
         load_input_data(input_path, threshold, vp_table.as_ref())?
-    } else if let Some(ref warts_paths) = warts {
-        // --warts always uses a VPs file
-        load_warts_data(warts_paths, vp_table.as_ref().unwrap(), threshold)?
     } else if let Some(df) = measured_df {
         df
     } else {
@@ -240,7 +229,7 @@ fn main() -> Result<()> {
                 atlas_id.or_else(|| measured_ids.as_ref().and_then(|ids| ids.first().copied()));
             match id {
                 Some(id) => PathBuf::from(format!("atlas_{}.csv.gz", id)),
-                None => bail!("--output is required when using --input or --warts."),
+                None => bail!("--output is required when using --input."),
             }
         }
     };
@@ -341,7 +330,7 @@ fn main() -> Result<()> {
 
 /// Parse the command-line arguments.
 ///
-/// Exactly one input source is used: `--input`, `--atlas`, `--warts` or `--measure`.
+/// Exactly one input source is used: `--input`, `--atlas` or `--measure`.
 /// The `measurement` group holds everything that configures a live measurement, so
 /// those options are rejected without `--measure` and alongside another source.
 fn parse_cmd() -> ArgMatches {
@@ -352,11 +341,7 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(-i --input <FILE> "Input CSV (optionally .gz) or .parquet file: addr,hostname,lat,lon,rtt (or addr,hostname,rtt with --vps)")
             .value_parser(value_parser!(PathBuf)))
         .arg(arg!(--atlas <ID> "RIPE Atlas measurement ID or URL"))
-        .arg(arg!(--warts <PATH> "scamper warts files to read (.warts/.warts.gz); accepts files, globs and directories. Requires --vps")
-            .value_parser(value_parser!(PathBuf))
-            .num_args(1..)
-            .requires("vps"))
-        .group(ArgGroup::new("source").args(["input", "atlas", "warts"]))
+        .group(ArgGroup::new("source").args(["input", "atlas"]))
         .arg(arg!(--measure <TARGET> "Schedule RIPE Atlas ping measurements to these targets and geolocate the results (needs an API key)")
             .num_args(1..)
             .conflicts_with("source"))
