@@ -104,7 +104,7 @@ pub fn load_airports<R: polars::io::mmap::MmapBytesReader>(
 
 /// Turn raw measurements into the discs the algorithm consumes.
 ///
-/// Non-positive and missing RTTs are skipped.
+/// Negative and missing RTTs are skipped.
 /// Each vantage point contributes one disc per target (the lowest RTT).
 ///
 /// Input: `addr`, `hostname`, `lat`, `lon` and `rtt` (in ms)
@@ -114,7 +114,7 @@ pub fn finalize_measurements(df: DataFrame, threshold: u32) -> Result<DataFrame>
     // Drop negative and NaN RTT measurements
     let mut lazy = df
         .lazy()
-        .filter(col("rtt").is_not_null().and(col("rtt").gt(lit(0.0f32))));
+        .filter(col("rtt").is_not_null().and(col("rtt").gt_eq(lit(0.0f32))));
 
     if threshold > 0 {
         lazy = lazy.filter(col("rtt").lt_eq(lit(threshold as f32)));

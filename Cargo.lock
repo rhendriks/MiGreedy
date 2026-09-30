@@ -1619,6 +1619,8 @@ dependencies = [
  "indicatif",
  "mimalloc",
  "polars",
+ "polars-lazy",
+ "polars-ops",
  "rayon",
  "reqwest 0.13.5",
  "rstar",
