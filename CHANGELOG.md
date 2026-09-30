@@ -2,6 +2,14 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.10.0] - 2026-09-30
+
+### Added
+- **Decimal RTTs in Parquet input** — reads MAnycastR 2.4.0 output, which stores `rtt` as `DECIMAL(9,1)` (0.1 ms).
+
+### Fixed
+- **RTTs of 0 are kept** — previously dropped as invalid.
+
 ## [1.9.0] - 2026-09-25
 
 ### Removed

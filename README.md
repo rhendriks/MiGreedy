@@ -232,12 +232,12 @@ A path ending in `.gz` is decompressed first, so a gzipped CSV is read directly:
 A path ending in `.parquet` is read as Parquet. Parquet files carry their own column
 names, so unlike CSV their columns are matched **by name** and in any order.
 
-| Column              | Required | Description                                                        |
-|---------------------|----------|--------------------------------------------------------------------|
-| `addr`              | yes      | The IP address being measured, as text or as packed address bytes. |
-| `hostname`, or `rx` | yes      | The hostname or ID of the prober (VP).                             |
-| `rtt`               | yes      | The round-trip time (in ms) to the target.                         |
-| `lat`, `lon`        | no       | The prober's coordinates. Without them, `--vps` is required.       |
+| Column              | Required | Description                                                              |
+|---------------------|----------|--------------------------------------------------------------------------|
+| `addr`              | yes      | The IP address being measured, as text or as packed address bytes.       |
+| `hostname`, or `rx` | yes      | The hostname or ID of the prober (VP).                                   |
+| `rtt`               | yes      | The round-trip time (in ms) to the target, as float, integer or decimal. |
+| `lat`, `lon`        | no       | The prober's coordinates. Without them, `--vps` is required.             |
 
 This reads [MAnycastR](https://github.com/rhendriks/MAnycastR) latency output as it is
 written, whose columns are `rx, addr, ttl, rtt`.
