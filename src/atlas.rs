@@ -959,7 +959,7 @@ fn validate_locations(
         let (Some(addr), Some(rtt)) = (result.dst_addr.as_deref(), result.rtt()) else {
             continue;
         };
-        if rtt <= 0.0 {
+        if rtt < 0.0 {
             continue;
         }
         let Some(&anchor) = anchor_of_address.get(addr) else {
