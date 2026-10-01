@@ -2,6 +2,17 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.11.0] - 2026-10-01
+Smaller, self-describing Parquet output.
+
+### Changed
+- **Parquet `addr` is `FIXED_LEN_BYTE_ARRAY(16)`** — previously variable-length binary.
+- **Parquet Zstd level raised from 3 to 9.**
+
+### Added
+- **Parquet file metadata** — `format_version` (`1`), `tool_version`, `start_time`, `end_time`, the input
+  source and the analysis options of the run.
+
 ## [1.10.0] - 2026-09-30
 
 ### Added
