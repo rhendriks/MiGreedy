@@ -384,18 +384,18 @@ City datasets are sourced from [GeoNames](https://www.geonames.org/) and license
 Results can be written as `.csv.gz` (default), `.parquet`, or `.csv`, CSV files are tab-separated.
 Rows are sorted by address, so repeated runs of the same input produce identical files.
 
-| Column     | Parquet type | Description                                                                                 |
-|------------|--------------|---------------------------------------------------------------------------------------------|
-| `addr`     | binary       | The IP address.                                                                             |
-| `vp`       | string       | The hostname of the vantage point that defined the disc.                                    |
-| `vp_lat`   | float32      | The latitude of the vantage point.                                                          |
-| `vp_lon`   | float32      | The longitude of the vantage point.                                                         |
-| `radius`   | uint16       | The radius of the disc, in whole kilometers.                                                |
-| `pop_iata` | string       | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). |
-| `pop_lat`  | float32      | The latitude of the geolocated location. The vantage point's latitude if none found.        |
-| `pop_lon`  | float32      | The longitude of the geolocated location. The vantage point's longitude if none found.      |
-| `pop_city` | string       | The city name of the geolocated location.                                                   |
-| `pop_cc`   | string       | The country code of the geolocated location.                                                |
+| Column     | Parquet type             | Description                                                                                 |
+|------------|--------------------------|---------------------------------------------------------------------------------------------|
+| `addr`     | fixed_len_byte_array(16) | The IP address.                                                                             |
+| `vp`       | string                   | The hostname of the vantage point that defined the disc.                                    |
+| `vp_lat`   | float32                  | The latitude of the vantage point.                                                          |
+| `vp_lon`   | float32                  | The longitude of the vantage point.                                                         |
+| `radius`   | uint16                   | The radius of the disc, in whole kilometers.                                                |
+| `pop_iata` | string                   | The identifier of the geolocated location (IATA code for airports, GeoNames ID for cities). |
+| `pop_lat`  | float32                  | The latitude of the geolocated location. The vantage point's latitude if none found.        |
+| `pop_lon`  | float32                  | The longitude of the geolocated location. The vantage point's longitude if none found.      |
+| `pop_city` | string                   | The city name of the geolocated location.                                                   |
+| `pop_cc`   | string                   | The country code of the geolocated location.                                                |
 
 With `--accuracy`, two columns are appended:
 
@@ -406,11 +406,24 @@ With `--accuracy`, two columns are appended:
 
 When no valid location is found, `candidate_diameter` is set to 2x the disc's radius.
 
-**Parquet files** store `addr` as 16 packed bytes, with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`).
+**Parquet files** store `addr` as 16 packed bytes (`FIXED_LEN_BYTE_ARRAY(16)`),
+with IPv4 written IPv6-mapped (`::ffff:1.1.1.1`). They are zstd-compressed (level 9) and carry the run
+in their file metadata:
 
-**Distances are whole kilometers.** `radius` and `candidate_diameter` are rounded to the nearest
-kilometer and capped at 20,038 km.
-We round as RTT measurements cannot provide sub-kilometer precision
+| Key                                             | Description                                                           |
+|-------------------------------------------------|-----------------------------------------------------------------------|
+| `format_version`                                | Version of this output format (currently `1`).                        |
+| `tool_version`                                  | MiGreedy version that wrote the file.                                 |
+| `start_time`                                    | Start of the run (RFC 3339, UTC).                                     |
+| `end_time`                                      | End of the analysis, when the file was written (RFC 3339, UTC).       |
+| `input`                                         | Input file path (`--input`).                                          |
+| `atlas_measurements`                            | RIPE Atlas measurement IDs as a JSON list (`--atlas` or `--measure`). |
+| `vps`                                           | Vantage point file path (`--vps`), when given.                        |
+| `dataset`                                       | Location dataset (`--dataset`).                                       |
+| `min_pop`, `pop_ratio`, `alpha`, `threshold_ms` | The corresponding options.                                            |
+| `anycast_only`, `accuracy`                      | Whether `--anycast` and `--accuracy` were set.                        |
+
+We round distances to whole kilometers as RTT measurements cannot provide sub-kilometer precision
 and cap at 20,038 as it is half the Earth's circumference (covers the whole planet).
 These changes shrink the output size.
 

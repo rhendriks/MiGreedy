@@ -34,6 +34,7 @@ mod probes;
 mod vps;
 
 use anyhow::{Result, bail};
+use chrono::{SecondsFormat, Utc};
 use clap::builder::RangedU64ValueParser;
 use clap::{ArgAction, ArgGroup, ArgMatches, Command, arg, value_parser};
 use indicatif::ParallelProgressIterator;
@@ -51,8 +52,8 @@ use atlas::{
     run_measurement,
 };
 use io::{
-    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, decompress_gz, load_airports, load_input_data,
-    progress_bar, validate_output_addresses, write_results,
+    EMBEDDED_AIRPORTS, EMBEDDED_CITIES, PARQUET_FORMAT_VERSION, decompress_gz, load_airports,
+    load_input_data, progress_bar, validate_output_addresses, write_results,
 };
 use model::{Airport, Disc, OutputRecord};
 use probes::parse_probe_list;
@@ -63,6 +64,8 @@ use vps::VpTable;
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 fn main() -> Result<()> {
+    let start_time = Utc::now();
+
     // Parse the command-line arguments
     let matches = parse_cmd();
 
@@ -319,7 +322,47 @@ fn main() -> Result<()> {
     // Write results to path
     if !results.is_empty() {
         println!("Saving results to {:?}...", output_path);
-        write_results(results, &output_path, is_accuracy)?;
+        let source = match (input, atlas_id, &measured_ids) {
+            (Some(path), _, _) => ("input".to_string(), path.display().to_string()),
+            (None, Some(id), _) => ("atlas_measurements".to_string(), format!("[{id}]")),
+            (None, None, ids) => (
+                "atlas_measurements".to_string(),
+                serde_json::to_string(ids)?,
+            ),
+        };
+        // Parquet file metadata describing this run (ignored for CSV)
+        let mut metadata = vec![
+            (
+                "format_version".to_string(),
+                PARQUET_FORMAT_VERSION.to_string(),
+            ),
+            (
+                "tool_version".to_string(),
+                env!("CARGO_PKG_VERSION").to_string(),
+            ),
+            (
+                "start_time".to_string(),
+                start_time.to_rfc3339_opts(SecondsFormat::Secs, false),
+            ),
+            (
+                "end_time".to_string(),
+                Utc::now().to_rfc3339_opts(SecondsFormat::Secs, false),
+            ),
+            source,
+        ];
+        if let Some(path) = vps {
+            metadata.push(("vps".to_string(), path.display().to_string()));
+        }
+        metadata.extend([
+            ("dataset".to_string(), dataset.clone()),
+            ("min_pop".to_string(), min_pop.to_string()),
+            ("pop_ratio".to_string(), pop_ratio.to_string()),
+            ("alpha".to_string(), alpha.to_string()),
+            ("threshold_ms".to_string(), threshold.to_string()),
+            ("anycast_only".to_string(), is_anycast.to_string()),
+            ("accuracy".to_string(), is_accuracy.to_string()),
+        ]);
+        write_results(results, &output_path, is_accuracy, &metadata)?;
         println!("Results successfully saved.");
     } else {
         println!("No geolocated sites found, no output file written.");

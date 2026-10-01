@@ -1614,13 +1614,17 @@ name = "migreedy"
 version = "1.10.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "flate2",
  "indicatif",
  "mimalloc",
  "polars",
+ "polars-arrow",
+ "polars-buffer",
  "polars-lazy",
  "polars-ops",
+ "polars-parquet",
  "rayon",
  "reqwest 0.13.5",
  "rstar",
