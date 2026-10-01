@@ -9,8 +9,8 @@ use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::record_batch::RecordBatchT;
 use polars_buffer::Buffer;
 use polars_parquet::write::{
-    CompressionOptions, Encoding, FileWriter, StatisticsOptions, Version, WriteOptions, ZstdLevel,
-    get_dtype_encoding, row_group_iter,
+    CompressionOptions, Encoding, FileWriter, KeyValue, StatisticsOptions, Version, WriteOptions,
+    ZstdLevel, get_dtype_encoding, row_group_iter, schema_to_metadata_key,
 };
 use std::collections::HashMap;
 use std::fs::File;
@@ -368,13 +368,21 @@ fn distance_km(value: f32) -> u16 {
 const OUTPUT_ROW_GROUP_SIZE: usize = 256 * 1024;
 /// Zstd level for Parquet output.
 const OUTPUT_ZSTD_LEVEL: i32 = 9;
+/// Version of the Parquet output format, stored as `format_version` in the file metadata.
+pub const PARQUET_FORMAT_VERSION: u32 = 1;
 
 /// Write the results to `path`: Parquet when it ends in `.parquet`, tab-separated CSV otherwise.
 ///
 /// Rows are sorted by `addr` (then PoP and VP), for identical output between runs.
-/// Parquet stores `addr` as 16 packed bytes and leaves missing values null.
+/// Parquet stores `addr` as 16 packed bytes, leaves missing values null, and stores
+/// `metadata` (key, value) in its file metadata.
 /// CSV writes `addr` as string, "NoCity"/"N/A" for a missing location.
-pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) -> Result<()> {
+pub fn write_results(
+    results: Vec<OutputRecord>,
+    path: &Path,
+    accuracy: bool,
+    metadata: &[(String, String)],
+) -> Result<()> {
     let parquet = is_parquet(path);
 
     // Convert all addresses (string) to packed addresses
@@ -477,7 +485,7 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
 
     if parquet {
         let addr: Vec<u8> = keyed.iter().flat_map(|(key, _)| key.unwrap()).collect();
-        write_parquet(file, &df, addr)?;
+        write_parquet(file, &df, addr, metadata)?;
     } else {
         df.insert_column(
             0,
@@ -516,7 +524,12 @@ pub fn write_results(results: Vec<OutputRecord>, path: &Path, accuracy: bool) ->
 }
 
 /// Write `df` as Parquet.
-fn write_parquet(file: File, df: &DataFrame, addr: Vec<u8>) -> Result<()> {
+fn write_parquet(
+    file: File,
+    df: &DataFrame,
+    addr: Vec<u8>,
+    metadata: &[(String, String)],
+) -> Result<()> {
     let height = df.height();
     let addr =
         FixedSizeBinaryArray::new(ArrowDataType::FixedSizeBinary(16), Buffer::from(addr), None);
@@ -561,7 +574,15 @@ fn write_parquet(file: File, df: &DataFrame, addr: Vec<u8>) -> Result<()> {
         let row_group = row_group_iter(batch, encodings.clone(), fields.clone(), options);
         writer.write(len as u64, row_group)?;
     }
-    writer.end(None)?;
+    // Keep polars Arrow schema entry, so Arrow readers restore the column types
+    let key_value_metadata = std::iter::once(schema_to_metadata_key(&schema))
+        .chain(
+            metadata
+                .iter()
+                .map(|(key, value)| KeyValue::new(key.clone(), value.clone())),
+        )
+        .collect();
+    writer.end(Some(key_value_metadata))?;
 
     Ok(())
 }
