@@ -2,12 +2,22 @@
 
 All notable changes to MiGreedy are documented in this file.
 
+## [1.12.0] - 2026-10-20
+
+### Added
+- **Exclusion of probes with inaccurate locations** — the latest list of
+  [RIPE Atlas probes that likely misreport their location](https://github.com/kizhikevich/violating_ripe_probes)
+  is fetched and these probes are excluded from `--measure` and from `--atlas` results.
+
+### Removed
+- **Probe location validation** (`--validate_probes`) — as it creates unnecessary measurements.
+
 ## [1.11.0] - 2026-10-01
 Smaller, self-describing Parquet output.
 
 ### Changed
 - **Parquet `addr` is `FIXED_LEN_BYTE_ARRAY(16)`** — previously variable-length binary.
-- **Parquet Zstd level raised from 3 to 9.**
+- **Parquet Zstd level raised from 3 to 9.** - for better compression.
 
 ### Added
 - **Parquet file metadata** — `format_version` (`1`), `tool_version`, `start_time`, `end_time`, the input
