@@ -63,6 +63,7 @@ This README is the manual for installing and running MiGreedy.
 * [Output format](#output-format)
 * [Options reference](#options-reference)
 * [Contributing](#contributing)
+* [Acknowledgements](#acknowledgements)
 * [Citation](#citation)
 
 ## Installation
@@ -461,6 +462,26 @@ Also available as `migreedy --help`.
 Issues and pull requests are welcome.
 
 Maintained by Remi Hendriks ([@rhendriks](https://github.com/rhendriks), `remi.hendriks@utwente.nl`).
+
+## Acknowledgements
+
+MiGreedy builds on the work and data of others:
+
+* **iGreedy**: the geolocation algorithm improves and extends iGreedy by Danilo Cicalese et al.
+  described in
+  [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+  Its original implementation is in the [mPlane demo infrastructure](https://github.com/fp7mplane/demo-infra/tree/master/igreedy).
+* **RIPE NCC and RIPE Atlas**: live and historical measurements, probe locations and anchors come from the
+  [RIPE Atlas](https://atlas.ripe.net/) measurement platform, operated by the [RIPE NCC](https://www.ripe.net/) and
+  its community of probe hosts.
+* **Inaccurate probe lists**: the probes excluded by default are published by Katherine Izhikevich et al. in
+  [Rooting Out Incorrect RIPE Atlas Probe Geolocations](https://arxiv.org/abs/2409.19109) (ACM IMC '26,
+  [doi:10.1145/3777912.3839804](https://doi.org/10.1145/3777912.3839804)), with the lists in
+  [kizhikevich/violating_ripe_probes](https://github.com/kizhikevich/violating_ripe_probes).
+* **GeoNames**: the embedded cities dataset comes from [GeoNames](https://www.geonames.org/), licensed under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+* **LACeS and MAnycastR**: MiGreedy was created for the [LACeS](https://manycast.net) anycast census, and reads the
+  latency output of [MAnycastR](https://github.com/rhendriks/MAnycastR).
 
 ## Citation
 
