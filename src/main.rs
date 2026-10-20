@@ -132,12 +132,11 @@ fn main() -> Result<()> {
                 timeout: Duration::from_secs(
                     *matches.get_one::<u64>("measurement_timeout").unwrap(),
                 ),
-                validate: matches.get_flag("validate_probes"),
                 dry_run: is_dry_run,
             };
             match run_measurement(&client, &options, threshold)? {
                 Some(result) => Some(result),
-                // --dry_run reported the probe selection and scheduled nothing.
+                // --dry_run reports the probe selection and schedules nothing
                 None => return Ok(()),
             }
         }
@@ -424,12 +423,10 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(--measurement_timeout <SECONDS> "How long to wait for measurement results before using what has arrived")
             .value_parser(value_parser!(u64))
             .default_value("300"))
-        .arg(arg!(--validate_probes "Also ping RIPE Atlas anchors to drop probes whose location the RTTs rule out (costs extra credits)")
-            .action(ArgAction::SetTrue))
         .arg(arg!(--dry_run "Select and report probes without scheduling anything").action(ArgAction::SetTrue))
         .group(ArgGroup::new("measurement")
             .multiple(true)
-            .args(["probes", "num_probes", "packets", "measurement_timeout", "validate_probes", "dry_run"])
+            .args(["probes", "num_probes", "packets", "measurement_timeout", "dry_run"])
             .requires("measure")
             .conflicts_with("source"))
         .get_matches()
