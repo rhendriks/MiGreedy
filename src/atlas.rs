@@ -17,9 +17,9 @@ use std::net::IpAddr;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::config;
-use crate::geo::{haversine_distance, rtt_to_radius_km};
+use crate::geo::haversine_distance;
 use crate::io::{finalize_measurements, progress_bar};
-use crate::probes::{AtlasProbe, farthest_point_indices, select_spread};
+use crate::probes::{AtlasProbe, select_spread};
 
 /// Attach MiGreedy descriptions to RIPE Atlas measurements created
 const DESCRIPTION_PREFIX: &str = concat!(
@@ -43,17 +43,8 @@ const REPORT_INTERVAL: Duration = Duration::from_secs(30);
 /// How long a cached probe catalogue is reused before being fetched again.
 const CATALOGUE_TTL: Duration = Duration::from_secs(24 * 60 * 60);
 
-/// Anchors used to check probe locations against the speed of light.
-const VALIDATION_ANCHORS: usize = 5;
-
-/// Slack allowed before a probe is called out for an impossible location.
-const VALIDATION_SLACK_KM: f32 = 100.0;
-
-/// Additional probes sampled when they are verified, as some will be invalid.
-const VALIDATION_OVERSAMPLE: f32 = 1.1;
-
-/// Deserialize a value that may be a number or a numeric string into `Option<f64>`.
-/// The RIPE Atlas API inconsistently returns some fields as strings.
+/// Parse fields as f64 in case they are misreported as strings.
+/// TODO flag issue with RIPE Atlas team
 fn deserialize_f64_or_string<'de, D>(deserializer: D) -> std::result::Result<Option<f64>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -106,10 +97,6 @@ struct ProbeInfo {
     asn_v4: Option<u32>,
     #[serde(default)]
     asn_v6: Option<u32>,
-    #[serde(default)]
-    address_v4: Option<String>,
-    #[serde(default)]
-    address_v6: Option<String>,
 }
 
 impl ProbeInfo {
@@ -474,29 +461,7 @@ impl AtlasClient {
         Ok(probes)
     }
 
-    /// Connected anchors and their addresses, used as validation landmarks.
-    fn anchors(&self, af: u8) -> Result<Vec<(AtlasProbe, String)>> {
-        let url = format!(
-            "{API_BASE}/probes/?status=1&is_anchor=true&format=json&page_size={PAGE_SIZE}\
-             &fields=id,geometry,country_code,is_anchor,asn_v4,asn_v6,address_v4,address_v6"
-        );
-        let anchors: Vec<(AtlasProbe, String)> = self
-            .paged_probes(url)?
-            .into_iter()
-            .filter_map(|info| {
-                let address = match af {
-                    6 => info.address_v6.clone(),
-                    _ => info.address_v4.clone(),
-                }
-                .filter(|a| !a.is_empty())?;
-                Some((info.into_probe(af)?, address))
-            })
-            .collect();
-        Ok(anchors)
-    }
-
     /// Schedule a one-off ping from `probe_ids` to each target.
-    ///
     /// `purpose` is a description that is added to the RIPE Atlas measurement
     ///
     /// Returns one measurement ID per target, in the order the targets were given.
@@ -759,8 +724,6 @@ pub struct MeasureOptions {
     pub probes: ProbeChoice,
     pub packets: u8,
     pub timeout: Duration,
-    /// Additionally ping anchors to catch locations the speed of light rules out.
-    pub validate: bool,
     /// Select and report probes without scheduling anything.
     pub dry_run: bool,
 }
@@ -800,11 +763,6 @@ pub fn run_measurement(
             probes.len(),
             options.packets
         );
-        if options.validate {
-            println!(
-                "--validate_probes was skipped: it pings anchors, which a dry run must not do. The real run will validate and may keep fewer probes."
-            );
-        }
         return Ok(None);
     }
 
@@ -854,30 +812,17 @@ fn choose_probes(
     match &options.probes {
         ProbeChoice::Explicit(ids) => {
             println!("Looking up the {} requested probes...", ids.len());
-            let mut probes = fetch_probes_by_id(client, ids, af)?;
+            let probes = fetch_probes_by_id(client, ids, af)?;
             let missing = ids.len().saturating_sub(probes.len());
             if missing > 0 {
                 println!("{missing} requested probe(s) are unknown or report no location.");
-            }
-            // Validation pings anchors, so a dry run must not reach it.
-            if options.validate && !options.dry_run {
-                probes = validate_locations(client, probes, af, options)?;
             }
             Ok(probes)
         }
         ProbeChoice::Spread(wanted) => {
             let catalogue = client.probe_catalogue(af)?;
 
-            // Validation pings anchors, so a dry run must not reach it.
-            if options.validate && !options.dry_run {
-                // Validation removes probes, so we check 1.1 times the requested probes
-                let oversample = ((*wanted as f32) * VALIDATION_OVERSAMPLE).ceil() as usize;
-                let candidates = select_spread(catalogue, oversample);
-                let survivors = validate_locations(client, candidates, af, options)?;
-                Ok(select_spread(survivors, *wanted))
-            } else {
-                Ok(select_spread(catalogue, *wanted))
-            }
+            Ok(select_spread(catalogue, *wanted))
         }
     }
 }
@@ -901,116 +846,6 @@ fn fetch_probes_by_id(client: &AtlasClient, ids: &[u32], af: u8) -> Result<Vec<A
     }
     probes.sort_unstable_by_key(|p| p.id);
     Ok(probes)
-}
-
-/// Drop probes whose reported location is farther from an anchor than the measured
-/// RTT to that anchor allows.
-fn validate_locations(
-    client: &AtlasClient,
-    probes: Vec<AtlasProbe>,
-    af: u8,
-    options: &MeasureOptions,
-) -> Result<Vec<AtlasProbe>> {
-    if probes.is_empty() {
-        return Ok(probes);
-    }
-
-    println!("Validating probe locations against RIPE Atlas anchors...");
-    let anchors = client.anchors(af)?;
-    if anchors.len() < 2 {
-        println!("Not enough anchors available to validate against; skipping validation.");
-        return Ok(probes);
-    }
-
-    let lats: Vec<f32> = anchors.iter().map(|(a, _)| a.lat_rad).collect();
-    let lons: Vec<f32> = anchors.iter().map(|(a, _)| a.lon_rad).collect();
-    let chosen: Vec<&(AtlasProbe, String)> =
-        farthest_point_indices(&lats, &lons, None, VALIDATION_ANCHORS.min(anchors.len()))
-            .into_iter()
-            .map(|i| &anchors[i])
-            .collect();
-
-    let targets: Vec<String> = chosen.iter().map(|(_, addr)| addr.clone()).collect();
-    let anchor_of_address: HashMap<&str, usize> = chosen
-        .iter()
-        .enumerate()
-        .map(|(i, (_, addr))| (addr.as_str(), i))
-        .collect();
-
-    let probe_ids: Vec<u32> = probes.iter().map(|p| p.id).collect();
-    println!(
-        "Pinging {} anchors from {} probe(s) to check their locations.",
-        targets.len(),
-        probe_ids.len()
-    );
-
-    let ids = client.create_ping(
-        &targets,
-        af,
-        &probe_ids,
-        options.packets,
-        "probe location validation",
-    )?;
-    let results = client.wait_for_results(&ids, options.timeout)?;
-
-    // Keep the tightest constraint each probe gave us per anchor.
-    let mut best: HashMap<(u32, usize), f64> = HashMap::new();
-    for result in &results {
-        let (Some(addr), Some(rtt)) = (result.dst_addr.as_deref(), result.rtt()) else {
-            continue;
-        };
-        if rtt < 0.0 {
-            continue;
-        }
-        let Some(&anchor) = anchor_of_address.get(addr) else {
-            continue;
-        };
-        best.entry((result.prb_id, anchor))
-            .and_modify(|existing| *existing = existing.min(rtt))
-            .or_insert(rtt);
-    }
-
-    let mut kept = Vec::with_capacity(probes.len());
-    let mut impossible = 0usize;
-    let mut unverified = 0usize;
-
-    for probe in probes {
-        // Always keep anchors
-        if probe.is_anchor {
-            kept.push(probe);
-            continue;
-        }
-
-        let mut checked = 0usize;
-        let mut violated = false;
-        for (index, (anchor, _)) in chosen.iter().enumerate() {
-            let Some(&rtt) = best.get(&(probe.id, index)) else {
-                continue;
-            };
-            checked += 1;
-            let reachable_km = rtt_to_radius_km(rtt as f32);
-            let claimed_km =
-                haversine_distance(probe.lat_rad, probe.lon_rad, anchor.lat_rad, anchor.lon_rad);
-            if claimed_km > reachable_km + VALIDATION_SLACK_KM {
-                violated = true;
-                break;
-            }
-        }
-
-        if violated {
-            impossible += 1;
-        } else {
-            if checked == 0 {
-                unverified += 1;
-            }
-            kept.push(probe);
-        }
-    }
-
-    println!(
-        "Validation: dropped {impossible} probe(s) whose location the RTTs rule out; {unverified} probe(s) answered no anchor and were kept unverified."
-    );
-    Ok(kept)
 }
 
 /// Report how evenly the selected probes cover the globe.
