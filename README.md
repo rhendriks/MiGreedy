@@ -274,9 +274,6 @@ the output to `atlas_2001.csv.gz`. A full URL works instead of a numeric ID:
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
 ```
 
-> **NOTE:** RIPE Atlas probes may have wrong user-reported locations which result in wrong
-> geolocation results. `--atlas` uses every probe in the measurement as-is; `--measure`
-> screens them first (see below).
 
 ### Scheduling a new measurement
 
@@ -331,12 +328,17 @@ E.g., if you know the target is within Europe, you can create a list of European
 ./migreedy --measure 1.1.1.1 --probes my-probes.txt
 ```
 
-### Filtering probes with implausible locations
+### Excluding probes with inaccurate locations
 
 RIPE Atlas probes have self reported geolocations.
 These can be inaccurate, which would result in wrong geolocation output.
 
-> **NOTE:** A good method is to verify probe locations with geolocation databases.
+We make use of the [violating_ripe_probes list](https://github.com/kizhikevich/violating_ripe_probes)
+by [Izhikevich et al.](https://arxiv.org/abs/2409.19109) to filter out probes with false user reported locations.
+
+RIPE Atlas geolocation uses this list by default.
+* `--measure` skips these probes in the probe selection algorithm.
+* `--atlas` drops results from these probes (using their historical dataset).
 
 ## Datasets
 
@@ -443,15 +445,16 @@ Also available as `migreedy --help`.
 
 **RIPE Atlas measurements** (`--measure` only)
 
-| Option                        | Default | Description                                                                                      |
-|-------------------------------|---------|--------------------------------------------------------------------------------------------------|
-| `--api_key <KEY>`             |         | RIPE Atlas API key with the *measurement creation* permission                                    |
-| `--save_api_key`              | off     | Store `--api_key` for later runs                                                                 |
-| `--num_probes <N>`            | `100`   | How many probes to select, spread for the widest global coverage                                 |
-| `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                   |
-| `--packets <N>`               | `1`     | Ping packets sent per probe                                                                      |
-| `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                          |
-| `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key) |
+| Option                        | Default | Description                                                                                           |
+|-------------------------------|---------|-------------------------------------------------------------------------------------------------------|
+| `--api_key <KEY>`             |         | RIPE Atlas API key with the *measurement creation* permission                                         |
+| `--save_api_key`              | off     | Store `--api_key` for later runs                                                                      |
+| `--num_probes <N>`            | `100`   | How many probes to select, spread for the widest global coverage                                      |
+| `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                        |
+| `--packets <N>`               | `1`     | Ping packets sent per probe                                                                           |
+| `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                               |
+| `--include_inaccurate_probes` | off     | Keep probes with a likely wrong reported location, instead of excluding them (`--measure`, `--atlas`) |
+| `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key)      |
 
 ## Contributing
 
