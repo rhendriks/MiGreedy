@@ -338,23 +338,6 @@ These can be inaccurate, which would result in wrong geolocation output.
 
 > **NOTE:** A good method is to verify probe locations with geolocation databases.
 
-### Validating probe locations using anchors
-
-Using `--validate_probes` verifies probe location validity using anchor measurements.
-It pings five globally spread anchors from the candidate probe.
-Probes reporting a speed-of-light violation to any of the anchors are dropped.
-
-> **NOTE:** Few anchors have false geolocations, which would invalidate this check.
-
-```bash
-./migreedy --measure 1.1.1.1 --validate_probes
-```
-
-This is off by default as it incurs additional measurements.
-
-Because validation removes probes, MiGreedy selects 10% more candidates than asked for
-and keeps up to `--num_probes` validated probes.
-
 ## Datasets
 
 MiGreedy ships with embedded airports and cities datasets.
@@ -468,7 +451,6 @@ Also available as `migreedy --help`.
 | `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                   |
 | `--packets <N>`               | `1`     | Ping packets sent per probe                                                                      |
 | `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                          |
-| `--validate_probes`           | off     | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits  |
 | `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key) |
 
 ## Contributing
