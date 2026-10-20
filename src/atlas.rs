@@ -714,7 +714,9 @@ pub fn fetch_atlas_measurement(
             before - atlas_results.len()
         );
         if atlas_results.is_empty() {
-            bail!("All results of measurement {measurement_id} come from probes with inaccurate locations");
+            bail!(
+                "All results of measurement {measurement_id} come from probes with inaccurate locations"
+            );
         }
     }
 
@@ -848,9 +850,8 @@ fn choose_probes(
     match &options.probes {
         ProbeChoice::Explicit(ids) => {
             println!("Looking up the {} requested probes...", ids.len());
-            let (ids, inaccurate): (Vec<u32>, Vec<u32>) = ids
-                .iter()
-                .partition(|id| !options.excluded.contains(id));
+            let (ids, inaccurate): (Vec<u32>, Vec<u32>) =
+                ids.iter().partition(|id| !options.excluded.contains(id));
             if !inaccurate.is_empty() {
                 println!(
                     "Skipping {} requested probe(s) with inaccurate locations.",
