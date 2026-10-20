@@ -28,6 +28,7 @@ mod analyzer;
 mod atlas;
 mod config;
 mod geo;
+mod inaccurate;
 mod io;
 mod model;
 mod probes;
@@ -40,6 +41,7 @@ use clap::{ArgAction, ArgGroup, ArgMatches, Command, arg, value_parser};
 use indicatif::ParallelProgressIterator;
 use rayon::prelude::*;
 use rstar::RTree;
+use std::collections::HashSet;
 use std::fs::File;
 use std::io::Cursor;
 use std::path::PathBuf;
@@ -85,6 +87,7 @@ fn main() -> Result<()> {
     let is_anycast = matches.get_flag("anycast");
     let is_accuracy = matches.get_flag("accuracy");
     let is_dry_run = matches.get_flag("dry_run");
+    let include_inaccurate = matches.get_flag("include_inaccurate_probes");
     let api_key = matches.get_one::<String>("api_key");
 
     let is_save_key = matches.get_flag("save_api_key");
@@ -112,6 +115,13 @@ fn main() -> Result<()> {
         bail!("--output is required when using --input.");
     }
 
+    // Probes with inaccurate locations are left out of RIPE Atlas runs
+    let excluded = if include_inaccurate || measure.is_none() {
+        HashSet::new()
+    } else {
+        inaccurate::load(None)
+    };
+
     // A new RIPE Atlas measurement runs first
     let measured = match measure {
         Some(ref targets) => {
@@ -132,12 +142,12 @@ fn main() -> Result<()> {
                 timeout: Duration::from_secs(
                     *matches.get_one::<u64>("measurement_timeout").unwrap(),
                 ),
-                validate: matches.get_flag("validate_probes"),
+                excluded: excluded.clone(),
                 dry_run: is_dry_run,
             };
             match run_measurement(&client, &options, threshold)? {
                 Some(result) => Some(result),
-                // --dry_run reported the probe selection and scheduled nothing.
+                // --dry_run reports the probe selection and schedules nothing
                 None => return Ok(()),
             }
         }
@@ -221,7 +231,7 @@ fn main() -> Result<()> {
     } else if let Some(df) = measured_df {
         df
     } else {
-        fetch_atlas_measurement(atlas_id.unwrap(), threshold)?
+        fetch_atlas_measurement(atlas_id.unwrap(), threshold, !include_inaccurate)?
     };
 
     // Runs that fetched or scheduled a measurement name their output after it.
@@ -424,12 +434,12 @@ fn parse_cmd() -> ArgMatches {
         .arg(arg!(--measurement_timeout <SECONDS> "How long to wait for measurement results before using what has arrived")
             .value_parser(value_parser!(u64))
             .default_value("300"))
-        .arg(arg!(--validate_probes "Also ping RIPE Atlas anchors to drop probes whose location the RTTs rule out (costs extra credits)")
+        .arg(arg!(--include_inaccurate_probes "Do not filter RIPE Atlas probes based on the inaccurate probes list")
             .action(ArgAction::SetTrue))
         .arg(arg!(--dry_run "Select and report probes without scheduling anything").action(ArgAction::SetTrue))
         .group(ArgGroup::new("measurement")
             .multiple(true)
-            .args(["probes", "num_probes", "packets", "measurement_timeout", "validate_probes", "dry_run"])
+            .args(["probes", "num_probes", "packets", "measurement_timeout", "dry_run"])
             .requires("measure")
             .conflicts_with("source"))
         .get_matches()

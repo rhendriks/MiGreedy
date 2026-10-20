@@ -63,6 +63,7 @@ This README is the manual for installing and running MiGreedy.
 * [Output format](#output-format)
 * [Options reference](#options-reference)
 * [Contributing](#contributing)
+* [Acknowledgements](#acknowledgements)
 * [Citation](#citation)
 
 ## Installation
@@ -274,9 +275,6 @@ the output to `atlas_2001.csv.gz`. A full URL works instead of a numeric ID:
 ./migreedy --atlas https://atlas.ripe.net/measurements/2001/
 ```
 
-> **NOTE:** RIPE Atlas probes may have wrong user-reported locations which result in wrong
-> geolocation results. `--atlas` uses every probe in the measurement as-is; `--measure`
-> screens them first (see below).
 
 ### Scheduling a new measurement
 
@@ -331,29 +329,17 @@ E.g., if you know the target is within Europe, you can create a list of European
 ./migreedy --measure 1.1.1.1 --probes my-probes.txt
 ```
 
-### Filtering probes with implausible locations
+### Excluding probes with inaccurate locations
 
 RIPE Atlas probes have self reported geolocations.
 These can be inaccurate, which would result in wrong geolocation output.
 
-> **NOTE:** A good method is to verify probe locations with geolocation databases.
+We make use of the [violating_ripe_probes list](https://github.com/kizhikevich/violating_ripe_probes)
+by [Izhikevich et al.](https://arxiv.org/abs/2409.19109) to filter out probes with false user reported locations.
 
-### Validating probe locations using anchors
-
-Using `--validate_probes` verifies probe location validity using anchor measurements.
-It pings five globally spread anchors from the candidate probe.
-Probes reporting a speed-of-light violation to any of the anchors are dropped.
-
-> **NOTE:** Few anchors have false geolocations, which would invalidate this check.
-
-```bash
-./migreedy --measure 1.1.1.1 --validate_probes
-```
-
-This is off by default as it incurs additional measurements.
-
-Because validation removes probes, MiGreedy selects 10% more candidates than asked for
-and keeps up to `--num_probes` validated probes.
+RIPE Atlas geolocation uses this list by default.
+* `--measure` skips these probes in the probe selection algorithm.
+* `--atlas` drops results from these probes (using their historical dataset).
 
 ## Datasets
 
@@ -460,22 +446,42 @@ Also available as `migreedy --help`.
 
 **RIPE Atlas measurements** (`--measure` only)
 
-| Option                        | Default | Description                                                                                      |
-|-------------------------------|---------|--------------------------------------------------------------------------------------------------|
-| `--api_key <KEY>`             |         | RIPE Atlas API key with the *measurement creation* permission                                    |
-| `--save_api_key`              | off     | Store `--api_key` for later runs                                                                 |
-| `--num_probes <N>`            | `100`   | How many probes to select, spread for the widest global coverage                                 |
-| `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                   |
-| `--packets <N>`               | `1`     | Ping packets sent per probe                                                                      |
-| `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                          |
-| `--validate_probes`           | off     | Also ping anchors to drop probes whose location the measured RTTs rule out. Costs extra credits  |
-| `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key) |
+| Option                        | Default | Description                                                                                           |
+|-------------------------------|---------|-------------------------------------------------------------------------------------------------------|
+| `--api_key <KEY>`             |         | RIPE Atlas API key with the *measurement creation* permission                                         |
+| `--save_api_key`              | off     | Store `--api_key` for later runs                                                                      |
+| `--num_probes <N>`            | `100`   | How many probes to select, spread for the widest global coverage                                      |
+| `--probes <IDS>`              |         | Measure from these probes instead: comma-separated IDs, or a file listing them                        |
+| `--packets <N>`               | `1`     | Ping packets sent per probe                                                                           |
+| `--measurement_timeout <SEC>` | `300`   | Seconds to wait for results before continuing with whatever has arrived                               |
+| `--include_inaccurate_probes` | off     | Keep probes with a likely wrong reported location, instead of excluding them (`--measure`, `--atlas`) |
+| `--dry_run`                   | off     | Report the probe selection and exit without scheduling anything (and without needing an API key)      |
 
 ## Contributing
 
 Issues and pull requests are welcome.
 
 Maintained by Remi Hendriks ([@rhendriks](https://github.com/rhendriks), `remi.hendriks@utwente.nl`).
+
+## Acknowledgements
+
+MiGreedy builds on the work and data of others:
+
+* **iGreedy**: the geolocation algorithm improves and extends iGreedy by Danilo Cicalese et al.
+  described in
+  [Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+  Its original implementation is in the [mPlane demo infrastructure](https://github.com/fp7mplane/demo-infra/tree/master/igreedy).
+* **RIPE NCC and RIPE Atlas**: live and historical measurements, probe locations and anchors come from the
+  [RIPE Atlas](https://atlas.ripe.net/) measurement platform, operated by the [RIPE NCC](https://www.ripe.net/) and
+  its community of probe hosts.
+* **Inaccurate probe lists**: the probes excluded by default are published by Katherine Izhikevich et al. in
+  [Rooting Out Incorrect RIPE Atlas Probe Geolocations](https://arxiv.org/abs/2409.19109) (ACM IMC '26,
+  [doi:10.1145/3777912.3839804](https://doi.org/10.1145/3777912.3839804)), with the lists in
+  [kizhikevich/violating_ripe_probes](https://github.com/kizhikevich/violating_ripe_probes).
+* **GeoNames**: the embedded cities dataset comes from [GeoNames](https://www.geonames.org/), licensed under
+  [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+* **LACeS and MAnycastR**: MiGreedy was created for the [LACeS](https://manycast.net) anycast census, and reads the
+  latency output of [MAnycastR](https://github.com/rhendriks/MAnycastR).
 
 ## Citation
 
