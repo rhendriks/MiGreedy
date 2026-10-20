@@ -1,7 +1,6 @@
 //! RIPE Atlas integration.
 //!
 //! Two options:
-//!
 //! * `--atlas <ID>` reads the results of a measurement that already exists
 //!   ([`fetch_atlas_measurement`]);
 //! * `--measure <TARGET>` schedules a new one-off ping from probes MiGreedy picks
@@ -18,6 +17,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::config;
 use crate::geo::haversine_distance;
+use crate::inaccurate;
 use crate::io::{finalize_measurements, progress_bar};
 use crate::probes::{AtlasProbe, select_spread};
 
@@ -67,6 +67,9 @@ struct AtlasResult {
     #[serde(rename = "type")]
     measurement_type: Option<String>,
     result: Option<serde_json::Value>,
+    /// When the probe ran this measurement, in Unix seconds.
+    #[serde(default)]
+    timestamp: Option<i64>,
 }
 
 impl AtlasResult {
@@ -671,11 +674,17 @@ fn results_to_frame(
 
 /// Fetch the latest results of an existing measurement and convert to a DataFrame
 /// matching the expected input format (addr, hostname, lat, lon, rtt).
-pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<DataFrame> {
+///
+/// With `exclude_inaccurate` known inaccurate Atlas probes are dropped.
+pub fn fetch_atlas_measurement(
+    measurement_id: u64,
+    threshold: u32,
+    exclude_inaccurate: bool,
+) -> Result<DataFrame> {
     let client = AtlasClient::new(None)?;
 
     println!("Fetching latest results for RIPE Atlas measurement {measurement_id}...");
-    let atlas_results: Vec<AtlasResult> = client.get_json(&format!(
+    let mut atlas_results: Vec<AtlasResult> = client.get_json(&format!(
         "{API_BASE}/measurements/{measurement_id}/latest/?format=json"
     ))?;
 
@@ -683,6 +692,31 @@ pub fn fetch_atlas_measurement(measurement_id: u64, threshold: u32) -> Result<Da
         bail!("No results found for measurement {measurement_id}");
     }
     println!("Fetched {} measurement results.", atlas_results.len());
+
+    if exclude_inaccurate {
+        // A repeating measurement is judged by its latest repetition, not by when it was created.
+        let last_run = atlas_results
+            .iter()
+            .filter_map(|r| r.timestamp)
+            .max()
+            .and_then(|t| chrono::DateTime::from_timestamp(t, 0))
+            .map(|t| t.date_naive());
+        match last_run {
+            Some(date) => println!("The latest results are from {date}."),
+            None => println!("The results carry no timestamps; using the latest list."),
+        }
+        let excluded = inaccurate::load(last_run);
+
+        let before = atlas_results.len();
+        atlas_results.retain(|r| !excluded.contains(&r.prb_id));
+        println!(
+            "Dropped {} result(s) from probes with inaccurate locations.",
+            before - atlas_results.len()
+        );
+        if atlas_results.is_empty() {
+            bail!("All results of measurement {measurement_id} come from probes with inaccurate locations");
+        }
+    }
 
     let locations = fetch_result_locations(&client, &atlas_results)?;
     results_to_frame(&atlas_results, &locations, threshold)
@@ -724,6 +758,8 @@ pub struct MeasureOptions {
     pub probes: ProbeChoice,
     pub packets: u8,
     pub timeout: Duration,
+    /// Probes with inaccurate locations, which are never measured from.
+    pub excluded: HashSet<u32>,
     /// Select and report probes without scheduling anything.
     pub dry_run: bool,
 }
@@ -812,6 +848,16 @@ fn choose_probes(
     match &options.probes {
         ProbeChoice::Explicit(ids) => {
             println!("Looking up the {} requested probes...", ids.len());
+            let (ids, inaccurate): (Vec<u32>, Vec<u32>) = ids
+                .iter()
+                .partition(|id| !options.excluded.contains(id));
+            if !inaccurate.is_empty() {
+                println!(
+                    "Skipping {} requested probe(s) with inaccurate locations.",
+                    inaccurate.len()
+                );
+            }
+            let ids = &ids;
             let probes = fetch_probes_by_id(client, ids, af)?;
             let missing = ids.len().saturating_sub(probes.len());
             if missing > 0 {
@@ -820,7 +866,15 @@ fn choose_probes(
             Ok(probes)
         }
         ProbeChoice::Spread(wanted) => {
-            let catalogue = client.probe_catalogue(af)?;
+            let mut catalogue = client.probe_catalogue(af)?;
+            let before = catalogue.len();
+            catalogue.retain(|p| !options.excluded.contains(&p.id));
+            if catalogue.len() < before {
+                println!(
+                    "Left out {} probe(s) with inaccurate locations.",
+                    before - catalogue.len()
+                );
+            }
 
             Ok(select_spread(catalogue, *wanted))
         }
