@@ -88,6 +88,7 @@ fn main() -> Result<()> {
     let is_accuracy = matches.get_flag("accuracy");
     let is_dry_run = matches.get_flag("dry_run");
     let include_inaccurate = matches.get_flag("include_inaccurate_probes");
+    let is_chaos = matches.get_flag("chaos");
     let api_key = matches.get_one::<String>("api_key");
 
     let is_save_key = matches.get_flag("save_api_key");
@@ -102,6 +103,11 @@ fn main() -> Result<()> {
             return Ok(());
         }
         bail!("No input source given: pass one of --input, --atlas or --measure (see --help).");
+    }
+
+    // --chaos geolocates from CHAOS id.server, hostname.bind and NSID records
+    if is_chaos {
+        // TODO
     }
 
     // Get optional RIPE Atlas ID
@@ -419,6 +425,9 @@ fn parse_cmd() -> ArgMatches {
             .default_value("0"))
         .arg(arg!(--anycast "Only output anycast geolocations (skip unicast)").action(ArgAction::SetTrue))
         .arg(arg!(--accuracy "Include accuracy metrics: candidate_diameter (km) and num_constraints").action(ArgAction::SetTrue))
+        .arg(arg!(--chaos "Geolocate using operator-named labels, for DNS CHAOS `id.server`, `hostname.bind` and/or NSID measurements.")
+            // TODO use a single column or multi-column (one for each CHAOS record + NSID)
+            .action(ArgAction::SetTrue))
         .arg(arg!(--api_key <KEY> "RIPE Atlas API key with measurement creation permission (default: $MIGREEDY_ATLAS_KEY, else the stored key)"))
         .arg(arg!(--save_api_key "Store --api_key for later runs; can be used on its own to configure the key")
             .action(ArgAction::SetTrue)
