@@ -6,15 +6,14 @@
 
 MiGreedy is an anycast-aware IP geolocation implementation using latency measurements.
 Originally designed as a multi-threaded (hence the 'M') and optimized implementation of the
-[iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy) algorithm published in
-[Latency-Based Anycast Geolocation: Algorithms, Software, and Data Sets](https://ieeexplore.ieee.org/document/7470242).
+[iGreedy](https://github.com/fp7mplane/demo-infra/tree/master/igreedy) algorithm.
 In particular, this was created for the [LACeS](https://manycast.net) daily anycast census
 as the python iGreedy implementation struggled with the scale and frequency of measurements.
 
 This has been extended by:
-* Implemented in Rust for speed and resource efficiency
-* Unicast geolocation alongside anycast geolocation
 * Improved accuracy of anycast geolocation using intersection of discs in MIS clusters
+* Unicast geolocation alongside anycast geolocation
+* Implemented in Rust for speed and resource efficiency
 * Support for geolocation at city granularity in addition to airports
 * Confidence and accuracy metrics (`--accuracy`)
 * Improved live RIPE Atlas measurement support through VP selection algorithms
