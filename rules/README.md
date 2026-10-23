@@ -47,5 +47,7 @@ Tabular markdown table.
 | [`exchanges.md`](exchanges.md)             | table      | internet exchange / colo names to their city    |
 | [`cloud-regions.md`](cloud-regions.md)     | table      | cloud region codes to their city                |
 | [`us-states.md`](us-states.md)             | token list | US state codes                                  |
+| [`operators.md`](operators.md)             | sections   | operator-specific site codes, applied by AS     |
+| [`metros.md`](metros.md)                   | table      | metro-area codes to their city                  |
 
 These rules provide airports or cities, for which coordinates are in [`../datasets/`](../datasets).
