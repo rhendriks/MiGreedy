@@ -31,8 +31,8 @@ web api cdn
 
 Tabular markdown table.
 
-| code | iata | notes                        |
-|------|------|------------------------------|
+| code | iata | notes                          |
+|------|------|--------------------------------|
 | ffm  | fra  | old railway code for Frankfurt |
 
 ## The files
