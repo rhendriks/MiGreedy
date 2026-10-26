@@ -86,6 +86,7 @@ pub fn load_airports<R: polars::io::mmap::MmapBytesReader>(
         .collect()?;
 
     let iata = airports_df.column("iata")?.str()?;
+    let name = airports_df.column("name")?.str()?;
     let lat = airports_df.column("lat")?.f32()?;
     let lon = airports_df.column("lon")?.f32()?;
     let pop = airports_df.column("pop")?.u32()?;
@@ -97,6 +98,7 @@ pub fn load_airports<R: polars::io::mmap::MmapBytesReader>(
     let airports: Vec<Airport> = (0..airports_df.height())
         .map(|i| Airport {
             iata: iata.get(i).unwrap_or("").to_string(),
+            name: name.get(i).unwrap_or("").to_string(),
             lat: lat.get(i).unwrap_or(0.0),
             lon: lon.get(i).unwrap_or(0.0),
             pop: pop.get(i).unwrap_or(0),
