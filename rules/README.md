@@ -4,8 +4,7 @@ These files are reference data for extracting locations from CHAOS/NSID records 
 
 Operators often name a server after where it is — an IATA airport code with a server number
 (`lhr18`, `FRA4`), a UN/LOCODE (`nlams`, `uschi`), a city (`amsterdam1`), an internet exchange
-(`dns-decix-dns01`), a cloud region (`ap-southeast-1`), or a country / US state (`us39-12`,
-`edge-01-ny`). The rules in these files turn such names into places.
+(`dns-decix-dns01`), a cloud region (`ap-southeast-1`), or a country (`us39-12`). The rules in these files turn such names into places.
 
 Pull requests are welcome.
 E.g., if a server name is geolocated wrong, or a place is missed.
@@ -46,7 +45,6 @@ Tabular markdown table.
 | [`country-aliases.md`](country-aliases.md) | table      | two-letter country tokens that are not ISO 3166 |
 | [`exchanges.md`](exchanges.md)             | table      | internet exchange / colo names to their city    |
 | [`cloud-regions.md`](cloud-regions.md)     | table      | cloud region codes to their city                |
-| [`us-states.md`](us-states.md)             | token list | US state codes                                  |
 | [`operators.md`](operators.md)             | sections   | operator-specific site codes, applied by AS     |
 | [`metros.md`](metros.md)                   | table      | metro-area codes to their city                  |
 
