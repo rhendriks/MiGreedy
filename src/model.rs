@@ -4,6 +4,7 @@ use std::sync::Arc;
 #[derive(Debug, Clone)]
 pub struct Airport {
     pub iata: String,
+    pub name: String,
     pub lat: f32,
     pub lon: f32,
     pub pop: u32,
