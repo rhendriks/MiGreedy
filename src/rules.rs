@@ -20,7 +20,7 @@ pub struct CityRef {
 pub struct Exchange {
     pub place: CityRef,
     /// Present in several cities, this record specifies the home city (e.g., Frankfurt for DECIX)
-    pub brand: bool,
+    pub is_global: bool,
 }
 
 /// An operator's own site codes, recognized by its ASN
@@ -78,7 +78,7 @@ impl Rules {
                 .map(|r| {
                     let exchange = Exchange {
                         place: CityRef { city: r[1].clone(), country: r[2].clone() },
-                        brand: is_true(&r[3]),
+                        is_global: is_true(&r[3]),
                     };
                     (r[0].to_lowercase(), exchange)
                 })
