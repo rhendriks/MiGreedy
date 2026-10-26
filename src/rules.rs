@@ -8,7 +8,7 @@ use std::sync::LazyLock;
 /// All rules, parsed from `rules/*.md` (initialized on first use)
 pub static RULES: LazyLock<Rules> = LazyLock::new(Rules::load);
 
-/// A place named by a rule
+/// A geohint that refers to a city (e.g., cloud region or metro code)
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CityRef {
     pub city: String,
@@ -45,8 +45,6 @@ pub struct Rules {
     pub city_aliases: HashMap<String, String>,
     /// Non-ISO two-letter country tokens mapped to their official ISO (UK -> GB).
     pub country_aliases: HashMap<String, String>,
-    /// US state codes (NY -> New York).
-    pub us_states: HashSet<String>,
     /// IX names mapped to its city (LINX -> London).
     pub exchanges: HashMap<String, Exchange>,
     /// Cloud region code to its city (`ap-southeast`).
@@ -75,9 +73,6 @@ impl Rules {
                 .collect(),
             country_aliases: table(include_str!("../rules/country-aliases.md"), 2)
                 .map(|r| (r[0].to_uppercase(), r[1].to_uppercase()))
-                .collect(),
-            us_states: tokens(include_str!("../rules/us-states.md"))
-                .map(|t| t.to_uppercase())
                 .collect(),
             exchanges: table(include_str!("../rules/exchanges.md"), 4)
                 .map(|r| {
