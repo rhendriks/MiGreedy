@@ -16,7 +16,7 @@ Metropolitan area codes that are not IATA codes.
 | LON  | London         | GB      | metro                       |
 | MIL  | Milan          | IT      | metro                       |
 | MOW  | Moscow         | RU      | metro                       |
-| NYC  | New York       | US      | metro                       |
+| NYC  | New York City  | US      | metro                       |
 | OSA  | Osaka          | JP      | metro                       |
 | PAR  | Paris          | FR      | metro                       |
 | REK  | Reykjavik      | IS      | metro                       |
