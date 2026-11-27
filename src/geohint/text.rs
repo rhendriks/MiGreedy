@@ -25,3 +25,11 @@ pub fn tokenize(value: &str) -> Vec<String> {
 pub fn letter_runs(token: &str) -> Vec<&str> {
     token.split(|c: char| !c.is_ascii_lowercase()).filter(|run| !run.is_empty()).collect()
 }
+
+/// Split a token that is letters followed by an optional number into the two: `lhr18` is
+/// (`lhr`, `18`), `ams` is (`ams`, ``). `None` for any other shape (`a2lhr`, `18`).
+pub fn letters_and_number(token: &str) -> Option<(&str, &str)> {
+    let letters = token.bytes().take_while(u8::is_ascii_lowercase).count();
+    let (letters, number) = token.split_at(letters);
+    (!letters.is_empty() && number.bytes().all(|b| b.is_ascii_digit())).then_some((letters, number))
+}
