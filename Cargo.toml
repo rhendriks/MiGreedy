@@ -26,6 +26,7 @@ serde_json = "1.0.154" # JSON parsing
 chrono = { version = "0.4.45", default-features = false, features = ["clock"] } # run timestamps in Parquet metadata
 flate2 = "1.1.10" # gzip for embedded datasets and CSV input/output
 rstar = "0.13.0" # R-tree spatial indexing for efficient geographic queries
+unicode-normalization = "0.1.26" # handle accented city names in CHAOS/NSID hostname labels
 
 # use high performance allocator when running musl
 [target.'cfg(target_env = "musl")'.dependencies]
