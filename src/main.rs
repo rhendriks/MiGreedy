@@ -28,6 +28,7 @@ mod analyzer;
 mod atlas;
 mod config;
 mod geo;
+mod geohint;
 mod inaccurate;
 mod io;
 mod model;
