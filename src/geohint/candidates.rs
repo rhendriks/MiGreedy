@@ -1,12 +1,12 @@
 //! Every reading of one CHAOS/NSID value.
 
-use super::index::Index;
+use super::index::GeoLookup;
 use super::reading::{Hint, Rule};
-use super::text::{letter_runs, letters_and_number, tokenize};
+use super::text::{token_split_by_numbers, token_split, tokenize};
 
 /// Create the possible geohint mappings of a value.
 /// A value may have multiple mappings (with conflicting outcomes).
-pub fn candidates(value: &str, index: &Index) -> Vec<Hint> {
+pub fn candidates(value: &str, index: &GeoLookup) -> Vec<Hint> {
     let tokens = tokenize(value);
     let mut found = Vec::new();
 
@@ -36,13 +36,13 @@ pub fn candidates(value: &str, index: &Index) -> Vec<Hint> {
 /// The first is an IATA code (mapping to Amsterdam), this is an `IataBare` mapping.
 /// However, since the latter token provides a country code, the geohint is upgraded
 /// to a more confident `IataCc` mapping.
-fn read_iata(index: &Index, tokens: &[String], pos: usize, found: &mut Vec<Hint>) {
+fn read_iata(index: &GeoLookup, tokens: &[String], pos: usize, found: &mut Vec<Hint>) {
     let token = &tokens[pos];
-    match letters_and_number(token) {
+    match token_split(token) {
         // Check for three letter IATA code
         Some((letters, _number)) if letters.len() == 3 => {
             // Extract place from possible IATA code
-            let Some(place) = index.code(letters) else { return };
+            let Some(place) = index.iata_code(letters) else { return };
             // Check for neighboring country codes (can provide stronger confidence)
             let next_to_own_country = [pos.checked_sub(1), Some(pos + 1)]
                 .into_iter()
@@ -57,8 +57,8 @@ fn read_iata(index: &Index, tokens: &[String], pos: usize, found: &mut Vec<Hint>
         Some(_) => {}
         None => {
             // Try to split as words separated by numbers
-            for run in letter_runs(token).into_iter().filter(|run| run.len() == 3) {
-                if let Some(place) = index.code(run) {
+            for run in token_split_by_numbers(token).into_iter().filter(|run| run.len() == 3) {
+                if let Some(place) = index.iata_code(run) {
                     found.push(Hint { place: place.clone(), rule: Rule::IataGlued, token: run.to_string() });
                 }
                 // TODO will not find IataCc for e.g., `ams3nl`

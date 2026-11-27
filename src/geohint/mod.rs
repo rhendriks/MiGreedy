@@ -15,6 +15,6 @@ mod rules;
 mod text;
 
 pub use candidates::candidates;
-pub use index::{Index, MIN_POP, Place};
+pub use index::{GeoLookup, MIN_POP, Place};
 pub use reading::{Hint, Rule};
-pub use text::{fold, letter_runs, tokenize};
+pub use text::{fold, token_split_by_numbers, tokenize};

@@ -29,7 +29,7 @@ pub struct Place {
 /// `ams1-amsterdam.ns.com`
 /// * codes: `AMS` -> `Amsterdam` (IATA code mapping)
 /// * cities: `amsterdam` -> `Amsterdam` (city name mapping)
-pub struct Index {
+pub struct GeoLookup {
     /// IATA code, including metro codes and known aliases (`FFM`, `FRA`, `AMX`).
     codes: HashMap<String, Place>,
     /// City names (at least 5 letters) excluding stoplisted words (`master`) TODO what if cities have less than 5 letters? Lima?
@@ -50,17 +50,17 @@ pub struct Index {
     country_aliases: HashMap<String, String>,
 }
 
-impl Index {
+impl GeoLookup {
     /// Load embedded airports, city datasets with `min_pop` filtering
-    pub fn embedded() -> Result<Index> {
+    pub fn embedded() -> Result<GeoLookup> {
         let airports = load_airports(Cursor::new(decompress_gz(EMBEDDED_AIRPORTS)?), 0)?;
         let cities = load_airports(Cursor::new(decompress_gz(EMBEDDED_CITIES)?), MIN_POP)?;
-        Ok(Index::new(&airports, &cities, &RULES))
+        Ok(GeoLookup::new(&airports, &cities, &RULES))
     }
 
     /// `e_airports` and `e_cities` are rows of the embedded datasets (see [`load_airports`]).
     /// `rules` are the markdown derived rules.
-    pub fn new(e_airports: &[Airport], e_cities: &[Airport], rules: &Rules) -> Index {
+    pub fn new(e_airports: &[Airport], e_cities: &[Airport], rules: &Rules) -> GeoLookup {
         // Create mapping of geohint labels to embedded Place (track population to keep highest)
         let mut by_citycountry: HashMap<String, (Place, u32)> = HashMap::new(); // london|gb
         let mut by_city: HashMap<String, (Place, u32)> = HashMap::new(); // london
@@ -177,7 +177,7 @@ impl Index {
         }
 
         // Return single `index` containing all parsed and derived rules
-        Index {
+        GeoLookup {
             codes: iata_codes,
             cities: by_city.into_iter().map(|(name, (place, _))| (name, place)).collect(),
             city_aliases: rules.city_aliases.iter().map(|(from, to)| (fold(from), fold(to))).collect(),
@@ -191,7 +191,7 @@ impl Index {
     }
 
     /// Get the place of a three-letter IATA code, skipping stoplist words
-    pub fn code(&self, letters: &str) -> Option<&Place> {
+    pub fn iata_code(&self, letters: &str) -> Option<&Place> {
         if self.iata_stoplist.contains(&letters.to_lowercase()) {
             return None;
         }
