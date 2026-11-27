@@ -23,7 +23,12 @@ pub struct Place {
     pub coords: Option<(f32, f32)>,
 }
 
-/// CHAOS/NSID label geohint to place (airport/city) mapping.
+/// Lookup table for geohints extracted from a particular CHAOS label.
+///
+/// Example:
+/// `ams1-amsterdam.ns.com`
+/// * codes: `AMS` -> `Amsterdam` (IATA code mapping)
+/// * cities: `amsterdam` -> `Amsterdam` (city name mapping)
 pub struct Index {
     /// IATA code, including metro codes and known aliases (`FFM`, `FRA`, `AMX`).
     codes: HashMap<String, Place>,
