@@ -1,4 +1,4 @@
-# Operator site rules
+# Operator code rules
 
 Specific rules for operators that generic rules misinterpreted.
 Ambiguity is unavoidable, this file ensures correct mappings when the rules misclassify locations.

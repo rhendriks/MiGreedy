@@ -39,13 +39,13 @@ Tabular markdown table.
 | File                                       | Format     | What it holds                                   |
 |--------------------------------------------|------------|-------------------------------------------------|
 | [`iata-stoplist.md`](iata-stoplist.md)     | token list | three-letter words that are not IATA codes      |
-| [`iata-aliases.md`](iata-aliases.md)       | table      | site codes that map to a different IATA code    |
+| [`iata-aliases.md`](iata-aliases.md)       | table      | codes that map to a different IATA code        |
 | [`city-stoplist.md`](city-stoplist.md)     | token list | city names that are also everyday server words  |
 | [`city-aliases.md`](city-aliases.md)       | table      | local-language city names to the canonical name |
 | [`country-aliases.md`](country-aliases.md) | table      | two-letter country tokens that are not ISO 3166 |
 | [`exchanges.md`](exchanges.md)             | table      | internet exchange / colo names to their city    |
 | [`cloud-regions.md`](cloud-regions.md)     | table      | cloud region codes to their city                |
-| [`operators.md`](operators.md)             | sections   | operator-specific site codes, applied by AS     |
+| [`operators.md`](operators.md)             | sections   | operator-specific codes, applied by AS          |
 | [`metros.md`](metros.md)                   | table      | metro-area codes to their city                  |
 
 These rules provide airports or cities, for which coordinates are in [`../datasets/`](../datasets).

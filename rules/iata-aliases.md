@@ -2,7 +2,7 @@
 
 **Format: table** — columns `code`, `iata`, `notes` (notes optional).
 
-Site codes used by operators that are not the 'standardized' IATA code of the airport.
+Codes used by operators that are not the 'standardized' IATA code of the airport.
 
 | code | iata | notes                                      |
 |------|------|--------------------------------------------|
